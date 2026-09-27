@@ -1040,6 +1040,7 @@ body.dragging .paper {
           <button class="tool mi" id="colAddBtn" role="menuitem">在右側插入欄</button>
           <button class="tool mi" id="rowDelBtn" role="menuitem">刪除這一列</button>
           <button class="tool mi" id="colDelBtn" role="menuitem">刪除這一欄</button>
+          <button class="tool mi" id="splitBtn" role="menuitem">分割儲存格</button>
           <button class="tool mi" id="tblDelBtn" role="menuitem">刪除整個表格</button>
         </div>
       </details>
@@ -1626,7 +1627,19 @@ function tableOp(kind) {
   // 刪到只剩最後一列／一欄時，就是刪掉整個表格（可以復原）
   if ((kind === 'delRow' && rows.length < 2) || (kind === 'delCol' && cols < 2)) kind = 'delTable';
   recordEdit(() => {
-    if (kind === 'delTable') {
+    if (kind === 'split') {
+      const rs = cell.rowSpan,
+        cs = cell.colSpan;
+      if (rs < 2 && cs < 2) return msg('這一格沒有合併，不需要分割。', true);
+      // 內容留在左上格，其餘位置補空白格（依拆開前的格線決定插入位置）
+      cell.rowSpan = cell.colSpan = 1;
+      for (let i = 0; i < rs && r + i < rows.length; i++)
+        for (let j = cs - 1; j >= 0; j--) {
+          if (!i && !j) continue;
+          placeCell(rows[r + i], grid, r + i, c + j, newCell(cell));
+        }
+      msg('已分割成 ' + rs + '×' + cs + ' 格');
+    } else if (kind === 'delTable') {
       // 游標移到表格後面（沒有段落就補一個空段落），刪完才能接著打字
       let next = table.nextElementSibling;
       if (!next) {
@@ -1709,6 +1722,7 @@ $('#colAddBtn').onclick = () => tableOp('addCol');
 $('#rowDelBtn').onclick = () => tableOp('delRow');
 $('#colDelBtn').onclick = () => tableOp('delCol');
 $('#tblDelBtn').onclick = () => tableOp('delTable');
+$('#splitBtn').onclick = () => tableOp('split');
 
 // ---- 拖放 .docx／圖片到頁面上 ----
 ['dragenter', 'dragover'].forEach(ev =>
