@@ -1114,7 +1114,10 @@ const $ = s => document.querySelector(s),
   editor = $('#editor'),
   statusEl = $('#status'),
   notice = $('#notice');
+// 最近一次「動作訊息」的時間：自動存檔完成時若剛顯示過別的訊息，就不要蓋掉它
+let msgAt = 0;
 function msg(text, warn = false) {
+  msgAt = Date.now();
   statusEl.textContent = text;
   if (warn) {
     notice.textContent = text;
@@ -1859,8 +1862,10 @@ const idbDel = k => idbDo('readwrite', st => st.delete(k));
 let draftReady = false; // 還原完成前不存，免得預設內容蓋掉上次的草稿
 function draftSaved() {
   draftWarned = false;
+  if (Date.now() - msgAt < 4000) return; // 例如「已插入表格」「已自動縮圖」剛顯示，留著讓使用者看到
   const t = new Date();
-  msg('已自動儲存草稿 ' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0'));
+  statusEl.textContent =
+    '已自動儲存草稿 ' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
 }
 function saveDraft() {
   if (!draftReady) return;
@@ -1903,7 +1908,7 @@ function saveDraftLS() {
   }
 }
 editor.oninput = () => {
-  msg('內容已修改，尚未儲存…');
+  statusEl.textContent = '內容已修改，尚未儲存…'; // 存檔狀態不算「動作訊息」，不用 msg()
   clearTimeout(saveT);
   saveT = setTimeout(saveDraft, 800);
 };
