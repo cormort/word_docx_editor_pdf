@@ -636,6 +636,32 @@ body.dragging .paper {
     padding: 0;
   }
 }
+/* LINE 內建瀏覽器提示 */
+#lineBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--warn);
+  border-bottom: 1px solid #fde68a;
+  color: #854d0e;
+  font-size: 14px;
+}
+#lineBar[hidden] {
+  display: none;
+}
+#lineBar span {
+  flex: 1;
+}
+#lineBar small {
+  display: block;
+  font-size: 12px;
+  opacity: 0.85;
+}
+#lineBar .btn {
+  flex: none;
+  white-space: nowrap;
+}
 /* 工具列分組與圖示 */
 .tools {
   gap: 4px;
@@ -911,6 +937,11 @@ body.dragging .paper {
 <style id="pageStyle"></style>
 </head>
 <body>
+<div id="lineBar" class="no-print" role="alert" hidden>
+  <span>你正在 LINE 內建瀏覽器：選檔、下載與草稿可能無法正常運作。<small>也可點右上角「⋯」→「以預設瀏覽器開啟」。</small></span>
+  <button class="btn primary" id="lineOpen">用預設瀏覽器開啟</button>
+  <button class="tool" id="lineClose" aria-label="關閉提示">✕</button>
+</div>
 <header class="top no-print">
   <div class="topin">
     <div class="brand">
@@ -1557,6 +1588,27 @@ if (vv) {
   vv.addEventListener('resize', liftToolbar);
   vv.addEventListener('scroll', liftToolbar);
 }
+// LINE 內建瀏覽器：選檔、下載、儲存空間都不可靠。網址帶 openExternalBrowser=1 時，
+// LINE 會改用手機的預設瀏覽器開啟
+if (/\bLine\/\d/i.test(navigator.userAgent)) {
+  let dismissed = false;
+  try {
+    dismissed = sessionStorage.getItem('lineBarClosed') === '1';
+  } catch (e) {}
+  $('#lineBar').hidden = dismissed;
+}
+$('#lineOpen').onclick = () => {
+  const u = new URL(location.href);
+  u.hash = '';
+  u.searchParams.set('openExternalBrowser', '1');
+  location.href = u.toString();
+};
+$('#lineClose').onclick = () => {
+  $('#lineBar').hidden = true;
+  try {
+    sessionStorage.setItem('lineBarClosed', '1');
+  } catch (e) {}
+};
 // 快捷鍵：Ctrl/⌘+F 開尋找、Esc 關閉選單／更新紀錄
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
@@ -1598,8 +1650,56 @@ function draftSlim(html) {
 function writeDraft(html) {
   localStorage.setItem('draft', JSON.stringify({ v: 2, html, name: $('#filename').value, at: Date.now() }));
 }
-// 草稿存不進去時要說清楚（舊版靜默失敗，使用者以為存好了，其實還是舊的草稿）
+// ---- 草稿主要存在 IndexedDB：容量比 localStorage（約 5MB）大得多，圖片也能完整保存 ----
+let idbP = null;
+function idb() {
+  return (idbP =
+    idbP ||
+    new Promise((ok, fail) => {
+      const r = indexedDB.open('wde', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('kv');
+      r.onsuccess = () => ok(r.result);
+      r.onerror = () => fail(r.error);
+    }).catch(e => {
+      idbP = null;
+      throw e;
+    }));
+}
+function idbDo(mode, fn) {
+  return idb().then(
+    db =>
+      new Promise((ok, fail) => {
+        const tx = db.transaction('kv', mode),
+          req = fn(tx.objectStore('kv'));
+        tx.oncomplete = () => ok(req.result);
+        tx.onerror = tx.onabort = () => fail(tx.error);
+      }),
+  );
+}
+const idbGet = k => idbDo('readonly', st => st.get(k));
+const idbSet = (k, v) => idbDo('readwrite', st => st.put(v, k));
+const idbDel = k => idbDo('readwrite', st => st.delete(k));
+let draftReady = false; // 還原完成前不存，免得預設內容蓋掉上次的草稿
+function draftSaved() {
+  draftWarned = false;
+  const t = new Date();
+  msg('已自動儲存草稿 ' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0'));
+}
 function saveDraft() {
+  if (!draftReady) return;
+  const d = { v: 3, html: editor.innerHTML, name: $('#filename').value, at: Date.now() };
+  idbSet('draft', d)
+    .then(() => {
+      try {
+        localStorage.removeItem('draft'); // 舊版草稿已搬到 IndexedDB
+      } catch (e) {}
+      draftSaved();
+    })
+    .catch(saveDraftLS);
+}
+// IndexedDB 不能用（私密模式、舊瀏覽器）時退回 localStorage
+// 草稿存不進去時要說清楚（舊版靜默失敗，使用者以為存好了，其實還是舊的草稿）
+function saveDraftLS() {
   try {
     writeDraft(editor.innerHTML);
     draftWarned = false;
@@ -1635,17 +1735,29 @@ $('#filename').oninput = () => {
   clearTimeout(saveT);
   saveT = setTimeout(saveDraft, 800);
 };
-try {
-  const d = JSON.parse(localStorage.getItem('draft'));
-  if (d && d.html) {
-    editor.innerHTML = sanitizeHtml(d.html);
-    $('#filename').value = d.name || '未命名文件';
-    msg(
-      '已還原上次的草稿' +
-        (d.at ? '（' + new Date(d.at).toLocaleString('zh-TW', { hour12: false }).slice(0, -3) + '）' : ''),
-    );
-  }
-} catch (e) {}
+function restoreDraft(d) {
+  if (!d || !d.html) return;
+  editor.innerHTML = sanitizeHtml(d.html);
+  $('#filename').value = d.name || '未命名文件';
+  syncTitle();
+  msg(
+    '已還原上次的草稿' +
+      (d.at ? '（' + new Date(d.at).toLocaleString('zh-TW', { hour12: false }).slice(0, -3) + '）' : ''),
+  );
+}
+// 先讀 IndexedDB，沒有才讀舊版存在 localStorage 的草稿（下次儲存時會自動搬過去）
+idbGet('draft')
+  .catch(() => null)
+  .then(d => {
+    if (!d)
+      try {
+        d = JSON.parse(localStorage.getItem('draft'));
+      } catch (e) {}
+    restoreDraft(d);
+  })
+  .finally(() => {
+    draftReady = true;
+  });
 syncTitle();
 applyPageStyle();
 document.addEventListener('visibilitychange', () => {
@@ -1656,6 +1768,7 @@ $('#newBtn').onclick = () => {
   try {
     localStorage.removeItem('draft');
   } catch (e) {}
+  idbDel('draft').catch(() => {});
   editor.innerHTML = '<h1>文件標題</h1><p>可直接在此輸入或貼上內容。</p>';
   $('#filename').value = '未命名文件';
   clearDocumentPage();
