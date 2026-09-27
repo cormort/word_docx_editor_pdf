@@ -1040,6 +1040,7 @@ body.dragging .paper {
           <button class="tool mi" id="colAddBtn" role="menuitem">在右側插入欄</button>
           <button class="tool mi" id="rowDelBtn" role="menuitem">刪除這一列</button>
           <button class="tool mi" id="colDelBtn" role="menuitem">刪除這一欄</button>
+          <button class="tool mi" id="tblDelBtn" role="menuitem">刪除整個表格</button>
         </div>
       </details>
       <button class="tool" id="pbBtn" title="在這裡強制換頁（列印與 Word 匯出都有效）" aria-label="插入分頁"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v5h12V3M6 21v-5h12v5M3 12h2M8 12h2M13 12h2M18 12h3"/></svg><span class="lbl">分頁</span></button>
@@ -1622,8 +1623,25 @@ function tableOp(kind) {
     c = grid[r].indexOf(cell);
   const colgroup = table.querySelector(':scope > colgroup');
   const colEls = colgroup ? [...colgroup.children] : [];
+  // 刪到只剩最後一列／一欄時，就是刪掉整個表格（可以復原）
+  if ((kind === 'delRow' && rows.length < 2) || (kind === 'delCol' && cols < 2)) kind = 'delTable';
   recordEdit(() => {
-    if (kind === 'addRow') {
+    if (kind === 'delTable') {
+      // 游標移到表格後面（沒有段落就補一個空段落），刪完才能接著打字
+      let next = table.nextElementSibling;
+      if (!next) {
+        next = document.createElement('p');
+        next.innerHTML = '<br>';
+        table.after(next);
+      }
+      table.remove();
+      const r = document.createRange();
+      r.setStart(next, 0);
+      r.collapse(true);
+      getSelection().removeAllRanges();
+      getSelection().addRange(r);
+      msg('已刪除表格（可按 ↶ 復原）');
+    } else if (kind === 'addRow') {
       const r2 = r + cell.rowSpan - 1; // 合併格：插在它蓋住的最後一列下面
       const tr = document.createElement('tr');
       const seen = new Set();
@@ -1637,7 +1655,6 @@ function tableOp(kind) {
       rows[r2].after(tr);
       msg('已在下方插入一列');
     } else if (kind === 'delRow') {
-      if (rows.length < 2) return msg('表格至少要留一列。', true);
       const tr = rows[r],
         seen = new Set();
       for (let k = 0; k < cols; k++) {
@@ -1651,7 +1668,6 @@ function tableOp(kind) {
       tr.remove();
       msg('已刪除這一列');
     } else if (kind === 'delCol') {
-      if (cols < 2) return msg('表格至少要留一欄。', true);
       const seen = new Set();
       for (let i = 0; i < rows.length; i++) {
         const td = grid[i][c];
@@ -1692,6 +1708,7 @@ $('#rowAddBtn').onclick = () => tableOp('addRow');
 $('#colAddBtn').onclick = () => tableOp('addCol');
 $('#rowDelBtn').onclick = () => tableOp('delRow');
 $('#colDelBtn').onclick = () => tableOp('delCol');
+$('#tblDelBtn').onclick = () => tableOp('delTable');
 
 // ---- 拖放 .docx／圖片到頁面上 ----
 ['dragenter', 'dragover'].forEach(ev =>
