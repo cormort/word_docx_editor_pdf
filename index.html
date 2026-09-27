@@ -818,7 +818,24 @@ body:not(.intable) .tblgrp + .grp {
   .btn.ghost {
     border-color: var(--line);
   }
-  /* 手機：工具列固定在底部，拇指好按；尋找列開在工具列上方 */
+}
+/* 手機直向，以及觸控裝置橫向（高度很矮）：工具列固定在底部、跟著鍵盤，拇指好按；尋找列開在工具列上方 */
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
+  .tools {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tools::-webkit-scrollbar {
+    display: none;
+  }
+  .tool,
+  .tools select {
+    flex: none;
+    min-height: 42px;
+    min-width: 42px;
+  }
   .toolbar {
     position: fixed;
     top: auto;
@@ -996,7 +1013,7 @@ body:not(.intable) .tblgrp + .grp {
 #status {
   transition: color 0.2s;
 }
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
   /* 工具列右緣淡出，提示還能往右滑 */
   .tools {
     -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent);
@@ -1008,9 +1025,24 @@ body:not(.intable) .tblgrp + .grp {
     -webkit-mask-image: none;
     mask-image: none;
   }
+}
+@media (max-width: 640px) {
   .actions .menu > summary {
     width: 100%;
     justify-content: center;
+  }
+}
+@media (pointer: coarse) and (max-height: 500px) {
+  /* 橫向時上下空間很少：頁首不固定，捲動時讓給內容 */
+  .top {
+    position: static;
+  }
+  body.desk.finding .readbar {
+    top: 8px;
+  }
+  /* 尋找列只留輸入框、筆數與上一筆／下一筆，結果清單太占高度 */
+  #findList {
+    display: none;
   }
 }
 </style>
@@ -1934,7 +1966,7 @@ addEventListener('resize', syncTopH);
 syncTopH();
 // 手機底部工具列：軟鍵盤打開時跟著鍵盤往上（iOS 的 fixed 會被鍵盤蓋住）
 const vv = window.visualViewport,
-  mobileQ = matchMedia('(max-width: 640px)');
+  mobileQ = matchMedia('(max-width: 640px), (pointer: coarse) and (max-height: 500px)');
 function liftToolbar() {
   const tb = $('.toolbar');
   const gap = vv && mobileQ.matches ? Math.max(0, innerHeight - vv.height - vv.offsetTop) : 0;
