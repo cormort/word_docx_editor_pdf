@@ -752,10 +752,73 @@ body.dragging .paper {
   }
   body.desk.finding .readbar {
     bottom: auto;
-    top: calc(12px + env(safe-area-inset-top));
+    top: calc(var(--toph, 104px) + 8px);
   }
   .grp {
     padding-left: 4px;
+  }
+  /* 手機尋找列：結果清單在上、輸入框貼近鍵盤；上一筆／下一筆與尋找框同一列 */
+  .findbar {
+    display: none;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      'list list list'
+      'count count count'
+      'find prev next'
+      'rep one all';
+    gap: 6px;
+    align-items: center;
+  }
+  #findbar[style*='flex'] {
+    display: grid !important;
+  }
+  .findres.show,
+  .findres.show .findhead {
+    display: contents;
+  }
+  .findbar input {
+    min-width: 0;
+    padding: 8px 10px;
+  }
+  #findText {
+    grid-area: find;
+  }
+  #replaceText {
+    grid-area: rep;
+  }
+  #replaceOne {
+    grid-area: one;
+  }
+  #replaceAll {
+    grid-area: all;
+  }
+  #findPrev {
+    grid-area: prev;
+  }
+  #findNext {
+    grid-area: next;
+  }
+  #findCount {
+    grid-area: count;
+    margin: 0;
+    font-size: 12px;
+    color: #64748b;
+  }
+  #findList {
+    grid-area: list;
+    max-height: 22vh;
+    margin: 0;
+  }
+  #findPrev,
+  #findNext {
+    min-width: 42px;
+    min-height: 40px;
+    font-size: 20px;
+    border: 1px solid var(--line);
+  }
+  .findbar .btn {
+    min-height: 40px;
+    padding: 8px 10px;
   }
 }
 .menu .panel {
@@ -1478,6 +1541,10 @@ const syncToolsEnd = () =>
 toolsEl.addEventListener('scroll', syncToolsEnd, { passive: true });
 addEventListener('resize', syncToolsEnd);
 syncToolsEnd();
+// 閱讀模式搜尋時，右上的按鈕要避開頁首（頁首高度依寬度而變）
+const syncTopH = () => document.documentElement.style.setProperty('--toph', $('.top').offsetHeight + 'px');
+addEventListener('resize', syncTopH);
+syncTopH();
 // 手機底部工具列：軟鍵盤打開時跟著鍵盤往上（iOS 的 fixed 會被鍵盤蓋住）
 const vv = window.visualViewport,
   mobileQ = matchMedia('(max-width: 640px)');
