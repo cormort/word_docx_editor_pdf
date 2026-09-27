@@ -643,9 +643,126 @@ body.dragging .paper {
 <style id="pageStyle"></style>
 </head>
 <body>
-<header class="top no-print"><div class="topin"><div class="brand"><div class="logo">W</div><div><h1>Word 文件簡易編輯器</h1><p>檔案在本機瀏覽器處理，不主動上傳</p></div></div><div class="actions"><input id="file" type="file" accept=".doc,.docx" hidden><input id="imageFile" type="file" accept="image/*" hidden><button class="btn" id="newBtn">新文件</button><button class="btn primary" id="openBtn">載入 Word</button><button class="btn" id="saveBtn">儲存 HTML</button><button class="btn" id="docxBtn" title="匯出 .docx（Word 可直接編輯）">下載 Word</button><button class="btn pdf" id="pdfBtn">轉換 PDF</button></div></div></header>
-<div class="wrap"><div id="notice" class="notice no-print" role="alert"></div><section class="toolbar no-print" role="toolbar" aria-label="編輯工具列"><div class="tools"><select id="blockStyle" title="段落樣式" aria-label="段落樣式"><option value="p" selected>內文</option><option value="h1">標題 1</option><option value="h2">標題 2</option><option value="h3">標題 3</option><option value="blockquote">引言</option><option value="pre">預格式</option></select><button class="tool" data-cmd="undo" title="復原" aria-label="復原">↶</button><button class="tool" data-cmd="redo" title="重做" aria-label="重做">↷</button><span class="sep"></span><select id="fontSize" title="字級" aria-label="字級"><option value="2">小字</option><option value="3" selected>一般</option><option value="4">大字</option><option value="5">標題</option></select><button class="tool" data-cmd="bold" aria-label="粗體" aria-pressed="false"><b>B</b></button><button class="tool" data-cmd="italic" aria-label="斜體" aria-pressed="false"><i>I</i></button><button class="tool" data-cmd="underline" aria-label="底線" aria-pressed="false"><u>U</u></button><span class="sep"></span><button class="tool" data-cmd="justifyLeft">靠左</button><button class="tool" data-cmd="justifyCenter">置中</button><button class="tool" data-cmd="justifyRight">靠右</button><button class="tool" data-cmd="insertUnorderedList">• 清單</button><button class="tool" data-cmd="insertOrderedList">1. 編號</button><span class="sep"></span><button class="tool" id="findToggle">尋找取代</button><button class="tool" id="deskToggle" title="以電腦版 A4 版面唯讀檢視，縮放至螢幕寬">閱讀模式</button><button class="tool" id="imgBtn" title="插入圖片" aria-label="插入圖片">圖片</button><button class="tool" id="tblBtn" title="插入表格" aria-label="插入表格">表格</button><button class="tool" id="linkBtn" title="插入連結" aria-label="插入連結">連結</button><button class="tool" id="rowAddBtn" title="在游標所在列下方插入一列" aria-label="插入列">增列</button><button class="tool" id="colAddBtn" title="在游標所在欄右側插入一欄" aria-label="插入欄">增欄</button><button class="tool" id="rowDelBtn" title="刪除游標所在的列" aria-label="刪除列">刪列</button><button class="tool" id="colDelBtn" title="刪除游標所在的欄" aria-label="刪除欄">刪欄</button><button class="tool" id="pbBtn" title="在這裡強制換頁（列印與 Word 匯出都有效）" aria-label="插入分頁">分頁</button><button class="tool" onclick="window.print()">列印</button><button class="tool" id="logBtn">更新紀錄</button><div class="settings"><label class="chk" title="Word 檔的頁尾置中頁碼"><input type="checkbox" id="docxPageNum" checked>Word 頁碼</label><label class="chk" title="產生的 PDF 每頁下方加「第 X 頁 / 共 Y 頁」"><input type="checkbox" id="pdfPageNum" checked>PDF 頁碼</label><label class="chk" title="列印與 PDF 的邊界（公釐）">邊界<input id="marginMm" class="num" type="number" min="0" max="40" step="1" value="12">mm</label><label class="chk" title="用保版面模式匯入 .docx：帶入紙張大小與邊界、頁首頁尾、分頁、字型字級、表格欄寬"><input type="checkbox" id="fidelityImport" checked>保版面</label><select id="pageSize"><option value="a4">A4</option><option value="letter">Letter</option><option value="legal">Legal</option></select><select id="orientation"><option value="portrait">直向</option><option value="landscape">橫向</option></select></div></div><div id="findbar" class="findbar"><input id="findText" placeholder="尋找：多個關鍵字用空格，/正則/" enterkeyhint="search"><input id="replaceText" placeholder="取代為"><button class="btn" id="replaceOne">取代</button><button class="btn" id="replaceAll">全部取代</button><div id="findRes" class="findres"><div class="findhead"><span id="findCount"></span><button class="tool" id="findPrev" title="上一筆">‹</button><button class="tool" id="findNext" title="下一筆">›</button></div><div id="findList"></div></div></div></section><div class="meta no-print"><input id="filename" class="filename" value="未命名文件"><span id="docinfo" class="docinfo"></span><span id="status" aria-live="polite">請載入 DOCX 文件，或直接開始輸入內容</span></div><article id="editor" class="paper" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="文件內容"><h1>文件標題</h1><p>可直接在此輸入或貼上內容。</p></article></div>
-<div id="updBar" class="no-print" hidden><span>有新版本可以使用</span><button class="btn primary" id="updReload">立即更新</button><button class="tool" id="updClose" aria-label="稍後再更新">✕</button></div><div id="logModal" class="no-print" hidden><div class="logbox" role="dialog" aria-modal="true" aria-labelledby="logTitle"><div class="loghead"><b id="logTitle">更新紀錄</b><button class="tool" id="logClose" aria-label="關閉">✕</button></div><div id="logBody"></div></div></div><div class="readbar no-print"><button id="readFind" class="btn">搜尋</button><button id="readExit" class="btn primary">結束閱讀</button></div>
+<header class="top no-print">
+  <div class="topin">
+    <div class="brand">
+      <div class="logo">W</div>
+      <div>
+        <h1>Word 文件簡易編輯器</h1>
+        <p>檔案在本機瀏覽器處理，不主動上傳</p>
+      </div>
+    </div>
+    <div class="actions">
+      <input id="file" type="file" accept=".doc,.docx" hidden>
+      <input id="imageFile" type="file" accept="image/*" hidden>
+      <button class="btn" id="newBtn">新文件</button>
+      <button class="btn primary" id="openBtn">載入 Word</button>
+      <button class="btn" id="saveBtn">儲存 HTML</button>
+      <button class="btn" id="docxBtn" title="匯出 .docx（Word 可直接編輯）">下載 Word</button>
+      <button class="btn pdf" id="pdfBtn">轉換 PDF</button>
+    </div>
+  </div>
+</header>
+<div class="wrap">
+  <div id="notice" class="notice no-print" role="alert"></div>
+  <section class="toolbar no-print" role="toolbar" aria-label="編輯工具列">
+    <div class="tools">
+      <select id="blockStyle" title="段落樣式" aria-label="段落樣式">
+        <option value="p" selected>內文</option>
+        <option value="h1">標題 1</option>
+        <option value="h2">標題 2</option>
+        <option value="h3">標題 3</option>
+        <option value="blockquote">引言</option>
+        <option value="pre">預格式</option>
+      </select>
+      <button class="tool" data-cmd="undo" title="復原" aria-label="復原">↶</button>
+      <button class="tool" data-cmd="redo" title="重做" aria-label="重做">↷</button>
+      <span class="sep"></span>
+      <select id="fontSize" title="字級" aria-label="字級">
+        <option value="2">小字</option>
+        <option value="3" selected>一般</option>
+        <option value="4">大字</option>
+        <option value="5">標題</option>
+      </select>
+      <button class="tool" data-cmd="bold" aria-label="粗體" aria-pressed="false"><b>B</b></button>
+      <button class="tool" data-cmd="italic" aria-label="斜體" aria-pressed="false"><i>I</i></button>
+      <button class="tool" data-cmd="underline" aria-label="底線" aria-pressed="false"><u>U</u></button>
+      <span class="sep"></span>
+      <button class="tool" data-cmd="justifyLeft">靠左</button>
+      <button class="tool" data-cmd="justifyCenter">置中</button>
+      <button class="tool" data-cmd="justifyRight">靠右</button>
+      <button class="tool" data-cmd="insertUnorderedList">• 清單</button>
+      <button class="tool" data-cmd="insertOrderedList">1. 編號</button>
+      <span class="sep"></span>
+      <button class="tool" id="findToggle">尋找取代</button>
+      <button class="tool" id="deskToggle" title="以電腦版 A4 版面唯讀檢視，縮放至螢幕寬">閱讀模式</button>
+      <button class="tool" id="imgBtn" title="插入圖片" aria-label="插入圖片">圖片</button>
+      <button class="tool" id="tblBtn" title="插入表格" aria-label="插入表格">表格</button>
+      <button class="tool" id="linkBtn" title="插入連結" aria-label="插入連結">連結</button>
+      <button class="tool" id="rowAddBtn" title="在游標所在列下方插入一列" aria-label="插入列">增列</button>
+      <button class="tool" id="colAddBtn" title="在游標所在欄右側插入一欄" aria-label="插入欄">增欄</button>
+      <button class="tool" id="rowDelBtn" title="刪除游標所在的列" aria-label="刪除列">刪列</button>
+      <button class="tool" id="colDelBtn" title="刪除游標所在的欄" aria-label="刪除欄">刪欄</button>
+      <button class="tool" id="pbBtn" title="在這裡強制換頁（列印與 Word 匯出都有效）" aria-label="插入分頁">分頁</button>
+      <button class="tool" onclick="window.print()">列印</button>
+      <button class="tool" id="logBtn">更新紀錄</button>
+      <div class="settings">
+        <label class="chk" title="Word 檔的頁尾置中頁碼"><input type="checkbox" id="docxPageNum" checked>Word 頁碼</label>
+        <label class="chk" title="產生的 PDF 每頁下方加「第 X 頁 / 共 Y 頁」"><input type="checkbox" id="pdfPageNum" checked>PDF 頁碼</label>
+        <label class="chk" title="列印與 PDF 的邊界（公釐）">邊界<input id="marginMm" class="num" type="number" min="0" max="40" step="1" value="12">mm</label>
+        <label class="chk" title="用保版面模式匯入 .docx：帶入紙張大小與邊界、頁首頁尾、分頁、字型字級、表格欄寬"><input type="checkbox" id="fidelityImport" checked>保版面</label>
+        <select id="pageSize">
+          <option value="a4">A4</option>
+          <option value="letter">Letter</option>
+          <option value="legal">Legal</option>
+        </select>
+        <select id="orientation">
+          <option value="portrait">直向</option>
+          <option value="landscape">橫向</option>
+        </select>
+      </div>
+    </div>
+    <div id="findbar" class="findbar">
+      <input id="findText" placeholder="尋找：多個關鍵字用空格，/正則/" enterkeyhint="search">
+      <input id="replaceText" placeholder="取代為">
+      <button class="btn" id="replaceOne">取代</button>
+      <button class="btn" id="replaceAll">全部取代</button>
+      <div id="findRes" class="findres">
+        <div class="findhead">
+          <span id="findCount"></span>
+          <button class="tool" id="findPrev" title="上一筆">‹</button>
+          <button class="tool" id="findNext" title="下一筆">›</button>
+        </div>
+        <div id="findList"></div>
+      </div>
+    </div>
+  </section>
+  <div class="meta no-print">
+    <input id="filename" class="filename" value="未命名文件">
+    <span id="docinfo" class="docinfo"></span>
+    <span id="status" aria-live="polite">請載入 DOCX 文件，或直接開始輸入內容</span>
+  </div>
+  <article id="editor" class="paper" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="文件內容"><h1>文件標題</h1><p>可直接在此輸入或貼上內容。</p></article>
+</div>
+<div id="updBar" class="no-print" hidden>
+  <span>有新版本可以使用</span>
+  <button class="btn primary" id="updReload">立即更新</button>
+  <button class="tool" id="updClose" aria-label="稍後再更新">✕</button>
+</div>
+<div id="logModal" class="no-print" hidden>
+  <div class="logbox" role="dialog" aria-modal="true" aria-labelledby="logTitle">
+    <div class="loghead">
+      <b id="logTitle">更新紀錄</b>
+      <button class="tool" id="logClose" aria-label="關閉">✕</button>
+    </div>
+    <div id="logBody">
+    </div>
+  </div>
+</div>
+<div class="readbar no-print">
+  <button id="readFind" class="btn">搜尋</button>
+  <button id="readExit" class="btn primary">結束閱讀</button>
+</div>
 <script>
 const $ = s => document.querySelector(s),
   editor = $('#editor'),
