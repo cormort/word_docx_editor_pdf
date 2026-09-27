@@ -429,7 +429,8 @@ body.desk .findbar {
 body.desk .readbar {
   display: flex;
 }
-#updBar {
+#updBar,
+#shareBar {
   position: fixed;
   top: 12px;
   left: 50%;
@@ -447,6 +448,7 @@ body.desk .readbar {
   max-width: calc(100vw - 24px);
 }
 #updBar[hidden],
+#shareBar[hidden],
 #logModal[hidden] {
   display: none;
 }
@@ -652,6 +654,10 @@ body.dragging .paper {
 }
 .paper.pdfpage h2 {
   font-size: 24px;
+}
+#shareBar span {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 /* LINE 內建瀏覽器提示 */
 #lineBar {
@@ -1080,6 +1086,7 @@ body.dragging .paper {
   </div>
   <article id="editor" class="paper" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="文件內容"><h1>文件標題</h1><p>可直接在此輸入或貼上內容。</p></article>
 </div>
+<div id="shareBar" class="no-print" role="status" hidden><span id="shareName"></span><button class="btn primary" id="shareBtn">分享</button><button class="tool" id="shareClose" aria-label="關閉">✕</button></div>
 <div id="updBar" class="no-print" hidden>
   <span>有新版本可以使用</span>
   <button class="btn primary" id="updReload">立即更新</button>
@@ -2614,7 +2621,36 @@ function download(blob, name) {
   a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  offerShare(blob, name);
 }
+// 手機：下載完再給一個「分享」按鈕，直接丟到 LINE、Email 等 App。
+// navigator.share 必須由使用者的點擊觸發，產生 PDF 花的幾秒會讓原本那次點擊失效，所以要另外按一次
+let shareFile = null,
+  shareT;
+function offerShare(blob, name) {
+  if (!navigator.canShare || !matchMedia('(pointer: coarse)').matches) return;
+  const f = new File([blob], name, { type: blob.type });
+  try {
+    if (!navigator.canShare({ files: [f] })) return;
+  } catch (e) {
+    return;
+  }
+  shareFile = f;
+  $('#shareName').textContent = '已下載「' + name + '」';
+  $('#shareBar').hidden = false;
+  clearTimeout(shareT);
+  shareT = setTimeout(() => ($('#shareBar').hidden = true), 30000);
+}
+$('#shareBtn').onclick = () => {
+  if (!shareFile) return;
+  navigator
+    .share({ files: [shareFile], title: shareFile.name })
+    .then(() => ($('#shareBar').hidden = true))
+    .catch(err => {
+      if (err.name !== 'AbortError') msg('無法分享：' + err.message, true);
+    });
+};
+$('#shareClose').onclick = () => ($('#shareBar').hidden = true);
 // 目前的紙張與邊界（mm）：保版面匯入的文件用它自己的設定，否則用工具列的紙張／方向／邊界
 function pdfPage() {
   if (editor.dataset.customPage === '1') {
