@@ -308,9 +308,6 @@ input {
     flex-direction: row;
     align-items: center;
   }
-  .brand {
-    display: none;
-  }
   .actions {
     flex: 1;
   }
@@ -639,6 +636,131 @@ body.dragging .paper {
     padding: 0;
   }
 }
+/* 工具列分組與圖示 */
+.tools {
+  gap: 4px;
+}
+.grp {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  padding-left: 6px;
+  border-left: 1px solid var(--line);
+}
+.grp:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: #1e293b;
+}
+.tool svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.tool .caret {
+  font-size: 11px;
+  color: #64748b;
+}
+.lbl {
+  display: none;
+}
+@media (min-width: 1100px) {
+  .lbl {
+    display: inline;
+  }
+}
+.btn.ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--slate);
+}
+.btn.ghost:hover {
+  background: #f1f5f9;
+}
+.topin .filename {
+  flex: 1 1 200px;
+  max-width: 380px;
+  min-width: 0;
+  margin-right: auto;
+}
+@media (max-width: 1100px) {
+  .brandtxt {
+    display: none;
+  }
+}
+@media (max-width: 900px) {
+  .topin {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 640px) {
+  .topin {
+    flex-wrap: wrap;
+  }
+  .topin .filename {
+    flex: 1 1 0;
+    max-width: none;
+    margin: 0;
+    padding: 7px 10px;
+  }
+  .actions {
+    flex: 1 1 100%;
+  }
+  .btn.ghost {
+    border-color: var(--line);
+  }
+  /* 手機：工具列固定在底部，拇指好按；尋找列開在工具列上方 */
+  .toolbar {
+    position: fixed;
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column-reverse;
+    border-radius: 14px 14px 0 0;
+    border-width: 1px 0 0;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    box-shadow: 0 -4px 16px #0f172a1a;
+  }
+  .findbar {
+    border-top: 0;
+    margin: 0 0 6px;
+    padding: 0 0 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .wrap {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+  body.desk .wrap {
+    padding-bottom: 8px;
+  }
+  body.desk.finding .readbar {
+    bottom: auto;
+    top: calc(12px + env(safe-area-inset-top));
+  }
+  .grp {
+    padding-left: 4px;
+  }
+}
+.menu .panel {
+  overflow: auto;
+}
 /* 下拉選單（匯出／表格／版面）：面板用 fixed 定位，才不會被可橫向捲動的工具列裁掉 */
 .menu {
   position: relative;
@@ -730,15 +852,16 @@ body.dragging .paper {
   <div class="topin">
     <div class="brand">
       <div class="logo">W</div>
-      <div>
+      <div class="brandtxt">
         <h1>Word 文件簡易編輯器</h1>
         <p>檔案在本機瀏覽器處理，不主動上傳</p>
       </div>
     </div>
+    <input id="filename" class="filename" value="未命名文件" aria-label="檔名" title="檔名（下載時使用）">
     <div class="actions">
       <input id="file" type="file" accept=".doc,.docx" hidden>
       <input id="imageFile" type="file" accept="image/*" hidden>
-      <button class="btn" id="newBtn">新文件</button>
+      <button class="btn ghost" id="newBtn" title="清除內容並開新文件">新文件</button>
       <button class="btn primary" id="openBtn">載入 Word</button>
       <button class="btn pdf" id="pdfBtn">轉換 PDF</button>
       <details class="menu">
@@ -756,6 +879,7 @@ body.dragging .paper {
   <div id="notice" class="notice no-print" role="alert"></div>
   <section class="toolbar no-print" role="toolbar" aria-label="編輯工具列">
     <div class="tools">
+      <div class="grp" role="group" aria-label="段落">
       <select id="blockStyle" title="段落樣式" aria-label="段落樣式">
         <option value="p" selected>內文</option>
         <option value="h1">標題 1</option>
@@ -764,31 +888,32 @@ body.dragging .paper {
         <option value="blockquote">引言</option>
         <option value="pre">預格式</option>
       </select>
-      <button class="tool" data-cmd="undo" title="復原" aria-label="復原">↶</button>
-      <button class="tool" data-cmd="redo" title="重做" aria-label="重做">↷</button>
-      <span class="sep"></span>
+      <button class="tool" data-cmd="undo" title="復原（Ctrl+Z）" aria-label="復原">↶</button>
+      <button class="tool" data-cmd="redo" title="重做（Ctrl+Y）" aria-label="重做">↷</button>
+      </div>
+      <div class="grp" role="group" aria-label="文字">
       <select id="fontSize" title="字級" aria-label="字級">
         <option value="2">小字</option>
         <option value="3" selected>一般</option>
         <option value="4">大字</option>
         <option value="5">標題</option>
       </select>
-      <button class="tool" data-cmd="bold" aria-label="粗體" aria-pressed="false"><b>B</b></button>
-      <button class="tool" data-cmd="italic" aria-label="斜體" aria-pressed="false"><i>I</i></button>
-      <button class="tool" data-cmd="underline" aria-label="底線" aria-pressed="false"><u>U</u></button>
-      <span class="sep"></span>
-      <button class="tool" data-cmd="justifyLeft">靠左</button>
-      <button class="tool" data-cmd="justifyCenter">置中</button>
-      <button class="tool" data-cmd="justifyRight">靠右</button>
-      <button class="tool" data-cmd="insertUnorderedList">• 清單</button>
-      <button class="tool" data-cmd="insertOrderedList">1. 編號</button>
-      <span class="sep"></span>
-      <button class="tool" id="findToggle">尋找取代</button>
-      <button class="tool" id="deskToggle" title="以電腦版 A4 版面唯讀檢視，縮放至螢幕寬">閱讀模式</button>
-      <button class="tool" id="imgBtn" title="插入圖片" aria-label="插入圖片">圖片</button>
-      <button class="tool" id="linkBtn" title="插入連結" aria-label="插入連結">連結</button>
+      <button class="tool" data-cmd="bold" title="粗體（Ctrl+B）" aria-label="粗體" aria-pressed="false"><b>B</b></button>
+      <button class="tool" data-cmd="italic" title="斜體（Ctrl+I）" aria-label="斜體" aria-pressed="false"><i>I</i></button>
+      <button class="tool" data-cmd="underline" title="底線（Ctrl+U）" aria-label="底線" aria-pressed="false"><u>U</u></button>
+      </div>
+      <div class="grp" role="group" aria-label="對齊與清單">
+      <button class="tool" data-cmd="justifyLeft" title="靠左" aria-label="靠左" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 10h10M4 14h16M4 18h10"/></svg></button>
+      <button class="tool" data-cmd="justifyCenter" title="置中" aria-label="置中" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 10h10M4 14h16M7 18h10"/></svg></button>
+      <button class="tool" data-cmd="justifyRight" title="靠右" aria-label="靠右" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M10 10h10M4 14h16M10 18h10"/></svg></button>
+      <button class="tool" data-cmd="insertUnorderedList" title="項目符號清單" aria-label="項目符號清單" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="7" r="1.3"/><circle cx="5" cy="12" r="1.3"/><circle cx="5" cy="17" r="1.3"/><path d="M9 7h11M9 12h11M9 17h11"/></svg></button>
+      <button class="tool" data-cmd="insertOrderedList" title="編號清單" aria-label="編號清單" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h1.5v4M4 9h3M4 14.5c0-1 2.8-1 2.8.3 0 1-2.8 1.6-2.8 3.2h3M10 7h10M10 12h10M10 17h10"/></svg></button>
+      </div>
+      <div class="grp" role="group" aria-label="插入">
+      <button class="tool" id="imgBtn" title="插入圖片（也可拖放）" aria-label="插入圖片"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-8 8"/></svg><span class="lbl">圖片</span></button>
+      <button class="tool" id="linkBtn" title="插入連結" aria-label="插入連結"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span class="lbl">連結</span></button>
       <details class="menu">
-        <summary class="tool" title="插入與編輯表格">表格 ▾</summary>
+        <summary class="tool" title="插入與編輯表格" aria-label="表格"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="1.5"/><path d="M3 10h18M3 14.5h18M9 5v14M15 5v14"/></svg><span class="lbl">表格</span><span class="caret">▾</span></summary>
         <div class="panel" role="menu">
           <button class="tool mi" id="tblBtn" role="menuitem">插入表格…</button>
           <button class="tool mi" id="rowAddBtn" role="menuitem">在下方插入列</button>
@@ -797,9 +922,13 @@ body.dragging .paper {
           <button class="tool mi" id="colDelBtn" role="menuitem">刪除這一欄</button>
         </div>
       </details>
-      <button class="tool" id="pbBtn" title="在這裡強制換頁（列印與 Word 匯出都有效）" aria-label="插入分頁">分頁</button>
+      <button class="tool" id="pbBtn" title="在這裡強制換頁（列印與 Word 匯出都有效）" aria-label="插入分頁"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v5h12V3M6 21v-5h12v5M3 12h2M8 12h2M13 12h2M18 12h3"/></svg><span class="lbl">分頁</span></button>
+      </div>
+      <div class="grp" role="group" aria-label="檢視">
+      <button class="tool" id="findToggle" title="尋找與取代（Ctrl+F）" aria-label="尋找與取代"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg><span class="lbl">尋找</span></button>
+      <button class="tool" id="deskToggle" title="閱讀模式：以電腦版 A4 版面唯讀檢視，縮放至螢幕寬" aria-label="閱讀模式"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3zM21 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7z"/></svg><span class="lbl">閱讀</span></button>
       <details class="menu">
-        <summary class="tool" title="紙張、方向、邊界、頁碼與更新紀錄">設定 ▾</summary>
+        <summary class="tool" title="紙張、方向、邊界、頁碼與更新紀錄" aria-label="設定"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></svg><span class="lbl">設定</span><span class="caret">▾</span></summary>
         <div class="panel settings">
         <label class="chk" title="Word 檔的頁尾置中頁碼"><input type="checkbox" id="docxPageNum" checked>Word 頁碼</label>
         <label class="chk" title="產生的 PDF 每頁下方加「第 X 頁 / 共 Y 頁」"><input type="checkbox" id="pdfPageNum" checked>PDF 頁碼</label>
@@ -817,6 +946,7 @@ body.dragging .paper {
         <button class="mi" id="logBtn">更新紀錄</button>
       </div>
       </details>
+      </div>
     </div>
     <div id="findbar" class="findbar">
       <input id="findText" placeholder="尋找：多個關鍵字用空格，/正則/" enterkeyhint="search">
@@ -834,7 +964,6 @@ body.dragging .paper {
     </div>
   </section>
   <div class="meta no-print">
-    <input id="filename" class="filename" value="未命名文件">
     <span id="docinfo" class="docinfo"></span>
     <span id="status" aria-live="polite">請載入 DOCX 文件，或直接開始輸入內容</span>
   </div>
@@ -1320,7 +1449,10 @@ const menus = [...document.querySelectorAll('details.menu')];
 function placeMenu(d) {
   const p = d.querySelector('.panel'),
     r = d.querySelector('summary').getBoundingClientRect();
-  p.style.top = r.bottom + 4 + 'px';
+  const below = innerHeight - r.bottom - 12;
+  p.style.maxHeight = Math.max(below, r.top - 12) + 'px';
+  // 底部工具列（手機）或下方空間不夠時往上開
+  p.style.top = (p.offsetHeight > below && r.top > below ? r.top - 4 - p.offsetHeight : r.bottom + 4) + 'px';
   p.style.left = Math.max(8, Math.min(r.left, innerWidth - p.offsetWidth - 8)) + 'px';
 }
 const closeMenus = keep => menus.forEach(d => d !== keep && d.removeAttribute('open'));
@@ -1346,6 +1478,18 @@ const syncToolsEnd = () =>
 toolsEl.addEventListener('scroll', syncToolsEnd, { passive: true });
 addEventListener('resize', syncToolsEnd);
 syncToolsEnd();
+// 手機底部工具列：軟鍵盤打開時跟著鍵盤往上（iOS 的 fixed 會被鍵盤蓋住）
+const vv = window.visualViewport,
+  mobileQ = matchMedia('(max-width: 640px)');
+function liftToolbar() {
+  const tb = $('.toolbar');
+  const gap = vv && mobileQ.matches ? Math.max(0, innerHeight - vv.height - vv.offsetTop) : 0;
+  tb.style.transform = gap ? 'translateY(' + -gap + 'px)' : '';
+}
+if (vv) {
+  vv.addEventListener('resize', liftToolbar);
+  vv.addEventListener('scroll', liftToolbar);
+}
 // 快捷鍵：Ctrl/⌘+F 開尋找、Esc 關閉選單／更新紀錄
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
