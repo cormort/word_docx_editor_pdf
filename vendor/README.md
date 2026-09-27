@@ -10,13 +10,15 @@
 | 檔案 | 版本 | 用途 | 授權 |
 |---|---|---|---|
 | `mammoth.browser.min.js` | mammoth 1.12.0 | 解析 `.docx` → HTML | BSD-2-Clause |
-| `html2pdf.bundle.min.js` | html2pdf.js 0.10.2（打包 html2canvas 1.4.1、jsPDF 2.5.1） | HTML → PDF（點陣圖） | MIT |
+| `html2pdf.bundle.min.js` | html2pdf.js 0.10.2（打包 html2canvas 1.4.1、jsPDF 2.5.1） | 相容模式 PDF（點陣圖），以及 Safari 的頁面繪製 | MIT |
+| `pdf-lib.esm.min.js` | pdf-lib 1.17.1 | 組出文字可選取、可搜尋的 PDF（`pdf-export.js` 用） | MIT |
 
 ## 怎麼更新
 
 ```bash
 curl -sL -o vendor/mammoth.browser.min.js    https://cdn.jsdelivr.net/npm/mammoth@1.12.0/mammoth.browser.min.js
 curl -sL -o vendor/html2pdf.bundle.min.js    https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js
+curl -sL -o vendor/pdf-lib.esm.min.js        https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.esm.min.js
 ```
 
 換版本時要一起改 `index.html` 裡的 `LIB` 常數路徑，並在瀏覽器實測「載入 Word」與「轉換 PDF」兩個流程。
@@ -82,3 +84,29 @@ THE SOFTWARE.
 
 打包在 `html2pdf.bundle.min.js` 內的 html2canvas（MIT，Copyright (c) 2012 Niklas von Hertzen）與
 jsPDF（MIT，Copyright (c) 2010-2023 James Hall, yWorks GmbH）同樣為 MIT 授權。
+
+### pdf-lib（MIT）
+
+```
+MIT License
+
+Copyright (c) 2019 Andrew Dillon
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```

@@ -636,6 +636,23 @@ body.dragging .paper {
     padding: 0;
   }
 }
+/* PDF 匯出的頁面（pdf-export.js）：固定紙張版面，不吃手機版的縮排、表格捲動與字級 */
+.paper.pdfpage {
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  box-shadow: none;
+  zoom: 1;
+}
+.paper.pdfpage table {
+  display: table;
+}
+.paper.pdfpage h1 {
+  font-size: 30px;
+}
+.paper.pdfpage h2 {
+  font-size: 24px;
+}
 /* LINE 內建瀏覽器提示 */
 #lineBar {
   display: flex;
@@ -963,7 +980,7 @@ body.dragging .paper {
         <div class="panel" role="menu">
           <button class="mi" id="docxBtn" role="menuitem">下載 Word（.docx，可再編輯）</button>
           <button class="mi" id="saveBtn" role="menuitem">儲存 HTML</button>
-          <button class="mi" id="printBtn" role="menuitem">列印／另存可搜尋 PDF</button>
+          <button class="mi" id="printBtn" role="menuitem">列印</button>
         </div>
       </details>
     </div>
@@ -2598,11 +2615,58 @@ function download(blob, name) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
+// 目前的紙張與邊界（mm）：保版面匯入的文件用它自己的設定，否則用工具列的紙張／方向／邊界
+function pdfPage() {
+  if (editor.dataset.customPage === '1') {
+    const mm = v => parseFloat(v) || 0;
+    const pad = editor.style.padding.split(/\s+/).map(mm);
+    while (pad.length < 4) pad.push(pad[pad.length > 1 ? pad.length - 2 : 0]);
+    return { pageW: mm(editor.style.width), pageH: mm(editor.style.minHeight), margins: pad };
+  }
+  const [w, h] = (PAGE[$('#pageSize').value] || PAGE.a4).split(' ').map(parseFloat);
+  const land = $('#orientation').value === 'landscape',
+    m = marginMm();
+  return { pageW: land ? h : w, pageH: land ? w : h, margins: [m, m, m, m] };
+}
+// 文字可選取、可搜尋的 PDF（pdf-export.js）；失敗才退回舊的整頁點陣圖做法
+async function searchablePdf() {
+  await loadScript('./pdf-export.js', 'pdfExport');
+  const edgeHtml = cls => {
+    const e = document.querySelector('.pageedge.' + cls);
+    return e ? e.innerHTML : '';
+  };
+  const r = await window.pdfExport.build(
+    Object.assign(pdfPage(), {
+      source: editor,
+      header: edgeHtml('head'),
+      footer: edgeHtml('foot'),
+      pageNum: !!($('#pdfPageNum') && $('#pdfPageNum').checked),
+      scale: innerWidth < 640 ? 1.5 : 2,
+      title: $('#filename').value.trim(),
+      // Safari 不能用 foreignObject 繪製時改用 html2canvas（包在 html2pdf 裡，沒有全域變數，借它的 toCanvas）
+      html2canvas: () =>
+        loadScript(LIB.html2pdf, 'html2pdf').then(
+          () => (el, opt) => html2pdf().set({ margin: 0, html2canvas: opt }).from(el).toCanvas().get('canvas'),
+        ),
+      onProgress: (i, n) => msg('正在產生 PDF…（第 ' + i + ' / ' + n + ' 頁）'),
+    }),
+  );
+  download(new Blob([r.bytes], { type: 'application/pdf' }), safeName('文件') + '.pdf');
+  return r;
+}
 $('#pdfBtn').onclick = async () => {
   document.body.classList.add('statusbusy');
   msg('正在產生 PDF…');
   editor.style.zoom = '';
   try {
+    try {
+      const r = await searchablePdf();
+      msg('PDF 已下載（共 ' + r.pages + ' 頁，文字可選取、複製與搜尋）');
+      return;
+    } catch (err) {
+      console.warn('可搜尋 PDF 失敗，改用點陣圖 PDF：', err);
+      msg('正在產生 PDF（相容模式）…');
+    }
     await loadScript(LIB.html2pdf, 'html2pdf');
     const mg = marginMm();
     const chain = html2pdf()
@@ -2639,9 +2703,7 @@ $('#pdfBtn').onclick = async () => {
     } else {
       await chain.save();
     }
-    msg(
-      'PDF 已下載（整份是點陣圖，文字不可選取；頁碼已畫在每頁下方。要可搜尋的 PDF 請用「列印」→「另存為 PDF」）',
-    );
+    msg('PDF 已下載（相容模式：整份是點陣圖，文字不可選取。要可搜尋的 PDF 請用「列印」→「另存為 PDF」）');
   } catch (err) {
     msg('PDF 產生失敗：' + err.message + '；可改用「列印」後選擇另存為 PDF。', true);
   } finally {

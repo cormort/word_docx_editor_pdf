@@ -3,8 +3,8 @@
    目前版本 postMessage 進來；版本不同就重抓 shell 並把舊快取刪掉。 */
 const VERSION = 'unsigned';          // 拿不到 changelog.json 時用的備援版本
 let CACHE = 'wde-' + VERSION;
-const ASSETS = ['./', './index.html', './docx-fidelity.js', './manifest.webmanifest',
-  './vendor/mammoth.browser.min.js', './vendor/html2pdf.bundle.min.js',
+const ASSETS = ['./', './index.html', './docx-fidelity.js', './pdf-export.js', './manifest.webmanifest',
+  './vendor/mammoth.browser.min.js', './vendor/html2pdf.bundle.min.js', './vendor/pdf-lib.esm.min.js',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
 // SW 閒置被回收後重啟，CACHE 會回到預設值；沿用已存在的 shell 快取，免得寫進錯的快取或整包重抓
@@ -64,7 +64,7 @@ self.addEventListener('fetch', (e) => {
   // 自家程式（頁面、更新紀錄、docx 保版面模組）走 network-first，改版才不會拿到舊的；
   // vendor/ 的第三方函式庫維持 cache-first（版本換了才重抓）
   const fresh = req.mode === 'navigate' || url.pathname.endsWith('/index.html')
-    || url.pathname.endsWith('changelog.json') || url.pathname.endsWith('/docx-fidelity.js');
+    || url.pathname.endsWith('changelog.json') || url.pathname.endsWith('/docx-fidelity.js') || url.pathname.endsWith('/pdf-export.js');
   if (fresh) {
     e.respondWith((async () => {
       try {
