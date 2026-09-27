@@ -11,8 +11,634 @@
 <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="Word 編輯器">
 <style>
-:root{--blue:#2563eb;--green:#059669;--slate:#334155;--line:#dbe3ee;--bg:#eef2f7;--warn:#fffbeb}*{box-sizing:border-box}body{margin:0;font-family:"Microsoft JhengHei","Noto Sans TC",Arial,sans-serif;background:var(--bg);color:#1e293b}.top{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid var(--line);box-shadow:0 2px 10px #0f172a10}.topin,.wrap{max-width:1280px;margin:auto}.topin{padding:12px 18px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{display:flex;align-items:center;gap:11px}.logo{width:42px;height:42px;border-radius:13px;background:var(--blue);color:white;display:grid;place-items:center;font-size:23px}.brand h1{font-size:18px;margin:0}.brand p{font-size:12px;color:#64748b;margin:3px 0 0}.actions,.tools,.findbar,.settings{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.btn,.tool,select,input{font:inherit}.btn{border:1px solid var(--line);background:white;padding:9px 13px;border-radius:10px;cursor:pointer;font-weight:700}.btn:hover,.tool:hover{background:#f8fafc}.primary{background:var(--blue);border-color:var(--blue);color:white}.primary:hover{background:#1d4ed8}.pdf{background:var(--green);border-color:var(--green);color:white}.pdf:hover{background:#047857}.wrap{padding:18px}.notice{display:none;background:var(--warn);border:1px solid #fde68a;color:#854d0e;padding:11px 14px;border-radius:12px;margin-bottom:12px}.toolbar{background:white;border:1px solid var(--line);border-radius:14px;padding:10px;box-shadow:0 3px 12px #0f172a0c}.tool{border:0;background:white;padding:8px 10px;border-radius:8px;cursor:pointer;min-width:37px}.sep{height:28px;width:1px;background:var(--line);margin:0 3px}.tools select,.findbar input,.filename{border:1px solid var(--line);border-radius:8px;padding:8px;background:white}.settings{margin-left:auto}.findbar{display:none;border-top:1px solid var(--line);margin-top:10px;padding-top:10px}.findres{flex-basis:100%;display:none}.findres.show{display:block}.findhead{display:flex;align-items:center;gap:6px;font-size:13px;color:#64748b}.findhead span{margin-right:auto}#findList{max-height:30vh;overflow:auto;border:1px solid var(--line);border-radius:10px;margin-top:6px}#findList:empty{display:none}.hit{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:#fff;padding:8px 10px;font:inherit;font-size:14px;line-height:1.5;cursor:pointer;overflow-wrap:anywhere}.hit:last-child{border-bottom:0}.hit small{color:#64748b;margin-right:6px}.hit mark{background:#fde68a;padding:0 1px}.hit.cur{background:#eff6ff}::highlight(find){background:#fde68a}::highlight(find-cur){background:#f59e0b;color:#fff}.meta{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:13px auto 7px;max-width:210mm;font-size:12px;color:#64748b}.filename{width:320px;color:#1e293b;font-weight:700}.paper{width:210mm;min-height:297mm;margin:auto;background:white;padding:18mm;box-shadow:0 10px 30px #0f172a25;outline:none;font-family:"Microsoft JhengHei","Noto Sans TC",Arial,sans-serif;font-size:16px;line-height:1.75;overflow-wrap:anywhere}.paper.landscape{width:297mm;min-height:210mm}.paper h1{font-size:30px;margin:.5em 0}.paper h2{font-size:24px}.paper img{max-width:100%;height:auto}.paper table{width:100%;border-collapse:collapse}.paper th,.paper td{border:1px solid #94a3b8;padding:6px}.statusbusy{opacity:.65;pointer-events:none}@media(max-width:900px){.topin{align-items:flex-start;flex-direction:column}.settings{margin-left:0}.paper,.paper.landscape{width:100%;min-height:70vh;padding:28px}.meta{max-width:none}}@media(max-width:640px){.topin{padding:8px 12px;gap:8px;flex-direction:row;align-items:center}.brand{display:none}.actions{flex:1}.actions .btn{flex:1}.logo{width:36px;height:36px;font-size:19px}.actions{flex-wrap:nowrap;gap:6px}.btn{padding:10px 8px;min-height:42px;white-space:nowrap;font-size:14px}.wrap{padding:8px}.toolbar{position:sticky;top:57px;z-index:9;padding:6px;border-radius:12px}.tools{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}.tools::-webkit-scrollbar{display:none}.tool,.tools select{flex:none;min-height:42px;min-width:42px}.settings{display:flex;flex-wrap:nowrap}.findbar input{flex:1 1 40%;min-width:0}.meta{flex-direction:column;align-items:stretch;gap:4px;margin:8px 0}.filename{width:100%}.paper,.paper.landscape{padding:16px;min-height:60vh;box-shadow:0 4px 14px #0f172a20}.paper h1{font-size:24px}.paper h2{font-size:20px}.paper table{display:block;overflow-x:auto}}input,select{font-size:16px}body.desk .paper{width:210mm;min-height:297mm;padding:18mm}body.desk .paper.landscape{width:297mm;min-height:210mm}body.desk:not(.finding) .toolbar,body.desk .tools,body.desk #replaceText,body.desk #replaceOne,body.desk #replaceAll,body.desk .meta,body.desk .notice{display:none!important}body.desk .findbar{border:0;margin:0;padding:0}.readbar{display:none;gap:8px;position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:20}.readbar .btn{box-shadow:0 4px 14px #0f172a40}body.desk .readbar{display:flex}#updBar{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:8px;padding:6px 6px 6px 14px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 20px #0f172a30;white-space:nowrap;max-width:calc(100vw - 24px)}#updBar[hidden],#logModal[hidden]{display:none}#logModal{position:fixed;inset:0;z-index:40;background:#0f172a80;display:flex;align-items:center;justify-content:center;padding:16px}.logbox{background:#fff;border-radius:14px;width:100%;max-width:480px;max-height:80vh;overflow:auto;box-shadow:0 10px 30px #0f172a40}.loghead{display:flex;justify-content:space-between;align-items:center;padding:12px 12px 12px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff}#logBody{padding:14px 18px 18px}#logBody h4{margin:0 0 6px}#logBody section+section{margin-top:14px}#logBody ul{margin:0;padding-left:1.2em;line-height:1.6}.tool.on{background:#dbeafe;border-color:#93c5fd;color:#1d4ed8}body.dragging .paper{outline:3px dashed var(--blue);outline-offset:4px}.img-drop{color:#94a3b8;font-size:13px}.chk{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--slate);white-space:nowrap}.chk input[type=checkbox]{margin:0}.docinfo{display:block;font-size:12px;color:#64748b;margin-top:2px}.pageedge{display:none}.paper ul,.paper ol{margin:.4em 0;padding-left:2em}.paper li{margin:.15em 0}.paper blockquote{margin:.6em 0;padding-left:1em;border-left:3px solid var(--line);color:#475569}.paper td.vcont{border-top:0}@media print{.pageedge{display:block;position:fixed;left:0;right:0;font-size:10pt;color:#333;z-index:1}.pageedge.head{top:0;border-bottom:.5pt solid #bbb;padding-bottom:2mm}.pageedge.foot{bottom:0;border-top:.5pt solid #bbb;padding-top:1.5mm}}.num{width:56px;text-align:right;border:1px solid var(--line);border-radius:8px;padding:6px;background:#fff}.paper .subtitle{color:#64748b;font-size:18px;margin:.2em 0 1em}.pagebreak{height:0;margin:14px 0;border-top:2px dashed #cbd5e1}
-.pagebreak::after{content:'分頁';position:relative;top:-11px;left:6px;font-size:11px;color:#94a3b8;background:#fff;padding:0 4px}.paper .caption{color:#64748b;font-size:14px;text-align:center}.paper th{background:#f1f5f9}@media print{body.dragging .paper{outline:0}}@media print{.pagebreak{border:0;margin:0;break-after:page;page-break-after:always}.pagebreak::after{content:none}}@media print{body{background:white}.no-print{display:none!important}.wrap{padding:0}.paper,.paper.landscape{zoom:1!important;box-shadow:none;margin:0;width:auto;min-height:auto;padding:0}}
+:root {
+  --blue: #2563eb;
+  --green: #059669;
+  --slate: #334155;
+  --line: #dbe3ee;
+  --bg: #eef2f7;
+  --warn: #fffbeb;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: 'Microsoft JhengHei', 'Noto Sans TC', Arial, sans-serif;
+  background: var(--bg);
+  color: #1e293b;
+}
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 2px 10px #0f172a10;
+}
+.topin,
+.wrap {
+  max-width: 1280px;
+  margin: auto;
+}
+.topin {
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: var(--blue);
+  color: white;
+  display: grid;
+  place-items: center;
+  font-size: 23px;
+}
+.brand h1 {
+  font-size: 18px;
+  margin: 0;
+}
+.brand p {
+  font-size: 12px;
+  color: #64748b;
+  margin: 3px 0 0;
+}
+.actions,
+.tools,
+.findbar,
+.settings {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.btn,
+.tool,
+select,
+input {
+  font: inherit;
+}
+.btn {
+  border: 1px solid var(--line);
+  background: white;
+  padding: 9px 13px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+.btn:hover,
+.tool:hover {
+  background: #f8fafc;
+}
+.primary {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: white;
+}
+.primary:hover {
+  background: #1d4ed8;
+}
+.pdf {
+  background: var(--green);
+  border-color: var(--green);
+  color: white;
+}
+.pdf:hover {
+  background: #047857;
+}
+.wrap {
+  padding: 18px;
+}
+.notice {
+  display: none;
+  background: var(--warn);
+  border: 1px solid #fde68a;
+  color: #854d0e;
+  padding: 11px 14px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+.toolbar {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px;
+  box-shadow: 0 3px 12px #0f172a0c;
+}
+.tool {
+  border: 0;
+  background: white;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  min-width: 37px;
+}
+.sep {
+  height: 28px;
+  width: 1px;
+  background: var(--line);
+  margin: 0 3px;
+}
+.tools select,
+.findbar input,
+.filename {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  background: white;
+}
+.settings {
+  margin-left: auto;
+}
+.findbar {
+  display: none;
+  border-top: 1px solid var(--line);
+  margin-top: 10px;
+  padding-top: 10px;
+}
+.findres {
+  flex-basis: 100%;
+  display: none;
+}
+.findres.show {
+  display: block;
+}
+.findhead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #64748b;
+}
+.findhead span {
+  margin-right: auto;
+}
+#findList {
+  max-height: 30vh;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-top: 6px;
+}
+#findList:empty {
+  display: none;
+}
+.hit {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.hit:last-child {
+  border-bottom: 0;
+}
+.hit small {
+  color: #64748b;
+  margin-right: 6px;
+}
+.hit mark {
+  background: #fde68a;
+  padding: 0 1px;
+}
+.hit.cur {
+  background: #eff6ff;
+}
+::highlight(find) {
+  background: #fde68a;
+}
+::highlight(find-cur) {
+  background: #f59e0b;
+  color: #fff;
+}
+.meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin: 13px auto 7px;
+  max-width: 210mm;
+  font-size: 12px;
+  color: #64748b;
+}
+.filename {
+  width: 320px;
+  color: #1e293b;
+  font-weight: 700;
+}
+.paper {
+  width: 210mm;
+  min-height: 297mm;
+  margin: auto;
+  background: white;
+  padding: 18mm;
+  box-shadow: 0 10px 30px #0f172a25;
+  outline: none;
+  font-family: 'Microsoft JhengHei', 'Noto Sans TC', Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+.paper.landscape {
+  width: 297mm;
+  min-height: 210mm;
+}
+.paper h1 {
+  font-size: 30px;
+  margin: 0.5em 0;
+}
+.paper h2 {
+  font-size: 24px;
+}
+.paper img {
+  max-width: 100%;
+  height: auto;
+}
+.paper table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.paper th,
+.paper td {
+  border: 1px solid #94a3b8;
+  padding: 6px;
+}
+.statusbusy {
+  opacity: 0.65;
+  pointer-events: none;
+}
+@media (max-width: 900px) {
+  .topin {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .settings {
+    margin-left: 0;
+  }
+  .paper,
+  .paper.landscape {
+    width: 100%;
+    min-height: 70vh;
+    padding: 28px;
+  }
+  .meta {
+    max-width: none;
+  }
+}
+@media (max-width: 640px) {
+  .topin {
+    padding: 8px 12px;
+    gap: 8px;
+    flex-direction: row;
+    align-items: center;
+  }
+  .brand {
+    display: none;
+  }
+  .actions {
+    flex: 1;
+  }
+  .actions .btn {
+    flex: 1;
+  }
+  .logo {
+    width: 36px;
+    height: 36px;
+    font-size: 19px;
+  }
+  .actions {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+  .btn {
+    padding: 10px 8px;
+    min-height: 42px;
+    white-space: nowrap;
+    font-size: 14px;
+  }
+  .wrap {
+    padding: 8px;
+  }
+  .toolbar {
+    position: sticky;
+    top: 57px;
+    z-index: 9;
+    padding: 6px;
+    border-radius: 12px;
+  }
+  .tools {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tools::-webkit-scrollbar {
+    display: none;
+  }
+  .tool,
+  .tools select {
+    flex: none;
+    min-height: 42px;
+    min-width: 42px;
+  }
+  .settings {
+    display: flex;
+    flex-wrap: nowrap;
+  }
+  .findbar input {
+    flex: 1 1 40%;
+    min-width: 0;
+  }
+  .meta {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    margin: 8px 0;
+  }
+  .filename {
+    width: 100%;
+  }
+  .paper,
+  .paper.landscape {
+    padding: 16px;
+    min-height: 60vh;
+    box-shadow: 0 4px 14px #0f172a20;
+  }
+  .paper h1 {
+    font-size: 24px;
+  }
+  .paper h2 {
+    font-size: 20px;
+  }
+  .paper table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+input,
+select {
+  font-size: 16px;
+}
+body.desk .paper {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 18mm;
+}
+body.desk .paper.landscape {
+  width: 297mm;
+  min-height: 210mm;
+}
+body.desk:not(.finding) .toolbar,
+body.desk .tools,
+body.desk #replaceText,
+body.desk #replaceOne,
+body.desk #replaceAll,
+body.desk .meta,
+body.desk .notice {
+  display: none !important;
+}
+body.desk .findbar {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.readbar {
+  display: none;
+  gap: 8px;
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 20;
+}
+.readbar .btn {
+  box-shadow: 0 4px 14px #0f172a40;
+}
+body.desk .readbar {
+  display: flex;
+}
+#updBar {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 6px 20px #0f172a30;
+  white-space: nowrap;
+  max-width: calc(100vw - 24px);
+}
+#updBar[hidden],
+#logModal[hidden] {
+  display: none;
+}
+#logModal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: #0f172a80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.logbox {
+  background: #fff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 480px;
+  max-height: 80vh;
+  overflow: auto;
+  box-shadow: 0 10px 30px #0f172a40;
+}
+.loghead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 12px 12px 18px;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: #fff;
+}
+#logBody {
+  padding: 14px 18px 18px;
+}
+#logBody h4 {
+  margin: 0 0 6px;
+}
+#logBody section + section {
+  margin-top: 14px;
+}
+#logBody ul {
+  margin: 0;
+  padding-left: 1.2em;
+  line-height: 1.6;
+}
+.tool.on {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+body.dragging .paper {
+  outline: 3px dashed var(--blue);
+  outline-offset: 4px;
+}
+.img-drop {
+  color: #94a3b8;
+  font-size: 13px;
+}
+.chk {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--slate);
+  white-space: nowrap;
+}
+.chk input[type='checkbox'] {
+  margin: 0;
+}
+.docinfo {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+.pageedge {
+  display: none;
+}
+.paper ul,
+.paper ol {
+  margin: 0.4em 0;
+  padding-left: 2em;
+}
+.paper li {
+  margin: 0.15em 0;
+}
+.paper blockquote {
+  margin: 0.6em 0;
+  padding-left: 1em;
+  border-left: 3px solid var(--line);
+  color: #475569;
+}
+.paper td.vcont {
+  border-top: 0;
+}
+@media print {
+  .pageedge {
+    display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    font-size: 10pt;
+    color: #333;
+    z-index: 1;
+  }
+  .pageedge.head {
+    top: 0;
+    border-bottom: 0.5pt solid #bbb;
+    padding-bottom: 2mm;
+  }
+  .pageedge.foot {
+    bottom: 0;
+    border-top: 0.5pt solid #bbb;
+    padding-top: 1.5mm;
+  }
+}
+.num {
+  width: 56px;
+  text-align: right;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px;
+  background: #fff;
+}
+.paper .subtitle {
+  color: #64748b;
+  font-size: 18px;
+  margin: 0.2em 0 1em;
+}
+.pagebreak {
+  height: 0;
+  margin: 14px 0;
+  border-top: 2px dashed #cbd5e1;
+}
+.pagebreak::after {
+  content: '分頁';
+  position: relative;
+  top: -11px;
+  left: 6px;
+  font-size: 11px;
+  color: #94a3b8;
+  background: #fff;
+  padding: 0 4px;
+}
+.paper .caption {
+  color: #64748b;
+  font-size: 14px;
+  text-align: center;
+}
+.paper th {
+  background: #f1f5f9;
+}
+@media print {
+  body.dragging .paper {
+    outline: 0;
+  }
+}
+@media print {
+  .pagebreak {
+    border: 0;
+    margin: 0;
+    break-after: page;
+    page-break-after: always;
+  }
+  .pagebreak::after {
+    content: none;
+  }
+}
+@media print {
+  body {
+    background: white;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .wrap {
+    padding: 0;
+  }
+  .paper,
+  .paper.landscape {
+    zoom: 1 !important;
+    box-shadow: none;
+    margin: 0;
+    width: auto;
+    min-height: auto;
+    padding: 0;
+  }
+}
 </style>
 <style id="pageStyle"></style>
 </head>
@@ -21,633 +647,1814 @@
 <div class="wrap"><div id="notice" class="notice no-print" role="alert"></div><section class="toolbar no-print" role="toolbar" aria-label="編輯工具列"><div class="tools"><select id="blockStyle" title="段落樣式" aria-label="段落樣式"><option value="p" selected>內文</option><option value="h1">標題 1</option><option value="h2">標題 2</option><option value="h3">標題 3</option><option value="blockquote">引言</option><option value="pre">預格式</option></select><button class="tool" data-cmd="undo" title="復原" aria-label="復原">↶</button><button class="tool" data-cmd="redo" title="重做" aria-label="重做">↷</button><span class="sep"></span><select id="fontSize" title="字級" aria-label="字級"><option value="2">小字</option><option value="3" selected>一般</option><option value="4">大字</option><option value="5">標題</option></select><button class="tool" data-cmd="bold" aria-label="粗體" aria-pressed="false"><b>B</b></button><button class="tool" data-cmd="italic" aria-label="斜體" aria-pressed="false"><i>I</i></button><button class="tool" data-cmd="underline" aria-label="底線" aria-pressed="false"><u>U</u></button><span class="sep"></span><button class="tool" data-cmd="justifyLeft">靠左</button><button class="tool" data-cmd="justifyCenter">置中</button><button class="tool" data-cmd="justifyRight">靠右</button><button class="tool" data-cmd="insertUnorderedList">• 清單</button><button class="tool" data-cmd="insertOrderedList">1. 編號</button><span class="sep"></span><button class="tool" id="findToggle">尋找取代</button><button class="tool" id="deskToggle" title="以電腦版 A4 版面唯讀檢視，縮放至螢幕寬">閱讀模式</button><button class="tool" id="imgBtn" title="插入圖片" aria-label="插入圖片">圖片</button><button class="tool" id="tblBtn" title="插入表格" aria-label="插入表格">表格</button><button class="tool" id="linkBtn" title="插入連結" aria-label="插入連結">連結</button><button class="tool" id="rowAddBtn" title="在游標所在列下方插入一列" aria-label="插入列">增列</button><button class="tool" id="colAddBtn" title="在游標所在欄右側插入一欄" aria-label="插入欄">增欄</button><button class="tool" id="rowDelBtn" title="刪除游標所在的列" aria-label="刪除列">刪列</button><button class="tool" id="colDelBtn" title="刪除游標所在的欄" aria-label="刪除欄">刪欄</button><button class="tool" id="pbBtn" title="在這裡強制換頁（列印與 Word 匯出都有效）" aria-label="插入分頁">分頁</button><button class="tool" onclick="window.print()">列印</button><button class="tool" id="logBtn">更新紀錄</button><div class="settings"><label class="chk" title="Word 檔的頁尾置中頁碼"><input type="checkbox" id="docxPageNum" checked>Word 頁碼</label><label class="chk" title="產生的 PDF 每頁下方加「第 X 頁 / 共 Y 頁」"><input type="checkbox" id="pdfPageNum" checked>PDF 頁碼</label><label class="chk" title="列印與 PDF 的邊界（公釐）">邊界<input id="marginMm" class="num" type="number" min="0" max="40" step="1" value="12">mm</label><label class="chk" title="用保版面模式匯入 .docx：帶入紙張大小與邊界、頁首頁尾、分頁、字型字級、表格欄寬"><input type="checkbox" id="fidelityImport" checked>保版面</label><select id="pageSize"><option value="a4">A4</option><option value="letter">Letter</option><option value="legal">Legal</option></select><select id="orientation"><option value="portrait">直向</option><option value="landscape">橫向</option></select></div></div><div id="findbar" class="findbar"><input id="findText" placeholder="尋找：多個關鍵字用空格，/正則/" enterkeyhint="search"><input id="replaceText" placeholder="取代為"><button class="btn" id="replaceOne">取代</button><button class="btn" id="replaceAll">全部取代</button><div id="findRes" class="findres"><div class="findhead"><span id="findCount"></span><button class="tool" id="findPrev" title="上一筆">‹</button><button class="tool" id="findNext" title="下一筆">›</button></div><div id="findList"></div></div></div></section><div class="meta no-print"><input id="filename" class="filename" value="未命名文件"><span id="docinfo" class="docinfo"></span><span id="status" aria-live="polite">請載入 DOCX 文件，或直接開始輸入內容</span></div><article id="editor" class="paper" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="文件內容"><h1>文件標題</h1><p>可直接在此輸入或貼上內容。</p></article></div>
 <div id="updBar" class="no-print" hidden><span>有新版本可以使用</span><button class="btn primary" id="updReload">立即更新</button><button class="tool" id="updClose" aria-label="稍後再更新">✕</button></div><div id="logModal" class="no-print" hidden><div class="logbox" role="dialog" aria-modal="true" aria-labelledby="logTitle"><div class="loghead"><b id="logTitle">更新紀錄</b><button class="tool" id="logClose" aria-label="關閉">✕</button></div><div id="logBody"></div></div></div><div class="readbar no-print"><button id="readFind" class="btn">搜尋</button><button id="readExit" class="btn primary">結束閱讀</button></div>
 <script>
-const $=s=>document.querySelector(s), editor=$('#editor'), statusEl=$('#status'), notice=$('#notice');
-function msg(text,warn=false){statusEl.textContent=text;if(warn){notice.textContent=text;notice.style.display='block'}}
-const LIB={mammoth:'vendor/mammoth.browser.min.js',html2pdf:'vendor/html2pdf.bundle.min.js'};
-// 載入失敗的 script 一定要從 DOM 拿掉，否則第二次呼叫永遠等不到事件（實測舊版會卡死）
-function loadScript(src,global){return new Promise((ok,fail)=>{
-  if(window[global])return ok();
-  const ready=()=>window[global]?ok():fail(new Error('元件載入後仍未就緒：'+src));
-  const prev=document.querySelector('script[data-lib="'+src+'"]');
-  if(prev){
-    if(prev.dataset.state==='ok')return ready();
-    if(prev.dataset.state==='err')prev.remove();
-    else{prev.addEventListener('load',ready);prev.addEventListener('error',()=>{prev.dataset.state='err';prev.remove();fail(new Error('無法載入必要元件：'+src))});return}
+const $ = s => document.querySelector(s),
+  editor = $('#editor'),
+  statusEl = $('#status'),
+  notice = $('#notice');
+function msg(text, warn = false) {
+  statusEl.textContent = text;
+  if (warn) {
+    notice.textContent = text;
+    notice.style.display = 'block';
   }
-  const el=document.createElement('script');el.src=src;el.dataset.lib=src;
-  el.onload=()=>{el.dataset.state='ok';ready()};
-  el.onerror=()=>{el.dataset.state='err';el.remove();fail(new Error('無法載入必要元件：'+src))};
-  document.head.appendChild(el)})}
+}
+const LIB = { mammoth: 'vendor/mammoth.browser.min.js', html2pdf: 'vendor/html2pdf.bundle.min.js' };
+// 載入失敗的 script 一定要從 DOM 拿掉，否則第二次呼叫永遠等不到事件（實測舊版會卡死）
+function loadScript(src, global) {
+  return new Promise((ok, fail) => {
+    if (window[global]) return ok();
+    const ready = () => (window[global] ? ok() : fail(new Error('元件載入後仍未就緒：' + src)));
+    const prev = document.querySelector('script[data-lib="' + src + '"]');
+    if (prev) {
+      if (prev.dataset.state === 'ok') return ready();
+      if (prev.dataset.state === 'err') prev.remove();
+      else {
+        prev.addEventListener('load', ready);
+        prev.addEventListener('error', () => {
+          prev.dataset.state = 'err';
+          prev.remove();
+          fail(new Error('無法載入必要元件：' + src));
+        });
+        return;
+      }
+    }
+    const el = document.createElement('script');
+    el.src = src;
+    el.dataset.lib = src;
+    el.onload = () => {
+      el.dataset.state = 'ok';
+      ready();
+    };
+    el.onerror = () => {
+      el.dataset.state = 'err';
+      el.remove();
+      fail(new Error('無法載入必要元件：' + src));
+    };
+    document.head.appendChild(el);
+  });
+}
 
 // ---- 安全：匯入／還原的 HTML 先清乾淨（docx 的連結可以是 javascript:，mammoth 會原樣輸出）----
-function sanitizeHtml(html){const t=document.createElement('template');t.innerHTML=String(html==null?'':html);
-  t.content.querySelectorAll('script,style,iframe,object,embed,link,meta,base,form').forEach(n=>n.remove());
-  const w=document.createTreeWalker(t.content,NodeFilter.SHOW_ELEMENT);let el;
-  while((el=w.nextNode())){for(const a of[...el.attributes]){const n=a.name.toLowerCase(),v=a.value.replace(/[\u0000-\u0020]/g,'').toLowerCase();
-    if(n.startsWith('on')||n==='srcdoc'||n==='formaction'||((n==='href'||n==='src'||n==='xlink:href')&&/^(javascript:|vbscript:|data:text\/html)/.test(v)))el.removeAttribute(a.name)}}
-  return t.innerHTML}
+function sanitizeHtml(html) {
+  const t = document.createElement('template');
+  t.innerHTML = String(html == null ? '' : html);
+  t.content.querySelectorAll('script,style,iframe,object,embed,link,meta,base,form').forEach(n => n.remove());
+  const w = document.createTreeWalker(t.content, NodeFilter.SHOW_ELEMENT);
+  let el;
+  while ((el = w.nextNode())) {
+    for (const a of [...el.attributes]) {
+      const n = a.name.toLowerCase(),
+        v = a.value.replace(/[\u0000-\u0020]/g, '').toLowerCase();
+      if (
+        n.startsWith('on') ||
+        n === 'srcdoc' ||
+        n === 'formaction' ||
+        ((n === 'href' || n === 'src' || n === 'xlink:href') &&
+          /^(javascript:|vbscript:|data:text\/html)/.test(v))
+      )
+        el.removeAttribute(a.name);
+    }
+  }
+  return t.innerHTML;
+}
 
 // ---- 圖片：插入前先縮圖，避免文件、PDF 與草稿爆掉 ----
-function fileToDataUrl(f){return new Promise((ok,fail)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=()=>fail(new Error('讀取檔案失敗'));r.readAsDataURL(f)})}
-function shrinkDataUrl(src,max=1600,q=.82){return new Promise(ok=>{const im=new Image();
-  im.onload=()=>{try{const w=im.naturalWidth,h=im.naturalHeight;
-    if(w<=max&&h<=max&&src.length<300000)return ok(src);
-    const c=document.createElement('canvas');
-    const draw=scale=>{c.width=Math.max(1,Math.round(w*scale));c.height=Math.max(1,Math.round(h*scale));
-      const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.drawImage(im,0,0,c.width,c.height);return ctx};
-    const k=Math.min(1,max/Math.max(w,h));let ctx=draw(k);
-    // 真的用到透明才留 PNG，其餘一律轉 JPEG（照片、截圖用 PNG 會愈縮愈大）
-    let alpha=false;
-    try{const d=ctx.getImageData(0,0,c.width,c.height).data;for(let i=3;i<d.length;i+=68){if(d[i]<250){alpha=true;break}}}catch(e){alpha=true}
-    let out=c.toDataURL(alpha?'image/png':'image/jpeg',q);
-    if(!alpha&&out.length>1200000){ctx=draw(k*.7);out=c.toDataURL('image/jpeg',.7)}
-    ok(out.length<src.length?out:src)   // 轉完反而變大就保留原圖
-  }catch(e){ok(src)}};
-  im.onerror=()=>ok(src);im.src=src})}
+function fileToDataUrl(f) {
+  return new Promise((ok, fail) => {
+    const r = new FileReader();
+    r.onload = () => ok(r.result);
+    r.onerror = () => fail(new Error('讀取檔案失敗'));
+    r.readAsDataURL(f);
+  });
+}
+function shrinkDataUrl(src, max = 1600, q = 0.82) {
+  return new Promise(ok => {
+    const im = new Image();
+    im.onload = () => {
+      try {
+        const w = im.naturalWidth,
+          h = im.naturalHeight;
+        if (w <= max && h <= max && src.length < 300000) return ok(src);
+        const c = document.createElement('canvas');
+        const draw = scale => {
+          c.width = Math.max(1, Math.round(w * scale));
+          c.height = Math.max(1, Math.round(h * scale));
+          const ctx = c.getContext('2d');
+          ctx.clearRect(0, 0, c.width, c.height);
+          ctx.drawImage(im, 0, 0, c.width, c.height);
+          return ctx;
+        };
+        const k = Math.min(1, max / Math.max(w, h));
+        let ctx = draw(k);
+        // 真的用到透明才留 PNG，其餘一律轉 JPEG（照片、截圖用 PNG 會愈縮愈大）
+        let alpha = false;
+        try {
+          const d = ctx.getImageData(0, 0, c.width, c.height).data;
+          for (let i = 3; i < d.length; i += 68) {
+            if (d[i] < 250) {
+              alpha = true;
+              break;
+            }
+          }
+        } catch (e) {
+          alpha = true;
+        }
+        let out = c.toDataURL(alpha ? 'image/png' : 'image/jpeg', q);
+        if (!alpha && out.length > 1200000) {
+          ctx = draw(k * 0.7);
+          out = c.toDataURL('image/jpeg', 0.7);
+        }
+        ok(out.length < src.length ? out : src); // 轉完反而變大就保留原圖
+      } catch (e) {
+        ok(src);
+      }
+    };
+    im.onerror = () => ok(src);
+    im.src = src;
+  });
+}
 
 // ---- 工具列狀態同步（游標在哪裡，B/I/U、對齊、清單與段落樣式就顯示對應狀態）----
 let stateT;
-function syncToolbar(){const sel=getSelection();if(!sel.rangeCount||!editor.contains(sel.anchorNode))return;
-  document.querySelectorAll('.tool[data-cmd]').forEach(b=>{const c=b.dataset.cmd;let on=false;
-    if(/^(bold|italic|underline|insertUnorderedList|insertOrderedList|justify)/.test(c)){try{on=document.queryCommandState(c)}catch(e){}}
-    b.classList.toggle('on',on);b.setAttribute('aria-pressed',on?'true':'false')});
-  let blk='p';try{blk=String(document.queryCommandValue('formatBlock')||'p').toLowerCase()}catch(e){}
-  if(!blk||blk==='div')blk='p';
-  const box=$('#blockStyle');if([...box.options].some(o=>o.value===blk))box.value=blk}
-document.addEventListener('selectionchange',()=>{clearTimeout(stateT);stateT=setTimeout(syncToolbar,120)});
+function syncToolbar() {
+  const sel = getSelection();
+  if (!sel.rangeCount || !editor.contains(sel.anchorNode)) return;
+  document.querySelectorAll('.tool[data-cmd]').forEach(b => {
+    const c = b.dataset.cmd;
+    let on = false;
+    if (/^(bold|italic|underline|insertUnorderedList|insertOrderedList|justify)/.test(c)) {
+      try {
+        on = document.queryCommandState(c);
+      } catch (e) {}
+    }
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  let blk = 'p';
+  try {
+    blk = String(document.queryCommandValue('formatBlock') || 'p').toLowerCase();
+  } catch (e) {}
+  if (!blk || blk === 'div') blk = 'p';
+  const box = $('#blockStyle');
+  if ([...box.options].some(o => o.value === blk)) box.value = blk;
+}
+document.addEventListener('selectionchange', () => {
+  clearTimeout(stateT);
+  stateT = setTimeout(syncToolbar, 120);
+});
 
 // ---- 檔名 → 分頁標題；紙張尺寸 → 列印用的 @page（原本列印會用瀏覽器預設紙張，A4 預覽跟列印不一致）----
-function syncTitle(){document.title=($('#filename').value.trim()||'未命名文件')+'｜Word 文件簡易編輯器'}
-const PAGE={a4:'210mm 297mm',letter:'216mm 279mm',legal:'216mm 356mm'};
-function marginMm(){const v=parseFloat($('#marginMm').value);return isFinite(v)?Math.max(0,Math.min(40,v)):12}
-function applyPageStyle(){const wh=(PAGE[$('#pageSize').value]||PAGE.a4).split(' ');
-  const land=$('#orientation').value==='landscape';
-  $('#pageStyle').textContent='@page{size:'+(land?wh[1]+' '+wh[0]:wh[0]+' '+wh[1])+';margin:'+marginMm()+'mm}'}
+function syncTitle() {
+  document.title = ($('#filename').value.trim() || '未命名文件') + '｜Word 文件簡易編輯器';
+}
+const PAGE = { a4: '210mm 297mm', letter: '216mm 279mm', legal: '216mm 356mm' };
+function marginMm() {
+  const v = parseFloat($('#marginMm').value);
+  return isFinite(v) ? Math.max(0, Math.min(40, v)) : 12;
+}
+function applyPageStyle() {
+  const wh = (PAGE[$('#pageSize').value] || PAGE.a4).split(' ');
+  const land = $('#orientation').value === 'landscape';
+  $('#pageStyle').textContent =
+    '@page{size:' + (land ? wh[1] + ' ' + wh[0] : wh[0] + ' ' + wh[1]) + ';margin:' + marginMm() + 'mm}';
+}
 
 // ---- 插入內容：優先用 Range（execCommand 在沒有游標範圍時會甚麼都不做）----
 // 插入 HTML。重點：只有「貼上」才會覆蓋選取內容；插入圖片／表格一律不動既有內容，
 // 而且任何 Range 例外都要退回附加，絕不能像舊寫法那樣先刪掉內容才失敗。
-function insertHtmlAtCaret(html,opts){
-  const replaceSel=!!(opts&&opts.replaceSel);
-  const t=document.createElement('template');t.innerHTML=html;
-  const frag=t.content,last=frag.lastChild;
-  const blocky=/^\s*<(p|div|table|ul|ol|h[1-6]|blockquote|pre)\b/i.test(html);
-  let r=null;
-  try{const sel=getSelection();
-    if(sel.rangeCount){const c=sel.getRangeAt(0);
-      if(editor.contains(c.startContainer)&&editor.contains(c.endContainer))r=c.cloneRange()}
-  }catch(e){r=null}
+function insertHtmlAtCaret(html, opts) {
+  const replaceSel = !!(opts && opts.replaceSel);
+  const t = document.createElement('template');
+  t.innerHTML = html;
+  const frag = t.content,
+    last = frag.lastChild;
+  const blocky = /^\s*<(p|div|table|ul|ol|h[1-6]|blockquote|pre)\b/i.test(html);
+  let r = null;
+  try {
+    const sel = getSelection();
+    if (sel.rangeCount) {
+      const c = sel.getRangeAt(0);
+      if (editor.contains(c.startContainer) && editor.contains(c.endContainer)) r = c.cloneRange();
+    }
+  } catch (e) {
+    r = null;
+  }
   // 插入的是整塊內容（段落／表格／清單）而且游標在某一塊裡面 → 插在那一塊後面，
   // 否則會變成 <p><p>…</p></p> 這種疊在一起的 DOM
-  if(r&&blocky){
-    try{
-      const node=r.startContainer.nodeType===1?r.startContainer:r.startContainer.parentElement;
-      const host=node&&node.closest?node.closest('p,li,h1,h2,h3,h4,h5,h6,blockquote,pre,td,th'):null;
-      if(host&&editor.contains(host)){
-        if(replaceSel)r.deleteContents();
-        let ref=host;const nodes=[...frag.childNodes];
-        if(replaceSel&&nodes.length&&!host.textContent.trim()&&!host.querySelector('img,table')){
-          host.replaceWith(...nodes);ref=nodes[nodes.length-1];   // 整段被取代掉就換掉它，不留空段落
-        }else for(const n of nodes){ref.after(n);ref=n}
-        const sel=getSelection();const rr=document.createRange();rr.setStartAfter(ref);rr.collapse(true);
-        sel.removeAllRanges();sel.addRange(rr);
-        return true}
-    }catch(e){/* 落回下面的插入方式 */}
+  if (r && blocky) {
+    try {
+      const node = r.startContainer.nodeType === 1 ? r.startContainer : r.startContainer.parentElement;
+      const host = node && node.closest ? node.closest('p,li,h1,h2,h3,h4,h5,h6,blockquote,pre,td,th') : null;
+      if (host && editor.contains(host)) {
+        if (replaceSel) r.deleteContents();
+        let ref = host;
+        const nodes = [...frag.childNodes];
+        if (replaceSel && nodes.length && !host.textContent.trim() && !host.querySelector('img,table')) {
+          host.replaceWith(...nodes);
+          ref = nodes[nodes.length - 1]; // 整段被取代掉就換掉它，不留空段落
+        } else
+          for (const n of nodes) {
+            ref.after(n);
+            ref = n;
+          }
+        const sel = getSelection();
+        const rr = document.createRange();
+        rr.setStartAfter(ref);
+        rr.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(rr);
+        return true;
+      }
+    } catch (e) {
+      /* 落回下面的插入方式 */
+    }
   }
-  if(r){
-    try{
-      if(replaceSel)r.deleteContents();else r.collapse(false);
+  if (r) {
+    try {
+      if (replaceSel) r.deleteContents();
+      else r.collapse(false);
       r.insertNode(frag);
-      const sel=getSelection();if(last){const after=document.createRange();after.setStartAfter(last);after.collapse(true);
-        sel.removeAllRanges();sel.addRange(after)}
-      return true
-    }catch(e){/* 落到下面的附加 */ }
+      const sel = getSelection();
+      if (last) {
+        const after = document.createRange();
+        after.setStartAfter(last);
+        after.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(after);
+      }
+      return true;
+    } catch (e) {
+      /* 落到下面的附加 */
+    }
   }
-  editor.insertAdjacentHTML('beforeend',html);
-  return true}
+  editor.insertAdjacentHTML('beforeend', html);
+  return true;
+}
 
-async function insertImageFile(file){if(!/^image\//.test(file.type))return msg('請選擇圖片檔。',true);
-  document.body.classList.add('statusbusy');msg('正在插入圖片…');
-  try{const src=await fileToDataUrl(file),small=await shrinkDataUrl(src);
-    editor.focus();insertHtmlAtCaret('<img src="'+small+'" alt="">');
+async function insertImageFile(file) {
+  if (!/^image\//.test(file.type)) return msg('請選擇圖片檔。', true);
+  document.body.classList.add('statusbusy');
+  msg('正在插入圖片…');
+  try {
+    const src = await fileToDataUrl(file),
+      small = await shrinkDataUrl(src);
+    editor.focus();
+    insertHtmlAtCaret('<img src="' + small + '" alt="">');
     saveDraft();
-    msg(small.length<src.length?'已插入圖片（自動縮圖 '+Math.round(src.length/1024)+'KB → '+Math.round(small.length/1024)+'KB）':'已插入圖片');
-  }catch(err){msg('插入圖片失敗：'+err.message,true)}finally{document.body.classList.remove('statusbusy')}}
-$('#imgBtn').onclick=()=>$('#imageFile').click();
-$('#imageFile').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)insertImageFile(f)};
-$('#tblBtn').onclick=()=>{const a=(prompt('插入表格：列 x 欄（第一列當標題列）','3x3')||'').trim();if(!a)return;
-  const m=a.match(/^(\d{1,2})\s*[x×*,]\s*(\d{1,2})$/i);if(!m)return msg('格式請像 3x3 這樣。',true);
-  const rows=Math.max(1,Math.min(20,+m[1])),cols=Math.max(1,Math.min(10,+m[2]));
-  let h='<table><tr>';for(let c=1;c<=cols;c++)h+='<th>欄位 '+c+'</th>';h+='</tr>';
-  for(let r=1;r<rows;r++){h+='<tr>';for(let c=1;c<=cols;c++)h+='<td><br></td>';h+='</tr>'}
-  editor.focus();insertHtmlAtCaret(h+'</table><p><br></p>');saveDraft();msg('已插入 '+rows+'×'+cols+' 表格')};
-$('#linkBtn').onclick=()=>{const sel=getSelection(),text=sel.rangeCount?sel.toString():'';
-  const url=(prompt('連結網址（http:// 或 https://）','https://')||'').trim();if(!url)return;
-  if(!/^https?:\/\//i.test(url))return msg('只接受 http:// 或 https:// 開頭的網址。',true);
+    msg(
+      small.length < src.length
+        ? '已插入圖片（自動縮圖 ' +
+            Math.round(src.length / 1024) +
+            'KB → ' +
+            Math.round(small.length / 1024) +
+            'KB）'
+        : '已插入圖片',
+    );
+  } catch (err) {
+    msg('插入圖片失敗：' + err.message, true);
+  } finally {
+    document.body.classList.remove('statusbusy');
+  }
+}
+$('#imgBtn').onclick = () => $('#imageFile').click();
+$('#imageFile').onchange = e => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (f) insertImageFile(f);
+};
+$('#tblBtn').onclick = () => {
+  const a = (prompt('插入表格：列 x 欄（第一列當標題列）', '3x3') || '').trim();
+  if (!a) return;
+  const m = a.match(/^(\d{1,2})\s*[x×*,]\s*(\d{1,2})$/i);
+  if (!m) return msg('格式請像 3x3 這樣。', true);
+  const rows = Math.max(1, Math.min(20, +m[1])),
+    cols = Math.max(1, Math.min(10, +m[2]));
+  let h = '<table><tr>';
+  for (let c = 1; c <= cols; c++) h += '<th>欄位 ' + c + '</th>';
+  h += '</tr>';
+  for (let r = 1; r < rows; r++) {
+    h += '<tr>';
+    for (let c = 1; c <= cols; c++) h += '<td><br></td>';
+    h += '</tr>';
+  }
   editor.focus();
-  if(text&&sel.rangeCount&&editor.contains(sel.anchorNode))document.execCommand('createLink',false,url);
-  else insertHtmlAtCaret('<a href="'+url.replace(/"/g,'%22')+'">'+url.replace(/[<>&]/g,'')+'</a>');
-  saveDraft();msg('已插入連結')};
+  insertHtmlAtCaret(h + '</table><p><br></p>');
+  saveDraft();
+  msg('已插入 ' + rows + '×' + cols + ' 表格');
+};
+$('#linkBtn').onclick = () => {
+  const sel = getSelection(),
+    text = sel.rangeCount ? sel.toString() : '';
+  const url = (prompt('連結網址（http:// 或 https://）', 'https://') || '').trim();
+  if (!url) return;
+  if (!/^https?:\/\//i.test(url)) return msg('只接受 http:// 或 https:// 開頭的網址。', true);
+  editor.focus();
+  if (text && sel.rangeCount && editor.contains(sel.anchorNode))
+    document.execCommand('createLink', false, url);
+  else insertHtmlAtCaret('<a href="' + url.replace(/"/g, '%22') + '">' + url.replace(/[<>&]/g, '') + '</a>');
+  saveDraft();
+  msg('已插入連結');
+};
 
 // ---- 保版面匯入：頁首／頁尾（列印時每頁重複）與文件自己的紙張設定 ----
 // 頁碼用 canvas 畫成圖再貼進 PDF：jsPDF 內建字型不含中文，直接 text() 會變亂碼或空白
-function pageNumStamp(pdf,i,n){
-  const scale=3,text='第 '+i+' 頁 / 共 '+n+' 頁',font=(9*scale)+'px "Microsoft JhengHei","Noto Sans TC",sans-serif';
-  const c=document.createElement('canvas'),m=c.getContext('2d');m.font=font;
-  const w=Math.ceil(m.measureText(text).width)+8*scale,h=15*scale;
-  c.width=w;c.height=h;
-  const g=c.getContext('2d');g.font=font;g.fillStyle='#666';g.textBaseline='middle';
-  g.fillText(text,4*scale,h/2);
-  const px=25.4/96,mmW=w/scale*px,mmH=h/scale*px;
-  const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
-  pdf.addImage(c.toDataURL('image/png'),'PNG',(pw-mmW)/2,ph-mmH-2,mmW,mmH)}
+function pageNumStamp(pdf, i, n) {
+  const scale = 3,
+    text = '第 ' + i + ' 頁 / 共 ' + n + ' 頁',
+    font = 9 * scale + 'px "Microsoft JhengHei","Noto Sans TC",sans-serif';
+  const c = document.createElement('canvas'),
+    m = c.getContext('2d');
+  m.font = font;
+  const w = Math.ceil(m.measureText(text).width) + 8 * scale,
+    h = 15 * scale;
+  c.width = w;
+  c.height = h;
+  const g = c.getContext('2d');
+  g.font = font;
+  g.fillStyle = '#666';
+  g.textBaseline = 'middle';
+  g.fillText(text, 4 * scale, h / 2);
+  const px = 25.4 / 96,
+    mmW = (w / scale) * px,
+    mmH = (h / scale) * px;
+  const pw = pdf.internal.pageSize.getWidth(),
+    ph = pdf.internal.pageSize.getHeight();
+  pdf.addImage(c.toDataURL('image/png'), 'PNG', (pw - mmW) / 2, ph - mmH - 2, mmW, mmH);
+}
 
-function pageEdges(header,footer){
-  document.querySelectorAll('.pageedge').forEach((e)=>e.remove());
-  const wrap=document.querySelector('.wrap');
-  const add=(cls,html)=>{if(!html)return;const d=document.createElement('div');d.className='pageedge '+cls;d.setAttribute('aria-hidden','true');d.innerHTML=sanitizeHtml(html);wrap.appendChild(d)};
-  add('head',header);add('foot',footer)}
-function applyDocumentPage(pg){
-  if(!pg)return;
-  editor.style.width=pg.w+'mm';editor.style.minHeight=pg.h+'mm';
-  editor.style.padding=[pg.top,pg.right,pg.bottom,pg.left].map((v)=>v+'mm').join(' ');
-  editor.dataset.customPage='1';
-  $('#pageStyle').textContent='@page{size:'+pg.w+'mm '+pg.h+'mm;margin:'+[pg.top,pg.right,pg.bottom,pg.left].map((v)=>v+'mm').join(' ')+'}'}
-function clearDocumentPage(){
-  if(editor.dataset.customPage!=='1')return;
+function pageEdges(header, footer) {
+  document.querySelectorAll('.pageedge').forEach(e => e.remove());
+  const wrap = document.querySelector('.wrap');
+  const add = (cls, html) => {
+    if (!html) return;
+    const d = document.createElement('div');
+    d.className = 'pageedge ' + cls;
+    d.setAttribute('aria-hidden', 'true');
+    d.innerHTML = sanitizeHtml(html);
+    wrap.appendChild(d);
+  };
+  add('head', header);
+  add('foot', footer);
+}
+function applyDocumentPage(pg) {
+  if (!pg) return;
+  editor.style.width = pg.w + 'mm';
+  editor.style.minHeight = pg.h + 'mm';
+  editor.style.padding = [pg.top, pg.right, pg.bottom, pg.left].map(v => v + 'mm').join(' ');
+  editor.dataset.customPage = '1';
+  $('#pageStyle').textContent =
+    '@page{size:' +
+    pg.w +
+    'mm ' +
+    pg.h +
+    'mm;margin:' +
+    [pg.top, pg.right, pg.bottom, pg.left].map(v => v + 'mm').join(' ') +
+    '}';
+}
+function clearDocumentPage() {
+  if (editor.dataset.customPage !== '1') return;
   delete editor.dataset.customPage;
-  editor.style.width='';editor.style.minHeight='';editor.style.padding='';applyPageStyle();fit()}
-function setDocInfo(text){$('#docinfo').textContent=text||''}
+  editor.style.width = '';
+  editor.style.minHeight = '';
+  editor.style.padding = '';
+  applyPageStyle();
+  fit();
+}
+function setDocInfo(text) {
+  $('#docinfo').textContent = text || '';
+}
 
 // ---- 表格編輯：只有游標在表格內才有作用 ----
-function cellOfCaret(){const sel=getSelection();if(!sel.rangeCount)return null;
-  const n=sel.anchorNode,el=n&&(n.nodeType===1?n:n.parentElement);
-  const cell=el&&el.closest?el.closest('td,th'):null;
-  return cell&&editor.contains(cell)?cell:null}
-function tableOp(kind){
-  const cell=cellOfCaret();
-  if(!cell)return msg('請先把游標放在表格內，再按表格編輯。',true);
-  const table=cell.closest('table'),row=cell.closest('tr'),rows=[...table.rows];
-  const hasMerged=!!table.querySelector('[colspan],[rowspan]');
-  if(kind==='addRow'){
-    const clone=row.cloneNode(true);
-    [...clone.children].forEach(td=>{td.removeAttribute('rowspan');td.innerHTML='<br>'});
-    row.after(clone);msg('已在下方插入一列')}
-  else if(kind==='delRow'){
-    if(rows.length<2)return msg('表格至少要留一列。',true);
-    row.remove();msg('已刪除這一列')}
-  else{
-    if(hasMerged)return msg('這個表格有合併儲存格，暫時不支援插入／刪除欄。',true);
-    const idx=[...row.children].indexOf(cell);
-    if(kind==='delCol'&&[...row.children].length<2)return msg('表格至少要留一欄。',true);
-    rows.forEach(tr=>{const cells=[...tr.children];if(!cells[idx])return;
-      if(kind==='addCol'){const nd=document.createElement(cells[idx].tagName==='TH'?'th':'td');nd.innerHTML='<br>';cells[idx].after(nd)}
-      else cells[idx].remove()});
-    msg(kind==='addCol'?'已在右側插入一欄':'已刪除這一欄')}
-  saveDraft()}
-$('#pbBtn').onclick=()=>{editor.focus();
+function cellOfCaret() {
+  const sel = getSelection();
+  if (!sel.rangeCount) return null;
+  const n = sel.anchorNode,
+    el = n && (n.nodeType === 1 ? n : n.parentElement);
+  const cell = el && el.closest ? el.closest('td,th') : null;
+  return cell && editor.contains(cell) ? cell : null;
+}
+function tableOp(kind) {
+  const cell = cellOfCaret();
+  if (!cell) return msg('請先把游標放在表格內，再按表格編輯。', true);
+  const table = cell.closest('table'),
+    row = cell.closest('tr'),
+    rows = [...table.rows];
+  const hasMerged = !!table.querySelector('[colspan],[rowspan]');
+  if (kind === 'addRow') {
+    const clone = row.cloneNode(true);
+    [...clone.children].forEach(td => {
+      td.removeAttribute('rowspan');
+      td.innerHTML = '<br>';
+    });
+    row.after(clone);
+    msg('已在下方插入一列');
+  } else if (kind === 'delRow') {
+    if (rows.length < 2) return msg('表格至少要留一列。', true);
+    row.remove();
+    msg('已刪除這一列');
+  } else {
+    if (hasMerged) return msg('這個表格有合併儲存格，暫時不支援插入／刪除欄。', true);
+    const idx = [...row.children].indexOf(cell);
+    if (kind === 'delCol' && [...row.children].length < 2) return msg('表格至少要留一欄。', true);
+    rows.forEach(tr => {
+      const cells = [...tr.children];
+      if (!cells[idx]) return;
+      if (kind === 'addCol') {
+        const nd = document.createElement(cells[idx].tagName === 'TH' ? 'th' : 'td');
+        nd.innerHTML = '<br>';
+        cells[idx].after(nd);
+      } else cells[idx].remove();
+    });
+    msg(kind === 'addCol' ? '已在右側插入一欄' : '已刪除這一欄');
+  }
+  saveDraft();
+}
+$('#pbBtn').onclick = () => {
+  editor.focus();
   insertHtmlAtCaret('<div class="pagebreak" contenteditable="false"></div>');
-  saveDraft();msg('已插入分頁：列印與 Word 匯出都會從這裡換頁')};
-$('#rowAddBtn').onclick=()=>tableOp('addRow');
-$('#colAddBtn').onclick=()=>tableOp('addCol');
-$('#rowDelBtn').onclick=()=>tableOp('delRow');
-$('#colDelBtn').onclick=()=>tableOp('delCol');
+  saveDraft();
+  msg('已插入分頁：列印與 Word 匯出都會從這裡換頁');
+};
+$('#rowAddBtn').onclick = () => tableOp('addRow');
+$('#colAddBtn').onclick = () => tableOp('addCol');
+$('#rowDelBtn').onclick = () => tableOp('delRow');
+$('#colDelBtn').onclick = () => tableOp('delCol');
 
 // ---- 拖放 .docx／圖片到頁面上 ----
-['dragenter','dragover'].forEach(ev=>document.addEventListener(ev,e=>{
-  if(e.dataTransfer&&[...(e.dataTransfer.types||[])].includes('Files')){e.preventDefault();document.body.classList.add('dragging')}}));
-['dragleave','drop'].forEach(ev=>document.addEventListener(ev,()=>document.body.classList.remove('dragging')));
-document.addEventListener('drop',e=>{const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(!f)return;e.preventDefault();
-  if(/\.docx$/i.test(f.name))openDocx(f);
-  else if(/\.doc$/i.test(f.name))msg('舊版 .doc 無法由純瀏覽器可靠解析，請先用 Word 或 LibreOffice 另存為 .docx。',true);
-  else if(/^image\//.test(f.type))insertImageFile(f);
-  else msg('只支援 .docx 與圖片檔。',true)});
-$('.toolbar').addEventListener('mousedown',e=>{if(e.target.closest('.tool'))e.preventDefault()});$('.tools').addEventListener('click',e=>{const b=e.target.closest('[data-cmd]');if(!b)return;editor.focus();document.execCommand(b.dataset.cmd,false,null);syncToolbar()});$('#fontSize').onchange=e=>{editor.focus();document.execCommand('fontSize',false,e.target.value)};$('#blockStyle').onchange=e=>{editor.focus();document.execCommand('formatBlock',false,e.target.value);syncToolbar()};let saveT,draftWarned=false;
-function draftSlim(html){return html.replace(/<img\b[^>]*>/gi,m=>/src\s*=\s*["']?data:/i.test(m)?'<span class="img-drop">（圖片未存入草稿）</span>':m)}
-function writeDraft(html){localStorage.setItem('draft',JSON.stringify({v:2,html,name:$('#filename').value,at:Date.now()}))}
+['dragenter', 'dragover'].forEach(ev =>
+  document.addEventListener(ev, e => {
+    if (e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files')) {
+      e.preventDefault();
+      document.body.classList.add('dragging');
+    }
+  }),
+);
+['dragleave', 'drop'].forEach(ev =>
+  document.addEventListener(ev, () => document.body.classList.remove('dragging')),
+);
+document.addEventListener('drop', e => {
+  const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (!f) return;
+  e.preventDefault();
+  if (/\.docx$/i.test(f.name)) openDocx(f);
+  else if (/\.doc$/i.test(f.name))
+    msg('舊版 .doc 無法由純瀏覽器可靠解析，請先用 Word 或 LibreOffice 另存為 .docx。', true);
+  else if (/^image\//.test(f.type)) insertImageFile(f);
+  else msg('只支援 .docx 與圖片檔。', true);
+});
+$('.toolbar').addEventListener('mousedown', e => {
+  if (e.target.closest('.tool')) e.preventDefault();
+});
+$('.tools').addEventListener('click', e => {
+  const b = e.target.closest('[data-cmd]');
+  if (!b) return;
+  editor.focus();
+  document.execCommand(b.dataset.cmd, false, null);
+  syncToolbar();
+});
+$('#fontSize').onchange = e => {
+  editor.focus();
+  document.execCommand('fontSize', false, e.target.value);
+};
+$('#blockStyle').onchange = e => {
+  editor.focus();
+  document.execCommand('formatBlock', false, e.target.value);
+  syncToolbar();
+};
+let saveT,
+  draftWarned = false;
+function draftSlim(html) {
+  return html.replace(/<img\b[^>]*>/gi, m =>
+    /src\s*=\s*["']?data:/i.test(m) ? '<span class="img-drop">（圖片未存入草稿）</span>' : m,
+  );
+}
+function writeDraft(html) {
+  localStorage.setItem('draft', JSON.stringify({ v: 2, html, name: $('#filename').value, at: Date.now() }));
+}
 // 草稿存不進去時要說清楚（舊版靜默失敗，使用者以為存好了，其實還是舊的草稿）
-function saveDraft(){try{writeDraft(editor.innerHTML);draftWarned=false;
-  const t=new Date();msg('已自動儲存草稿 '+String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0'))}
-  catch(e){try{writeDraft(draftSlim(editor.innerHTML));if(!draftWarned){msg('草稿超過瀏覽器容量：圖片沒有存進草稿（文字已保存）。要完整保存請按「儲存 HTML」。',true);draftWarned=true}}
-    catch(e2){if(!draftWarned){msg('無法自動儲存草稿（瀏覽器空間不足），請按「儲存 HTML」保存。',true);draftWarned=true}}}}
-editor.oninput=()=>{msg('內容已修改，尚未儲存…');clearTimeout(saveT);saveT=setTimeout(saveDraft,800)};
-$('#filename').oninput=()=>{syncTitle();clearTimeout(saveT);saveT=setTimeout(saveDraft,800)};
-try{const d=JSON.parse(localStorage.getItem('draft'));if(d&&d.html){editor.innerHTML=sanitizeHtml(d.html);$('#filename').value=d.name||'未命名文件';
-  msg('已還原上次的草稿'+(d.at?'（'+new Date(d.at).toLocaleString('zh-TW',{hour12:false}).slice(0,-3)+'）':''))}}catch(e){}
-syncTitle();applyPageStyle();
-document.addEventListener('visibilitychange',()=>{if(document.hidden)saveDraft()});
-$('#newBtn').onclick=()=>{if(!confirm('清除目前內容並開新文件？未匯出的內容將遺失。'))return;try{localStorage.removeItem('draft')}catch(e){}editor.innerHTML='<h1>文件標題</h1><p>可直接在此輸入或貼上內容。</p>';$('#filename').value='未命名文件';clearDocumentPage();pageEdges(null,null);setDocInfo('');syncTitle();hits=[];hi=-1;$('#findList').innerHTML='';$('#findRes').classList.remove('show');notice.style.display='none';msg('已開新文件')};$('#openBtn').onclick=()=>$('#file').click();
-$('#file').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)openDocx(f)};
-async function openDocx(file){
-  if(file.size>60*1024*1024)return msg('檔案超過 60MB，瀏覽器可能無法處理，請先簡化內容。',true);
-  notice.style.display='none';document.body.classList.add('statusbusy');msg('正在解析 DOCX…');
-  try{
-    const buf=await file.arrayBuffer();
-    if($('#fidelityImport')&&$('#fidelityImport').checked){
-      try{
+function saveDraft() {
+  try {
+    writeDraft(editor.innerHTML);
+    draftWarned = false;
+    const t = new Date();
+    msg(
+      '已自動儲存草稿 ' +
+        String(t.getHours()).padStart(2, '0') +
+        ':' +
+        String(t.getMinutes()).padStart(2, '0'),
+    );
+  } catch (e) {
+    try {
+      writeDraft(draftSlim(editor.innerHTML));
+      if (!draftWarned) {
+        msg('草稿超過瀏覽器容量：圖片沒有存進草稿（文字已保存）。要完整保存請按「儲存 HTML」。', true);
+        draftWarned = true;
+      }
+    } catch (e2) {
+      if (!draftWarned) {
+        msg('無法自動儲存草稿（瀏覽器空間不足），請按「儲存 HTML」保存。', true);
+        draftWarned = true;
+      }
+    }
+  }
+}
+editor.oninput = () => {
+  msg('內容已修改，尚未儲存…');
+  clearTimeout(saveT);
+  saveT = setTimeout(saveDraft, 800);
+};
+$('#filename').oninput = () => {
+  syncTitle();
+  clearTimeout(saveT);
+  saveT = setTimeout(saveDraft, 800);
+};
+try {
+  const d = JSON.parse(localStorage.getItem('draft'));
+  if (d && d.html) {
+    editor.innerHTML = sanitizeHtml(d.html);
+    $('#filename').value = d.name || '未命名文件';
+    msg(
+      '已還原上次的草稿' +
+        (d.at ? '（' + new Date(d.at).toLocaleString('zh-TW', { hour12: false }).slice(0, -3) + '）' : ''),
+    );
+  }
+} catch (e) {}
+syncTitle();
+applyPageStyle();
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) saveDraft();
+});
+$('#newBtn').onclick = () => {
+  if (!confirm('清除目前內容並開新文件？未匯出的內容將遺失。')) return;
+  try {
+    localStorage.removeItem('draft');
+  } catch (e) {}
+  editor.innerHTML = '<h1>文件標題</h1><p>可直接在此輸入或貼上內容。</p>';
+  $('#filename').value = '未命名文件';
+  clearDocumentPage();
+  pageEdges(null, null);
+  setDocInfo('');
+  syncTitle();
+  hits = [];
+  hi = -1;
+  $('#findList').innerHTML = '';
+  $('#findRes').classList.remove('show');
+  notice.style.display = 'none';
+  msg('已開新文件');
+};
+$('#openBtn').onclick = () => $('#file').click();
+$('#file').onchange = e => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (f) openDocx(f);
+};
+async function openDocx(file) {
+  if (file.size > 60 * 1024 * 1024) return msg('檔案超過 60MB，瀏覽器可能無法處理，請先簡化內容。', true);
+  notice.style.display = 'none';
+  document.body.classList.add('statusbusy');
+  msg('正在解析 DOCX…');
+  try {
+    const buf = await file.arrayBuffer();
+    if ($('#fidelityImport') && $('#fidelityImport').checked) {
+      try {
         msg('正在解析 DOCX（保版面模式）…');
-        await loadScript('./docx-fidelity.js','docxFidelity');
-        const r=await window.docxFidelity.convert(buf);
-        const plain=(r&&r.html?r.html:'').replace(/<[^>]+>/g,'').trim();
-        if(plain){
-          editor.innerHTML=sanitizeHtml(r.html);
-          pageEdges(r.header,r.footer);
+        await loadScript('./docx-fidelity.js', 'docxFidelity');
+        const r = await window.docxFidelity.convert(buf);
+        const plain = (r && r.html ? r.html : '').replace(/<[^>]+>/g, '').trim();
+        if (plain) {
+          editor.innerHTML = sanitizeHtml(r.html);
+          pageEdges(r.header, r.footer);
           applyDocumentPage(r.page);
-          const bits=[];
-          if(r.page)bits.push('紙張 '+r.page.w+'×'+r.page.h+'mm');
-          if(r.lists)bits.push(r.lists+' 個清單');
-          if(r.breaks)bits.push(r.breaks+' 個分頁');
-          if(r.header)bits.push('頁首');
-          if(r.footer)bits.push('頁尾');
-          setDocInfo('保版面匯入'+(bits.length?'：'+bits.join('、'):''));
-          $('#filename').value=file.name.replace(/\.docx$/i,'');syncTitle();
-          hits=[];hi=-1;$('#findList').innerHTML='';$('#findRes').classList.remove('show');
+          const bits = [];
+          if (r.page) bits.push('紙張 ' + r.page.w + '×' + r.page.h + 'mm');
+          if (r.lists) bits.push(r.lists + ' 個清單');
+          if (r.breaks) bits.push(r.breaks + ' 個分頁');
+          if (r.header) bits.push('頁首');
+          if (r.footer) bits.push('頁尾');
+          setDocInfo('保版面匯入' + (bits.length ? '：' + bits.join('、') : ''));
+          $('#filename').value = file.name.replace(/\.docx$/i, '');
+          syncTitle();
+          hits = [];
+          hi = -1;
+          $('#findList').innerHTML = '';
+          $('#findRes').classList.remove('show');
           saveDraft();
-          msg(r.warnings&&r.warnings.length?('已用保版面模式匯入；'+r.warnings.join('；')):'已用保版面模式匯入（紙張、頁首頁尾、分頁、字型都帶進來了）',!!(r.warnings&&r.warnings.length));
+          msg(
+            r.warnings && r.warnings.length
+              ? '已用保版面模式匯入；' + r.warnings.join('；')
+              : '已用保版面模式匯入（紙張、頁首頁尾、分頁、字型都帶進來了）',
+            !!(r.warnings && r.warnings.length),
+          );
           return;
         }
-      }catch(err){/* 保版面失敗就退回 mammoth */}
+      } catch (err) {
+        /* 保版面失敗就退回 mammoth */
+      }
     }
-    clearDocumentPage();pageEdges(null,null);
-    await loadScript(LIB.mammoth,'mammoth');
-    const result=await mammoth.convertToHtml({arrayBuffer:buf},
-      {styleMap:[
-        "p[style-name='Title'] => h1:fresh","p[style-name='標題'] => h1:fresh",
-        "p[style-name='Subtitle'] => p.subtitle:fresh","p[style-name='副標題'] => p.subtitle:fresh",
-        "p[style-name='Heading 1'] => h1:fresh","p[style-name='heading 1'] => h1:fresh","p[style-name='標題 1'] => h1:fresh",
-        "p[style-name='Heading 2'] => h2:fresh","p[style-name='heading 2'] => h2:fresh","p[style-name='標題 2'] => h2:fresh",
-        "p[style-name='Heading 3'] => h3:fresh","p[style-name='heading 3'] => h3:fresh","p[style-name='標題 3'] => h3:fresh",
-        "p[style-name='Heading 4'] => h4:fresh","p[style-name='heading 4'] => h4:fresh","p[style-name='標題 4'] => h4:fresh",
-        "p[style-name='Heading 5'] => h4:fresh","p[style-name='標題 5'] => h4:fresh",
-        "p[style-name='Heading 6'] => h4:fresh","p[style-name='標題 6'] => h4:fresh",
-        "p[style-name='Quote'] => blockquote:fresh","p[style-name='Intense Quote'] => blockquote:fresh",
-        "p[style-name='引言'] => blockquote:fresh","p[style-name='引文'] => blockquote:fresh",
-        "p[style-name='Caption'] => p.caption:fresh","p[style-name='圖表標題'] => p.caption:fresh","p[style-name='圖說'] => p.caption:fresh",
-        "r[style-name='Strong'] => strong","r[style-name='Emphasis'] => em"]});
-    editor.innerHTML=sanitizeHtml(result.value||'<p></p>');   // docx 內的連結／事件屬性一律先清掉
+    clearDocumentPage();
+    pageEdges(null, null);
+    await loadScript(LIB.mammoth, 'mammoth');
+    const result = await mammoth.convertToHtml(
+      { arrayBuffer: buf },
+      {
+        styleMap: [
+          "p[style-name='Title'] => h1:fresh",
+          "p[style-name='標題'] => h1:fresh",
+          "p[style-name='Subtitle'] => p.subtitle:fresh",
+          "p[style-name='副標題'] => p.subtitle:fresh",
+          "p[style-name='Heading 1'] => h1:fresh",
+          "p[style-name='heading 1'] => h1:fresh",
+          "p[style-name='標題 1'] => h1:fresh",
+          "p[style-name='Heading 2'] => h2:fresh",
+          "p[style-name='heading 2'] => h2:fresh",
+          "p[style-name='標題 2'] => h2:fresh",
+          "p[style-name='Heading 3'] => h3:fresh",
+          "p[style-name='heading 3'] => h3:fresh",
+          "p[style-name='標題 3'] => h3:fresh",
+          "p[style-name='Heading 4'] => h4:fresh",
+          "p[style-name='heading 4'] => h4:fresh",
+          "p[style-name='標題 4'] => h4:fresh",
+          "p[style-name='Heading 5'] => h4:fresh",
+          "p[style-name='標題 5'] => h4:fresh",
+          "p[style-name='Heading 6'] => h4:fresh",
+          "p[style-name='標題 6'] => h4:fresh",
+          "p[style-name='Quote'] => blockquote:fresh",
+          "p[style-name='Intense Quote'] => blockquote:fresh",
+          "p[style-name='引言'] => blockquote:fresh",
+          "p[style-name='引文'] => blockquote:fresh",
+          "p[style-name='Caption'] => p.caption:fresh",
+          "p[style-name='圖表標題'] => p.caption:fresh",
+          "p[style-name='圖說'] => p.caption:fresh",
+          "r[style-name='Strong'] => strong",
+          "r[style-name='Emphasis'] => em",
+        ],
+      },
+    );
+    editor.innerHTML = sanitizeHtml(result.value || '<p></p>'); // docx 內的連結／事件屬性一律先清掉
     setDocInfo('一般匯入（只保留內容與部分樣式；要帶入紙張／頁首頁尾請勾「保版面」）');
-    $('#filename').value=file.name.replace(/\.docx$/i,'');syncTitle();
-    hits=[];hi=-1;$('#findList').innerHTML='';$('#findRes').classList.remove('show');
+    $('#filename').value = file.name.replace(/\.docx$/i, '');
+    syncTitle();
+    hits = [];
+    hi = -1;
+    $('#findList').innerHTML = '';
+    $('#findRes').classList.remove('show');
     saveDraft();
-    msg(result.messages.length?'載入完成；複雜格式可能無法完整保留':'載入完成，可開始編輯',!!result.messages.length);
-  }catch(err){msg('開啟失敗：'+err.message,true)}
-  finally{document.body.classList.remove('statusbusy')}};
-$('#saveBtn').onclick=()=>{const title=safeName('文件');const html='<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>'+xmlEsc(title)+'</title><style>body{font-family:"Microsoft JhengHei",sans-serif;line-height:1.75;max-width:210mm;margin:20px auto;padding:18mm}table{border-collapse:collapse;width:100%}th,td{border:1px solid #999;padding:6px}img{max-width:100%}</style></head><body>'+editor.innerHTML+'</body></html>';download(new Blob([html],{type:'text/html;charset=utf-8'}),title+'.html');msg('HTML 已下載')};
+    msg(
+      result.messages.length ? '載入完成；複雜格式可能無法完整保留' : '載入完成，可開始編輯',
+      !!result.messages.length,
+    );
+  } catch (err) {
+    msg('開啟失敗：' + err.message, true);
+  } finally {
+    document.body.classList.remove('statusbusy');
+  }
+}
+$('#saveBtn').onclick = () => {
+  const title = safeName('文件');
+  const html =
+    '<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>' +
+    xmlEsc(title) +
+    '</title><style>body{font-family:"Microsoft JhengHei",sans-serif;line-height:1.75;max-width:210mm;margin:20px auto;padding:18mm}table{border-collapse:collapse;width:100%}th,td{border:1px solid #999;padding:6px}img{max-width:100%}</style></head><body>' +
+    editor.innerHTML +
+    '</body></html>';
+  download(new Blob([html], { type: 'text/html;charset=utf-8' }), title + '.html');
+  msg('HTML 已下載');
+};
 
 // ================= 匯出 Word（.docx）：自帶 ZIP 寫入器 ＋ OOXML，零外部依賴 =================
-const DOCX_PAGE={a4:[11906,16838],letter:[12240,15840],legal:[12240,20160]};
-const DOCX_FONT='Microsoft JhengHei';
-function xmlEsc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]))}
-const CRC_TBL=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0}return t})();
-function crc32(u8){let c=0xFFFFFFFF;for(let i=0;i<u8.length;i++)c=CRC_TBL[(c^u8[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0}
+const DOCX_PAGE = { a4: [11906, 16838], letter: [12240, 15840], legal: [12240, 20160] };
+const DOCX_FONT = 'Microsoft JhengHei';
+function xmlEsc(v) {
+  return String(v == null ? '' : v).replace(
+    /[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c],
+  );
+}
+const CRC_TBL = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(u8) {
+  let c = 0xffffffff;
+  for (let i = 0; i < u8.length; i++) c = CRC_TBL[(c ^ u8[i]) & 255] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
 // ZIP（store，不壓縮：docx 不需要壓縮率，換來的是完全不用外部套件）
-function zipStore(files){const enc=new TextEncoder(),local=[],central=[];let off=0;
-  const d=new Date(),tm=((d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1))&0xFFFF,
-    dt=(((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate())&0xFFFF;
-  for(const f of files){const name=enc.encode(f.name),data=f.data,crc=crc32(data);
-    const lh=new Uint8Array(30+name.length),lv=new DataView(lh.buffer);
-    lv.setUint32(0,0x04034b50,true);lv.setUint16(4,20,true);lv.setUint16(6,0x0800,true);lv.setUint16(8,0,true);
-    lv.setUint16(10,tm,true);lv.setUint16(12,dt,true);lv.setUint32(14,crc,true);
-    lv.setUint32(18,data.length,true);lv.setUint32(22,data.length,true);
-    lv.setUint16(26,name.length,true);lv.setUint16(28,0,true);lh.set(name,30);
-    local.push(lh,data);
-    const ch=new Uint8Array(46+name.length),cv=new DataView(ch.buffer);
-    cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);cv.setUint16(8,0x0800,true);cv.setUint16(10,0,true);
-    cv.setUint16(12,tm,true);cv.setUint16(14,dt,true);cv.setUint32(16,crc,true);
-    cv.setUint32(20,data.length,true);cv.setUint32(24,data.length,true);
-    cv.setUint16(28,name.length,true);cv.setUint16(30,0,true);cv.setUint16(32,0,true);cv.setUint16(34,0,true);cv.setUint16(36,0,true);
-    cv.setUint32(38,0,true);cv.setUint32(42,off,true);ch.set(name,46);
-    central.push(ch);off+=lh.length+data.length}
-  let cdLen=0;for(const c of central)cdLen+=c.length;
-  const eo=new Uint8Array(22),ev=new DataView(eo.buffer);
-  ev.setUint32(0,0x06054b50,true);ev.setUint16(8,files.length,true);ev.setUint16(10,files.length,true);
-  ev.setUint32(12,cdLen,true);ev.setUint32(16,off,true);ev.setUint16(20,0,true);
-  return new Blob([...local,...central,eo],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'})}
+function zipStore(files) {
+  const enc = new TextEncoder(),
+    local = [],
+    central = [];
+  let off = 0;
+  const d = new Date(),
+    tm = ((d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1)) & 0xffff,
+    dt = (((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate()) & 0xffff;
+  for (const f of files) {
+    const name = enc.encode(f.name),
+      data = f.data,
+      crc = crc32(data);
+    const lh = new Uint8Array(30 + name.length),
+      lv = new DataView(lh.buffer);
+    lv.setUint32(0, 0x04034b50, true);
+    lv.setUint16(4, 20, true);
+    lv.setUint16(6, 0x0800, true);
+    lv.setUint16(8, 0, true);
+    lv.setUint16(10, tm, true);
+    lv.setUint16(12, dt, true);
+    lv.setUint32(14, crc, true);
+    lv.setUint32(18, data.length, true);
+    lv.setUint32(22, data.length, true);
+    lv.setUint16(26, name.length, true);
+    lv.setUint16(28, 0, true);
+    lh.set(name, 30);
+    local.push(lh, data);
+    const ch = new Uint8Array(46 + name.length),
+      cv = new DataView(ch.buffer);
+    cv.setUint32(0, 0x02014b50, true);
+    cv.setUint16(4, 20, true);
+    cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0x0800, true);
+    cv.setUint16(10, 0, true);
+    cv.setUint16(12, tm, true);
+    cv.setUint16(14, dt, true);
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, data.length, true);
+    cv.setUint32(24, data.length, true);
+    cv.setUint16(28, name.length, true);
+    cv.setUint16(30, 0, true);
+    cv.setUint16(32, 0, true);
+    cv.setUint16(34, 0, true);
+    cv.setUint16(36, 0, true);
+    cv.setUint32(38, 0, true);
+    cv.setUint32(42, off, true);
+    ch.set(name, 46);
+    central.push(ch);
+    off += lh.length + data.length;
+  }
+  let cdLen = 0;
+  for (const c of central) cdLen += c.length;
+  const eo = new Uint8Array(22),
+    ev = new DataView(eo.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(8, files.length, true);
+  ev.setUint16(10, files.length, true);
+  ev.setUint32(12, cdLen, true);
+  ev.setUint32(16, off, true);
+  ev.setUint16(20, 0, true);
+  return new Blob([...local, ...central, eo], {
+    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  });
+}
 
 // 收集行內文字與樣式（b/i/u/code/font size、換行）
 // 顏色：inline style 的顏色轉成 RRGGBB（Word 的 w:color／w:shd 用）
-function toHex(v){if(!v)return '';v=String(v).trim();
-  if(/^#[0-9a-f]{3}$/i.test(v))return (v[1]+v[1]+v[2]+v[2]+v[3]+v[3]).toUpperCase();
-  if(/^#[0-9a-f]{6}$/i.test(v))return v.slice(1).toUpperCase();
-  const m=/^rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/i.exec(v);
-  if(m)return [1,2,3].map(i=>('0'+Math.max(0,Math.min(255,+m[i])).toString(16)).slice(-2)).join('').toUpperCase();
-  return ''}
+function toHex(v) {
+  if (!v) return '';
+  v = String(v).trim();
+  if (/^#[0-9a-f]{3}$/i.test(v)) return (v[1] + v[1] + v[2] + v[2] + v[3] + v[3]).toUpperCase();
+  if (/^#[0-9a-f]{6}$/i.test(v)) return v.slice(1).toUpperCase();
+  const m = /^rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/i.exec(v);
+  if (m)
+    return [1, 2, 3]
+      .map(i => ('0' + Math.max(0, Math.min(255, +m[i])).toString(16)).slice(-2))
+      .join('')
+      .toUpperCase();
+  return '';
+}
 // 段落對齊 → w:jc
-function jcOf(el){let v='';try{v=(el.style&&el.style.textAlign)||'';if(!v&&el.nodeType===1)v=getComputedStyle(el).textAlign||''}catch(e){}
-  v=String(v).toLowerCase();
-  if(v==='center')return 'center';if(v==='right'||v==='end')return 'right';if(v==='justify')return 'both';return ''}
+function jcOf(el) {
+  let v = '';
+  try {
+    v = (el.style && el.style.textAlign) || '';
+    if (!v && el.nodeType === 1) v = getComputedStyle(el).textAlign || '';
+  } catch (e) {}
+  v = String(v).toLowerCase();
+  if (v === 'center') return 'center';
+  if (v === 'right' || v === 'end') return 'right';
+  if (v === 'justify') return 'both';
+  return '';
+}
 // 把某個元素自己的標籤與行內樣式疊到 inherited 上（起始節點也要算，否則 <b>粗</b> 這種直接
 // 放在段落裡的行內元素會整個掉格式 —— 這是回讀測試抓到的）
-function nodeStyle(node,inherited){
-  const st=Object.assign({},inherited);
-  if(!node||node.nodeType!==1)return st;
-  const tag=node.tagName.toLowerCase();
-  if(tag==='b'||tag==='strong')st.b=true;
-  if(tag==='i'||tag==='em')st.i=true;
-  if(tag==='u')st.u=true;
-  if(tag==='code'||tag==='pre')st.mono=true;
-  if(tag==='mark'&&!st.shade)st.shade='FFFF00';
-  if(tag==='font'){const sz=+node.getAttribute('size');st.half=({2:20,3:22,4:26,5:32})[sz]||st.half}
-  try{const cs=node.style;
-    const c=cs&&cs.color?toHex(cs.color):'';if(c&&c!=='000000')st.color=c;
-    const bg=cs&&cs.backgroundColor?toHex(cs.backgroundColor):'';if(bg)st.shade=bg;
-  }catch(e){}
-  return st}
-function collectRuns(node,style,out){
-  const self=nodeStyle(node,style);
-  if(node.nodeType===3){if(node.nodeValue)out.push(Object.assign({text:node.nodeValue},style));return}
-  for(const ch of node.childNodes){
-    if(ch.nodeType===3){if(ch.nodeValue)out.push(Object.assign({text:ch.nodeValue},self));continue}
-    if(ch.nodeType!==1)continue;
-    const tag=ch.tagName.toLowerCase();
-    if(tag==='br'){out.push(Object.assign({text:'\n'},self));continue}
-    collectRuns(ch,self,out)}}
-function runsXml(runs){return runs.map(r=>{
-  const rPr=[r.b?'<w:b/>':'',r.i?'<w:i/>':'',r.u?'<w:u w:val="single"/>':'',
-    r.mono?'<w:rFonts w:ascii="Consolas" w:hAnsi="Consolas" w:eastAsia="Consolas"/>':'',
-    r.color?'<w:color w:val="'+r.color+'"/>':'',
-    r.shade?'<w:shd w:val="clear" w:color="auto" w:fill="'+r.shade+'"/>':'',
-    r.half?'<w:sz w:val="'+r.half+'"/><w:szCs w:val="'+r.half+'"/>':''].join('');
-  const body=String(r.text).split('\n').map((seg,i)=>(i?'<w:br/>':'')+'<w:t xml:space="preserve">'+xmlEsc(seg)+'</w:t>').join('');
-  return '<w:r>'+(rPr?'<w:rPr>'+rPr+'</w:rPr>':'')+body+'</w:r>'}).join('')}
+function nodeStyle(node, inherited) {
+  const st = Object.assign({}, inherited);
+  if (!node || node.nodeType !== 1) return st;
+  const tag = node.tagName.toLowerCase();
+  if (tag === 'b' || tag === 'strong') st.b = true;
+  if (tag === 'i' || tag === 'em') st.i = true;
+  if (tag === 'u') st.u = true;
+  if (tag === 'code' || tag === 'pre') st.mono = true;
+  if (tag === 'mark' && !st.shade) st.shade = 'FFFF00';
+  if (tag === 'font') {
+    const sz = +node.getAttribute('size');
+    st.half = { 2: 20, 3: 22, 4: 26, 5: 32 }[sz] || st.half;
+  }
+  try {
+    const cs = node.style;
+    const c = cs && cs.color ? toHex(cs.color) : '';
+    if (c && c !== '000000') st.color = c;
+    const bg = cs && cs.backgroundColor ? toHex(cs.backgroundColor) : '';
+    if (bg) st.shade = bg;
+  } catch (e) {}
+  return st;
+}
+function collectRuns(node, style, out) {
+  const self = nodeStyle(node, style);
+  if (node.nodeType === 3) {
+    if (node.nodeValue) out.push(Object.assign({ text: node.nodeValue }, style));
+    return;
+  }
+  for (const ch of node.childNodes) {
+    if (ch.nodeType === 3) {
+      if (ch.nodeValue) out.push(Object.assign({ text: ch.nodeValue }, self));
+      continue;
+    }
+    if (ch.nodeType !== 1) continue;
+    const tag = ch.tagName.toLowerCase();
+    if (tag === 'br') {
+      out.push(Object.assign({ text: '\n' }, self));
+      continue;
+    }
+    collectRuns(ch, self, out);
+  }
+}
+function runsXml(runs) {
+  return runs
+    .map(r => {
+      const rPr = [
+        r.b ? '<w:b/>' : '',
+        r.i ? '<w:i/>' : '',
+        r.u ? '<w:u w:val="single"/>' : '',
+        r.mono ? '<w:rFonts w:ascii="Consolas" w:hAnsi="Consolas" w:eastAsia="Consolas"/>' : '',
+        r.color ? '<w:color w:val="' + r.color + '"/>' : '',
+        r.shade ? '<w:shd w:val="clear" w:color="auto" w:fill="' + r.shade + '"/>' : '',
+        r.half ? '<w:sz w:val="' + r.half + '"/><w:szCs w:val="' + r.half + '"/>' : '',
+      ].join('');
+      const body = String(r.text)
+        .split('\n')
+        .map((seg, i) => (i ? '<w:br/>' : '') + '<w:t xml:space="preserve">' + xmlEsc(seg) + '</w:t>')
+        .join('');
+      return '<w:r>' + (rPr ? '<w:rPr>' + rPr + '</w:rPr>' : '') + body + '</w:r>';
+    })
+    .join('');
+}
 // 一段段落內的內容（含連結與圖片）
-function inlineXml(el,ctx,out){
-  for(const ch of el.childNodes){
-    if(ch.nodeType===3){const runs=[];collectRuns(ch,{},runs);if(runs.some(r=>r.text.trim()))out.push({runs});continue}
-    if(ch.nodeType!==1)continue;
-    const tag=ch.tagName.toLowerCase();
-    if(tag==='img'){const im=imageXml(ch,ctx);if(im)out.push({image:im});continue}
-    if(tag==='br'){out.push({runs:[{text:'\n'}]});continue}
-    if(tag==='a'){
-      const href=ch.getAttribute('href')||'';const runs=[];collectRuns(ch,{},runs);
-      if(/^https?:\/\//i.test(href))out.push({runs,rid:ctx.rel('hyperlink',href,true)});
-      else out.push({runs});
-      continue}
-    if(/^(span|font|b|strong|i|em|u|code|sub|sup|mark|small|time|label)$/.test(tag)){const runs=[];collectRuns(ch,{},runs);if(runs.length)out.push({runs});continue}
-    if(/^(ul|ol|table)$/i.test(tag))continue;          // 巢狀清單／表格由區塊層處理
-    inlineXml(ch,ctx,out)}}
-function imageXml(img,ctx){
-  let src=img.getAttribute('src')||'';let m=/^data:image\/(png|jpe?g|gif|webp|bmp);base64,([\s\S]+)$/i.exec(src);
-  if(!m)return null;
-  let ext=m[1].toLowerCase()==='jpg'?'jpeg':m[1].toLowerCase(),b64=m[2];
-  if(ext!=='png'&&ext!=='jpeg'){            // Word 不吃的格式（webp/gif/bmp）轉成 PNG
-    try{const c=document.createElement('canvas');c.width=img.naturalWidth||img.width;c.height=img.naturalHeight||img.height;
-      const g=c.getContext('2d');if(ext==='jpeg'){g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height)}
-      g.drawImage(img,0,0);const d=c.toDataURL('image/png');b64=d.split(',')[1];ext='png'}catch(e){return null}}
-  let bin;try{bin=atob(b64)}catch(e){return null}
-  const u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
-  const name='image'+(++ctx.imgN)+'.'+ext;
-  ctx.media.push({name:'word/media/'+name,data:u8});
-  const rid=ctx.rel('image','media/'+name,false);
-  let cx=Math.round((img.naturalWidth||img.width||600)*9525),cy=Math.round((img.naturalHeight||img.height||400)*9525);
-  if(cx>ctx.maxCx){cy=Math.round(cy*ctx.maxCx/cx);cx=ctx.maxCx}
-  return {rid,cx,cy,id:++ctx.picN,name}}
-function drawingXml(im){return '<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">'
-  +'<wp:extent cx="'+im.cx+'" cy="'+im.cy+'"/><wp:docPr id="'+im.id+'" name="'+xmlEsc(im.name)+'"/>'
-  +'<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">'
-  +'<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">'
-  +'<pic:nvPicPr><pic:cNvPr id="'+im.id+'" name="'+xmlEsc(im.name)+'"/><pic:cNvPicPr/></pic:nvPicPr>'
-  +'<pic:blipFill><a:blip r:embed="'+im.rid+'"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>'
-  +'<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="'+im.cx+'" cy="'+im.cy+'"/></a:xfrm>'
-  +'<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>'
-  +'</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>'}
-function paragraphXml(el,ctx,style,prefix){
-  const items=[];inlineXml(el,ctx,items);
-  let inner='',hasImg=false;
-  for(const it of items){
-    if(it.image){inner+=drawingXml(it.image);hasImg=true;continue}
-    const x=runsXml(it.runs);
-    if(!x)continue;
-    inner+=it.rid?('<w:hyperlink r:id="'+it.rid+'">'+x+'</w:hyperlink>'):x}
-  if(prefix)inner='<w:r><w:t xml:space="preserve">'+xmlEsc(prefix)+'</w:t></w:r>'+inner;
-  if(!inner&&!hasImg)inner='<w:r><w:t xml:space="preserve"></w:t></w:r>';
-  const pStyle=style?'<w:pStyle w:val="'+style+'"/>':'';
-  const jcXml=jcOf(el)?'<w:jc w:val="'+jcOf(el)+'"/>':'';
+function inlineXml(el, ctx, out) {
+  for (const ch of el.childNodes) {
+    if (ch.nodeType === 3) {
+      const runs = [];
+      collectRuns(ch, {}, runs);
+      if (runs.some(r => r.text.trim())) out.push({ runs });
+      continue;
+    }
+    if (ch.nodeType !== 1) continue;
+    const tag = ch.tagName.toLowerCase();
+    if (tag === 'img') {
+      const im = imageXml(ch, ctx);
+      if (im) out.push({ image: im });
+      continue;
+    }
+    if (tag === 'br') {
+      out.push({ runs: [{ text: '\n' }] });
+      continue;
+    }
+    if (tag === 'a') {
+      const href = ch.getAttribute('href') || '';
+      const runs = [];
+      collectRuns(ch, {}, runs);
+      if (/^https?:\/\//i.test(href)) out.push({ runs, rid: ctx.rel('hyperlink', href, true) });
+      else out.push({ runs });
+      continue;
+    }
+    if (/^(span|font|b|strong|i|em|u|code|sub|sup|mark|small|time|label)$/.test(tag)) {
+      const runs = [];
+      collectRuns(ch, {}, runs);
+      if (runs.length) out.push({ runs });
+      continue;
+    }
+    if (/^(ul|ol|table)$/i.test(tag)) continue; // 巢狀清單／表格由區塊層處理
+    inlineXml(ch, ctx, out);
+  }
+}
+function imageXml(img, ctx) {
+  let src = img.getAttribute('src') || '';
+  let m = /^data:image\/(png|jpe?g|gif|webp|bmp);base64,([\s\S]+)$/i.exec(src);
+  if (!m) return null;
+  let ext = m[1].toLowerCase() === 'jpg' ? 'jpeg' : m[1].toLowerCase(),
+    b64 = m[2];
+  if (ext !== 'png' && ext !== 'jpeg') {
+    // Word 不吃的格式（webp/gif/bmp）轉成 PNG
+    try {
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth || img.width;
+      c.height = img.naturalHeight || img.height;
+      const g = c.getContext('2d');
+      if (ext === 'jpeg') {
+        g.fillStyle = '#fff';
+        g.fillRect(0, 0, c.width, c.height);
+      }
+      g.drawImage(img, 0, 0);
+      const d = c.toDataURL('image/png');
+      b64 = d.split(',')[1];
+      ext = 'png';
+    } catch (e) {
+      return null;
+    }
+  }
+  let bin;
+  try {
+    bin = atob(b64);
+  } catch (e) {
+    return null;
+  }
+  const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  const name = 'image' + ++ctx.imgN + '.' + ext;
+  ctx.media.push({ name: 'word/media/' + name, data: u8 });
+  const rid = ctx.rel('image', 'media/' + name, false);
+  let cx = Math.round((img.naturalWidth || img.width || 600) * 9525),
+    cy = Math.round((img.naturalHeight || img.height || 400) * 9525);
+  if (cx > ctx.maxCx) {
+    cy = Math.round((cy * ctx.maxCx) / cx);
+    cx = ctx.maxCx;
+  }
+  return { rid, cx, cy, id: ++ctx.picN, name };
+}
+function drawingXml(im) {
+  return (
+    '<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">' +
+    '<wp:extent cx="' +
+    im.cx +
+    '" cy="' +
+    im.cy +
+    '"/><wp:docPr id="' +
+    im.id +
+    '" name="' +
+    xmlEsc(im.name) +
+    '"/>' +
+    '<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">' +
+    '<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">' +
+    '<pic:nvPicPr><pic:cNvPr id="' +
+    im.id +
+    '" name="' +
+    xmlEsc(im.name) +
+    '"/><pic:cNvPicPr/></pic:nvPicPr>' +
+    '<pic:blipFill><a:blip r:embed="' +
+    im.rid +
+    '"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>' +
+    '<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="' +
+    im.cx +
+    '" cy="' +
+    im.cy +
+    '"/></a:xfrm>' +
+    '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>' +
+    '</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>'
+  );
+}
+function paragraphXml(el, ctx, style, prefix) {
+  const items = [];
+  inlineXml(el, ctx, items);
+  let inner = '',
+    hasImg = false;
+  for (const it of items) {
+    if (it.image) {
+      inner += drawingXml(it.image);
+      hasImg = true;
+      continue;
+    }
+    const x = runsXml(it.runs);
+    if (!x) continue;
+    inner += it.rid ? '<w:hyperlink r:id="' + it.rid + '">' + x + '</w:hyperlink>' : x;
+  }
+  if (prefix) inner = '<w:r><w:t xml:space="preserve">' + xmlEsc(prefix) + '</w:t></w:r>' + inner;
+  if (!inner && !hasImg) inner = '<w:r><w:t xml:space="preserve"></w:t></w:r>';
+  const pStyle = style ? '<w:pStyle w:val="' + style + '"/>' : '';
+  const jcXml = jcOf(el) ? '<w:jc w:val="' + jcOf(el) + '"/>' : '';
   // 圖片單獨一段時不要行距，避免每張圖後面拖一大段空白
-  const spacing=(hasImg&&!prefix)?'<w:spacing w:after="0" w:line="240" w:lineRule="auto"/>':'';
-  return '<w:p>'+(pStyle||jcXml||spacing?'<w:pPr>'+pStyle+jcXml+spacing+'</w:pPr>':'')+inner+'</w:p>'}
-function cellXml(td,ctx,colW,span,vmerge){
-  const blocks=[...td.childNodes].filter(n=>n.nodeType===1&&/^(p|div|h[1-6]|ul|ol|table|pre|blockquote)$/i.test(n.tagName));
-  let inner=blocks.length?blocks.map(b=>blockXml(b,ctx)).join(''):paragraphXml(td,ctx,'');
-  if(!inner)inner='<w:p><w:r><w:t xml:space="preserve"></w:t></w:r></w:p>';
-  const pr='<w:tcW w:w="'+(colW*(span||1))+'" w:type="dxa"/>'
-    +(span>1?'<w:gridSpan w:val="'+span+'"/>':'')
-    +(vmerge==='restart'?'<w:vMerge w:val="restart"/>':(vmerge==='cont'?'<w:vMerge/>':''));
-  return '<w:tc><w:tcPr>'+pr+'</w:tcPr>'+inner+'</w:tc>'}
-function tableXml(tbl,ctx){
-  const rows=[...tbl.querySelectorAll('tr')];if(!rows.length)return '';
+  const spacing = hasImg && !prefix ? '<w:spacing w:after="0" w:line="240" w:lineRule="auto"/>' : '';
+  return (
+    '<w:p>' +
+    (pStyle || jcXml || spacing ? '<w:pPr>' + pStyle + jcXml + spacing + '</w:pPr>' : '') +
+    inner +
+    '</w:p>'
+  );
+}
+function cellXml(td, ctx, colW, span, vmerge) {
+  const blocks = [...td.childNodes].filter(
+    n => n.nodeType === 1 && /^(p|div|h[1-6]|ul|ol|table|pre|blockquote)$/i.test(n.tagName),
+  );
+  let inner = blocks.length ? blocks.map(b => blockXml(b, ctx)).join('') : paragraphXml(td, ctx, '');
+  if (!inner) inner = '<w:p><w:r><w:t xml:space="preserve"></w:t></w:r></w:p>';
+  const pr =
+    '<w:tcW w:w="' +
+    colW * (span || 1) +
+    '" w:type="dxa"/>' +
+    (span > 1 ? '<w:gridSpan w:val="' + span + '"/>' : '') +
+    (vmerge === 'restart' ? '<w:vMerge w:val="restart"/>' : vmerge === 'cont' ? '<w:vMerge/>' : '');
+  return '<w:tc><w:tcPr>' + pr + '</w:tcPr>' + inner + '</w:tc>';
+}
+function tableXml(tbl, ctx) {
+  const rows = [...tbl.querySelectorAll('tr')];
+  if (!rows.length) return '';
   // HTML 的表格省略了被 colspan／rowspan 蓋掉的格子，這裡先把格線展開成矩陣，
   // 才能輸出合法的 OOXML（每列的 gridSpan＋vMerge 覆蓋必須剛好等於 tblGrid 的欄數）
-  const grid=[];let cols=0;
-  rows.forEach((tr,r)=>{grid[r]=grid[r]||[];let c=0;
-    for(const td of [...tr.children]){
-      while(grid[r][c])c++;
-      const cs=Math.max(1,parseInt(td.getAttribute('colspan')||'1',10)||1);
-      const rs=Math.max(1,parseInt(td.getAttribute('rowspan')||'1',10)||1);
-      for(let i=0;i<rs;i++)for(let j=0;j<cs;j++){grid[r+i]=grid[r+i]||[];grid[r+i][c+j]={cell:td,start:i===0&&j===0,cs,rs,c0:c,r0:r}}
-      c+=cs;cols=Math.max(cols,c)}});
-  const total=ctx.textTw,colW=Math.round(total/Math.max(1,cols));
-  const gridXml='<w:tblGrid>'+Array.from({length:cols},()=>'<w:gridCol w:w="'+colW+'"/>').join('')+'</w:tblGrid>';
-  const borders='<w:tblBorders>'+['top','left','bottom','right','insideH','insideV']
-    .map(b=>'<w:'+b+' w:val="single" w:sz="6" w:space="0" w:color="94A3B8"/>').join('')+'</w:tblBorders>';
-  const body=rows.map((tr,r)=>{let out='';
-    for(let c=0;c<cols;c++){const m=grid[r][c];
-      if(!m){out+=cellXml(document.createElement('td'),ctx,colW,1,'');continue}
-      if(m.c0!==c)continue;                                  // 橫向被 gridSpan 蓋掉
-      if(!m.start&&m.r0<r){out+=cellXml(m.cell,ctx,colW,1,'cont');continue}  // 縱向續格
-      out+=cellXml(m.cell,ctx,colW,m.cs,m.rs>1?'restart':'')}
-    return '<w:tr>'+out+'</w:tr>'}).join('');
-  return '<w:tbl><w:tblPr><w:tblW w:w="'+total+'" w:type="dxa"/>'+borders+'</w:tblPr>'+gridXml+body+'</w:tbl>'+
-    '<w:p><w:r><w:t xml:space="preserve"></w:t></w:r></w:p>'}
-function blockXml(el,ctx){
-  if(el.classList&&el.classList.contains('pagebreak'))return '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
-  const tag=el.tagName.toLowerCase();
-  if(tag==='ul'||tag==='ol'){
-    const numId=tag==='ol'?'2':'1';   // numbering.xml：1=項目符號、2=編號
-    let lvl=0;for(let n=el.parentElement;n&&n!==editor;n=n.parentElement)if(/^(ul|ol)$/i.test(n.tagName))lvl++;
-    lvl=Math.min(lvl,2);
-    const indent=420+420*lvl;
-    return [...el.children].filter(li=>li.tagName.toLowerCase()==='li').map(li=>{
-      const holder=document.createElement('div');       // 巢狀清單另外處理，不要混進這一段文字
-      for(const n of li.childNodes){if(n.nodeType===1&&/^(ul|ol)$/i.test(n.tagName))continue;holder.appendChild(n.cloneNode(true))}
-      const items=[];inlineXml(holder,ctx,items);
-      let inner='';
-      for(const it of items){if(it.image){inner+=drawingXml(it.image);continue}
-        const x=runsXml(it.runs||[]);inner+=it.rid?('<w:hyperlink r:id="'+it.rid+'">'+x+'</w:hyperlink>'):x}
-      if(!inner)inner='<w:r><w:t xml:space="preserve"></w:t></w:r>';
-      let xml='<w:p><w:pPr><w:numPr><w:ilvl w:val="'+lvl+'"/><w:numId w:val="'+numId+'"/></w:numPr>'
-        +'<w:ind w:left="'+indent+'" w:hanging="220"/></w:pPr>'+inner+'</w:p>';
-      for(const n of li.children)if(/^(ul|ol)$/i.test(n.tagName))xml+=blockXml(n,ctx);   // 巢狀清單
-      return xml}).join('')}
-  if(tag==='img'){const im=imageXml(el,ctx);return im?'<w:p><w:pPr><w:spacing w:after="120"/></w:pPr>'+drawingXml(im)+'</w:p>':''}
-  if(tag==='hr')return '<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="94A3B8"/></w:pBdr></w:pPr></w:p>';
-  if(tag==='table')return tableXml(el,ctx);
-  if(tag==='pre'){const runs=[];collectRuns(el,{mono:true},runs);
-    return '<w:p><w:pPr><w:pStyle w:val="Pre"/><w:shd w:val="clear" w:fill="F1F5F9"/></w:pPr>'+runsXml(runs)+'</w:p>'}
-  const styleMap={h1:'Heading1',h2:'Heading2',h3:'Heading3',h4:'Heading4',h5:'Heading4',h6:'Heading4',blockquote:'Quote'};
-  if(styleMap[tag])return paragraphXml(el,ctx,styleMap[tag]);
-  return paragraphXml(el,ctx,'')}
-function buildDocx(){
-  const enc=new TextEncoder();
-  const [pw,ph]=DOCX_PAGE[$('#pageSize').value]||DOCX_PAGE.a4;
-  const land=$('#orientation').value==='landscape';
-  const mgTw=Math.round(marginMm()*56.7);            // mm → twips（1mm ≈ 56.7twips）
-  const textTw=Math.max(1440,(land?ph:pw)-2*mgTw);   // 版心寬（twips）：圖片與表格以此為上限
-  const ctx={relN:0,imgN:0,picN:0,media:[],relList:[],rels:new Map(),textTw,
-    maxCx:textTw*635,                                 // twips → EMU
-    rel(kind,target,ext){const key=kind+'|'+target;if(this.rels.has(key))return this.rels.get(key);
-      const id='rId'+(++this.relN);this.rels.set(key,id);this.relList.push({id,kind,target,ext});return id}};
-  const body=[...editor.children].map(el=>blockXml(el,ctx)).join('');
-  const wantPageNum=!!($('#docxPageNum')&&$('#docxPageNum').checked);
-  const sect='<w:sectPr>'+(wantPageNum?'<w:footerReference w:type="default" r:id="rIdFooter"/>':'')
-    +'<w:pgSz w:w="'+(land?ph:pw)+'" w:h="'+(land?pw:ph)+'"'+(land?' w:orient="landscape"':'')+'/>'
-    +'<w:pgMar w:top="'+mgTw+'" w:right="'+mgTw+'" w:bottom="'+mgTw+'" w:left="'+mgTw+'" w:header="0" w:footer="'+(wantPageNum?mgTw:0)+'" w:gutter="0"/></w:sectPr>';
-  const docXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-    +'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
-    +'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" '
-    +'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">'
-    +'<w:body>'+body+sect+'</w:body></w:document>';
-  const docRels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-    +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-    +'<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
-    +'<Relationship Id="rIdNumbering" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>'
-    +(wantPageNum?'<Relationship Id="rIdFooter" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>':'')
-    +ctx.relList.map(r=>'<Relationship Id="'+r.id+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'+r.kind
-      +'" Target="'+xmlEsc(r.target)+'"'+(r.ext?' TargetMode="External"':'')+'/>').join('')+'</Relationships>';
-  const styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-    +'<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-    +'<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="'+DOCX_FONT+'" w:cs="'+DOCX_FONT+'"/>'
-    +'<w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:rPrDefault>'
-    +'<w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="300" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>'
-    +'<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>'
-    +'<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:qFormat/>'
-    +'<w:pPr><w:outlineLvl w:val="0"/><w:spacing w:before="280" w:after="140"/></w:pPr><w:rPr><w:b/><w:sz w:val="32"/><w:szCs w:val="32"/></w:rPr></w:style>'
-    +'<w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:qFormat/>'
-    +'<w:pPr><w:outlineLvl w:val="1"/><w:spacing w:before="240" w:after="120"/></w:pPr><w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr></w:style>'
-    +'<w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/><w:basedOn w:val="Normal"/><w:qFormat/>'
-    +'<w:pPr><w:outlineLvl w:val="2"/><w:spacing w:before="200" w:after="100"/></w:pPr><w:rPr><w:b/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:style>'
-    +'<w:style w:type="paragraph" w:styleId="Heading4"><w:name w:val="heading 4"/><w:basedOn w:val="Normal"/><w:qFormat/>'
-    +'<w:pPr><w:outlineLvl w:val="3"/><w:spacing w:before="180" w:after="90"/></w:pPr><w:rPr><w:b/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:style>'
-    +'<w:style w:type="paragraph" w:styleId="Quote"><w:name w:val="Quote"/><w:basedOn w:val="Normal"/>'
-    +'<w:pPr><w:ind w:left="720"/></w:pPr><w:rPr><w:i/><w:color w:val="555555"/></w:rPr></w:style>'
-    +'<w:style w:type="paragraph" w:styleId="Pre"><w:name w:val="Pre"/><w:basedOn w:val="Normal"/>'
-    +'<w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas" w:eastAsia="Consolas"/></w:rPr></w:style>'
-    +'</w:styles>';
-  const footRpr='<w:rPr><w:color w:val="808080"/><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr>';
-  const footer='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-    +'<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:p>'
-    +'<w:pPr><w:jc w:val="center"/><w:rPr><w:color w:val="808080"/><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr></w:pPr>'
-    +'<w:r>'+footRpr+'<w:t xml:space="preserve">第 </w:t></w:r>'
-    +'<w:fldSimple w:instr=" PAGE "><w:r>'+footRpr+'<w:t>1</w:t></w:r></w:fldSimple>'
-    +'<w:r>'+footRpr+'<w:t xml:space="preserve"> 頁</w:t></w:r></w:p></w:ftr>';
-  const numbering='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-    +'<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-    +'<w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="hybridMultilevel"/>'
-    +[0,1,2].map(i=>'<w:lvl w:ilvl="'+i+'"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\u2022"/><w:lvlJc w:val="left"/>'
-      +'<w:pPr><w:ind w:left="'+(420+420*i)+'" w:hanging="220"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl>').join('')
-    +'</w:abstractNum>'
-    +'<w:abstractNum w:abstractNumId="1"><w:multiLevelType w:val="hybridMultilevel"/>'
-    +[0,1,2].map(i=>'<w:lvl w:ilvl="'+i+'"><w:start w:val="1"/><w:numFmt w:val="'+['decimal','lowerLetter','lowerRoman'][i]+'"/>'
-      +'<w:lvlText w:val="%'+(i+1)+'."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="'+(420+420*i)+'" w:hanging="220"/></w:pPr></w:lvl>').join('')
-    +'</w:abstractNum>'
-    +'<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>'
-    +'<w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num>'
-    +'</w:numbering>';
-  const docRelsPath='word/_rels/document.xml.rels';
-  const files=[
-    {name:'[Content_Types].xml',data:enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-      +'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
-      +'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
-      +'<Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/>'
-      +'<Default Extension="jpeg" ContentType="image/jpeg"/>'
-      +'<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
-      +'<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
-      +'<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>'
-      +(wantPageNum?'<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>':'')
-      +'</Types>')},
-    {name:'_rels/.rels',data:enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-      +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-      +'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
-      +'</Relationships>')},
-    {name:'word/document.xml',data:enc.encode(docXml)},
-    {name:'word/styles.xml',data:enc.encode(styles)},
-    {name:'word/numbering.xml',data:enc.encode(numbering)},
-    ...(wantPageNum?[{name:'word/footer1.xml',data:enc.encode(footer)}]:[]),
-    {name:'word/_rels/document.xml.rels',data:enc.encode(docRels)},
-    ...ctx.media];
-  const name=safeName('文件')+'.docx';
-  return {blob:zipStore(files),name,images:ctx.media.length}}
-$('#docxBtn').onclick=()=>{
-  document.body.classList.add('statusbusy');msg('正在產生 .docx…');
-  try{const{blob,name,images}=buildDocx();download(blob,name);
-    const kb=Math.round(blob.size/1024);
-    msg(images?'Word 檔已下載（.docx，'+kb+'KB，含 '+images+' 張圖片）':'Word 檔已下載（.docx，'+kb+'KB）');
-  }catch(err){msg('產生 .docx 失敗：'+err.message+'；可先用「儲存 HTML」保存內容。',true)}
-  finally{document.body.classList.remove('statusbusy')}};
+  const grid = [];
+  let cols = 0;
+  rows.forEach((tr, r) => {
+    grid[r] = grid[r] || [];
+    let c = 0;
+    for (const td of [...tr.children]) {
+      while (grid[r][c]) c++;
+      const cs = Math.max(1, parseInt(td.getAttribute('colspan') || '1', 10) || 1);
+      const rs = Math.max(1, parseInt(td.getAttribute('rowspan') || '1', 10) || 1);
+      for (let i = 0; i < rs; i++)
+        for (let j = 0; j < cs; j++) {
+          grid[r + i] = grid[r + i] || [];
+          grid[r + i][c + j] = { cell: td, start: i === 0 && j === 0, cs, rs, c0: c, r0: r };
+        }
+      c += cs;
+      cols = Math.max(cols, c);
+    }
+  });
+  const total = ctx.textTw,
+    colW = Math.round(total / Math.max(1, cols));
+  const gridXml =
+    '<w:tblGrid>' +
+    Array.from({ length: cols }, () => '<w:gridCol w:w="' + colW + '"/>').join('') +
+    '</w:tblGrid>';
+  const borders =
+    '<w:tblBorders>' +
+    ['top', 'left', 'bottom', 'right', 'insideH', 'insideV']
+      .map(b => '<w:' + b + ' w:val="single" w:sz="6" w:space="0" w:color="94A3B8"/>')
+      .join('') +
+    '</w:tblBorders>';
+  const body = rows
+    .map((tr, r) => {
+      let out = '';
+      for (let c = 0; c < cols; c++) {
+        const m = grid[r][c];
+        if (!m) {
+          out += cellXml(document.createElement('td'), ctx, colW, 1, '');
+          continue;
+        }
+        if (m.c0 !== c) continue; // 橫向被 gridSpan 蓋掉
+        if (!m.start && m.r0 < r) {
+          out += cellXml(m.cell, ctx, colW, 1, 'cont');
+          continue;
+        } // 縱向續格
+        out += cellXml(m.cell, ctx, colW, m.cs, m.rs > 1 ? 'restart' : '');
+      }
+      return '<w:tr>' + out + '</w:tr>';
+    })
+    .join('');
+  return (
+    '<w:tbl><w:tblPr><w:tblW w:w="' +
+    total +
+    '" w:type="dxa"/>' +
+    borders +
+    '</w:tblPr>' +
+    gridXml +
+    body +
+    '</w:tbl>' +
+    '<w:p><w:r><w:t xml:space="preserve"></w:t></w:r></w:p>'
+  );
+}
+function blockXml(el, ctx) {
+  if (el.classList && el.classList.contains('pagebreak'))
+    return '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+  const tag = el.tagName.toLowerCase();
+  if (tag === 'ul' || tag === 'ol') {
+    const numId = tag === 'ol' ? '2' : '1'; // numbering.xml：1=項目符號、2=編號
+    let lvl = 0;
+    for (let n = el.parentElement; n && n !== editor; n = n.parentElement)
+      if (/^(ul|ol)$/i.test(n.tagName)) lvl++;
+    lvl = Math.min(lvl, 2);
+    const indent = 420 + 420 * lvl;
+    return [...el.children]
+      .filter(li => li.tagName.toLowerCase() === 'li')
+      .map(li => {
+        const holder = document.createElement('div'); // 巢狀清單另外處理，不要混進這一段文字
+        for (const n of li.childNodes) {
+          if (n.nodeType === 1 && /^(ul|ol)$/i.test(n.tagName)) continue;
+          holder.appendChild(n.cloneNode(true));
+        }
+        const items = [];
+        inlineXml(holder, ctx, items);
+        let inner = '';
+        for (const it of items) {
+          if (it.image) {
+            inner += drawingXml(it.image);
+            continue;
+          }
+          const x = runsXml(it.runs || []);
+          inner += it.rid ? '<w:hyperlink r:id="' + it.rid + '">' + x + '</w:hyperlink>' : x;
+        }
+        if (!inner) inner = '<w:r><w:t xml:space="preserve"></w:t></w:r>';
+        let xml =
+          '<w:p><w:pPr><w:numPr><w:ilvl w:val="' +
+          lvl +
+          '"/><w:numId w:val="' +
+          numId +
+          '"/></w:numPr>' +
+          '<w:ind w:left="' +
+          indent +
+          '" w:hanging="220"/></w:pPr>' +
+          inner +
+          '</w:p>';
+        for (const n of li.children) if (/^(ul|ol)$/i.test(n.tagName)) xml += blockXml(n, ctx); // 巢狀清單
+        return xml;
+      })
+      .join('');
+  }
+  if (tag === 'img') {
+    const im = imageXml(el, ctx);
+    return im ? '<w:p><w:pPr><w:spacing w:after="120"/></w:pPr>' + drawingXml(im) + '</w:p>' : '';
+  }
+  if (tag === 'hr')
+    return '<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="94A3B8"/></w:pBdr></w:pPr></w:p>';
+  if (tag === 'table') return tableXml(el, ctx);
+  if (tag === 'pre') {
+    const runs = [];
+    collectRuns(el, { mono: true }, runs);
+    return (
+      '<w:p><w:pPr><w:pStyle w:val="Pre"/><w:shd w:val="clear" w:fill="F1F5F9"/></w:pPr>' +
+      runsXml(runs) +
+      '</w:p>'
+    );
+  }
+  const styleMap = {
+    h1: 'Heading1',
+    h2: 'Heading2',
+    h3: 'Heading3',
+    h4: 'Heading4',
+    h5: 'Heading4',
+    h6: 'Heading4',
+    blockquote: 'Quote',
+  };
+  if (styleMap[tag]) return paragraphXml(el, ctx, styleMap[tag]);
+  return paragraphXml(el, ctx, '');
+}
+function buildDocx() {
+  const enc = new TextEncoder();
+  const [pw, ph] = DOCX_PAGE[$('#pageSize').value] || DOCX_PAGE.a4;
+  const land = $('#orientation').value === 'landscape';
+  const mgTw = Math.round(marginMm() * 56.7); // mm → twips（1mm ≈ 56.7twips）
+  const textTw = Math.max(1440, (land ? ph : pw) - 2 * mgTw); // 版心寬（twips）：圖片與表格以此為上限
+  const ctx = {
+    relN: 0,
+    imgN: 0,
+    picN: 0,
+    media: [],
+    relList: [],
+    rels: new Map(),
+    textTw,
+    maxCx: textTw * 635, // twips → EMU
+    rel(kind, target, ext) {
+      const key = kind + '|' + target;
+      if (this.rels.has(key)) return this.rels.get(key);
+      const id = 'rId' + ++this.relN;
+      this.rels.set(key, id);
+      this.relList.push({ id, kind, target, ext });
+      return id;
+    },
+  };
+  const body = [...editor.children].map(el => blockXml(el, ctx)).join('');
+  const wantPageNum = !!($('#docxPageNum') && $('#docxPageNum').checked);
+  const sect =
+    '<w:sectPr>' +
+    (wantPageNum ? '<w:footerReference w:type="default" r:id="rIdFooter"/>' : '') +
+    '<w:pgSz w:w="' +
+    (land ? ph : pw) +
+    '" w:h="' +
+    (land ? pw : ph) +
+    '"' +
+    (land ? ' w:orient="landscape"' : '') +
+    '/>' +
+    '<w:pgMar w:top="' +
+    mgTw +
+    '" w:right="' +
+    mgTw +
+    '" w:bottom="' +
+    mgTw +
+    '" w:left="' +
+    mgTw +
+    '" w:header="0" w:footer="' +
+    (wantPageNum ? mgTw : 0) +
+    '" w:gutter="0"/></w:sectPr>';
+  const docXml =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ' +
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
+    'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">' +
+    '<w:body>' +
+    body +
+    sect +
+    '</w:body></w:document>';
+  const docRels =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+    '<Relationship Id="rIdNumbering" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>' +
+    (wantPageNum
+      ? '<Relationship Id="rIdFooter" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>'
+      : '') +
+    ctx.relList
+      .map(
+        r =>
+          '<Relationship Id="' +
+          r.id +
+          '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/' +
+          r.kind +
+          '" Target="' +
+          xmlEsc(r.target) +
+          '"' +
+          (r.ext ? ' TargetMode="External"' : '') +
+          '/>',
+      )
+      .join('') +
+    '</Relationships>';
+  const styles =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+    '<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="' +
+    DOCX_FONT +
+    '" w:cs="' +
+    DOCX_FONT +
+    '"/>' +
+    '<w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:rPrDefault>' +
+    '<w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="300" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>' +
+    '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>' +
+    '<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:qFormat/>' +
+    '<w:pPr><w:outlineLvl w:val="0"/><w:spacing w:before="280" w:after="140"/></w:pPr><w:rPr><w:b/><w:sz w:val="32"/><w:szCs w:val="32"/></w:rPr></w:style>' +
+    '<w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:qFormat/>' +
+    '<w:pPr><w:outlineLvl w:val="1"/><w:spacing w:before="240" w:after="120"/></w:pPr><w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr></w:style>' +
+    '<w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/><w:basedOn w:val="Normal"/><w:qFormat/>' +
+    '<w:pPr><w:outlineLvl w:val="2"/><w:spacing w:before="200" w:after="100"/></w:pPr><w:rPr><w:b/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:style>' +
+    '<w:style w:type="paragraph" w:styleId="Heading4"><w:name w:val="heading 4"/><w:basedOn w:val="Normal"/><w:qFormat/>' +
+    '<w:pPr><w:outlineLvl w:val="3"/><w:spacing w:before="180" w:after="90"/></w:pPr><w:rPr><w:b/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:style>' +
+    '<w:style w:type="paragraph" w:styleId="Quote"><w:name w:val="Quote"/><w:basedOn w:val="Normal"/>' +
+    '<w:pPr><w:ind w:left="720"/></w:pPr><w:rPr><w:i/><w:color w:val="555555"/></w:rPr></w:style>' +
+    '<w:style w:type="paragraph" w:styleId="Pre"><w:name w:val="Pre"/><w:basedOn w:val="Normal"/>' +
+    '<w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas" w:eastAsia="Consolas"/></w:rPr></w:style>' +
+    '</w:styles>';
+  const footRpr = '<w:rPr><w:color w:val="808080"/><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr>';
+  const footer =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:p>' +
+    '<w:pPr><w:jc w:val="center"/><w:rPr><w:color w:val="808080"/><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr></w:pPr>' +
+    '<w:r>' +
+    footRpr +
+    '<w:t xml:space="preserve">第 </w:t></w:r>' +
+    '<w:fldSimple w:instr=" PAGE "><w:r>' +
+    footRpr +
+    '<w:t>1</w:t></w:r></w:fldSimple>' +
+    '<w:r>' +
+    footRpr +
+    '<w:t xml:space="preserve"> 頁</w:t></w:r></w:p></w:ftr>';
+  const numbering =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+    '<w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="hybridMultilevel"/>' +
+    [0, 1, 2]
+      .map(
+        i =>
+          '<w:lvl w:ilvl="' +
+          i +
+          '"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\u2022"/><w:lvlJc w:val="left"/>' +
+          '<w:pPr><w:ind w:left="' +
+          (420 + 420 * i) +
+          '" w:hanging="220"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl>',
+      )
+      .join('') +
+    '</w:abstractNum>' +
+    '<w:abstractNum w:abstractNumId="1"><w:multiLevelType w:val="hybridMultilevel"/>' +
+    [0, 1, 2]
+      .map(
+        i =>
+          '<w:lvl w:ilvl="' +
+          i +
+          '"><w:start w:val="1"/><w:numFmt w:val="' +
+          ['decimal', 'lowerLetter', 'lowerRoman'][i] +
+          '"/>' +
+          '<w:lvlText w:val="%' +
+          (i + 1) +
+          '."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="' +
+          (420 + 420 * i) +
+          '" w:hanging="220"/></w:pPr></w:lvl>',
+      )
+      .join('') +
+    '</w:abstractNum>' +
+    '<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>' +
+    '<w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num>' +
+    '</w:numbering>';
+  const docRelsPath = 'word/_rels/document.xml.rels';
+  const files = [
+    {
+      name: '[Content_Types].xml',
+      data: enc.encode(
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+          '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+          '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+          '<Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/>' +
+          '<Default Extension="jpeg" ContentType="image/jpeg"/>' +
+          '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+          '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' +
+          '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>' +
+          (wantPageNum
+            ? '<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>'
+            : '') +
+          '</Types>',
+      ),
+    },
+    {
+      name: '_rels/.rels',
+      data: enc.encode(
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+          '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+          '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
+          '</Relationships>',
+      ),
+    },
+    { name: 'word/document.xml', data: enc.encode(docXml) },
+    { name: 'word/styles.xml', data: enc.encode(styles) },
+    { name: 'word/numbering.xml', data: enc.encode(numbering) },
+    ...(wantPageNum ? [{ name: 'word/footer1.xml', data: enc.encode(footer) }] : []),
+    { name: 'word/_rels/document.xml.rels', data: enc.encode(docRels) },
+    ...ctx.media,
+  ];
+  const name = safeName('文件') + '.docx';
+  return { blob: zipStore(files), name, images: ctx.media.length };
+}
+$('#docxBtn').onclick = () => {
+  document.body.classList.add('statusbusy');
+  msg('正在產生 .docx…');
+  try {
+    const { blob, name, images } = buildDocx();
+    download(blob, name);
+    const kb = Math.round(blob.size / 1024);
+    msg(
+      images
+        ? 'Word 檔已下載（.docx，' + kb + 'KB，含 ' + images + ' 張圖片）'
+        : 'Word 檔已下載（.docx，' + kb + 'KB）',
+    );
+  } catch (err) {
+    msg('產生 .docx 失敗：' + err.message + '；可先用「儲存 HTML」保存內容。', true);
+  } finally {
+    document.body.classList.remove('statusbusy');
+  }
+};
 
-function safeName(fallback){return($('#filename').value.trim()||fallback).replace(/[\\/:*?"<>|]+/g,'_')}
-function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
-$('#pdfBtn').onclick=async()=>{document.body.classList.add('statusbusy');msg('正在產生 PDF…');editor.style.zoom='';try{await loadScript(LIB.html2pdf,'html2pdf');const mg=marginMm();const chain=html2pdf().set({margin:[mg,mg,mg,mg],filename:safeName('文件')+'.pdf',image:{type:'jpeg',quality:.98},html2canvas:{scale:innerWidth<640?1.5:2,useCORS:true,letterRendering:true,backgroundColor:'#fff'},jsPDF:{unit:'mm',format:$('#pageSize').value,orientation:$('#orientation').value},pagebreak:{mode:['css','legacy'],avoid:['tr','img','h1','h2','h3','table','pre','blockquote']}}).from(editor);
-const wantNum=!!($('#pdfPageNum')&&$('#pdfPageNum').checked);
-if(wantNum){await chain.toPdf().get('pdf').then(pdf=>{const n=pdf.internal.getNumberOfPages();
-  for(let i=1;i<=n;i++){pdf.setPage(i);pageNumStamp(pdf,i,n)}}).save()}
-else{await chain.save()}msg('PDF 已下載（整份是點陣圖，文字不可選取；頁碼已畫在每頁下方。要可搜尋的 PDF 請用「列印」→「另存為 PDF」）')}catch(err){msg('PDF 產生失敗：'+err.message+'；可改用「列印」後選擇另存為 PDF。',true)}finally{fit();document.body.classList.remove('statusbusy')}};
-function fit(){editor.style.zoom='';if(document.body.classList.contains('desk')){const w=editor.parentElement,c=getComputedStyle(w);editor.style.zoom=Math.min(1,(w.clientWidth-parseFloat(c.paddingLeft)-parseFloat(c.paddingRight))/editor.offsetWidth)}}function setDesk(on){document.body.classList.toggle('desk',on);editor.contentEditable=!on;try{localStorage.setItem('desk',on?'1':'')}catch(e){}fit()}$('#deskToggle').onclick=()=>setDesk(true);$('#readFind').onclick=()=>$('#findToggle').click();$('#readExit').onclick=()=>setDesk(false);addEventListener('resize',fit);try{if(localStorage.getItem('desk'))setDesk(true)}catch(e){}$('#pageSize').onchange=()=>{clearDocumentPage();applyPageStyle()};$('#marginMm').oninput=()=>{clearDocumentPage();applyPageStyle()};$('#marginMm').onchange=()=>{clearDocumentPage();applyPageStyle()};$('#orientation').onchange=e=>{clearDocumentPage();editor.classList.toggle('landscape',e.target.value==='landscape');applyPageStyle();fit()};$('#findToggle').onclick=()=>{const open=$('#findbar').style.display!=='flex';$('#findbar').style.display=open?'flex':'none';document.body.classList.toggle('finding',open);if(open){$('#findText').focus();runFind()}else{hits=[];hi=-1;if(HL){HL.delete('find');HL.delete('find-cur')}}};const BLOCK='p,h1,h2,h3,h4,h5,h6,li,td,th,blockquote,pre,div',HL=window.CSS&&CSS.highlights;let hits=[],hi=-1,isRe=false,findT;
-function findPattern(q){q=q.trim();isRe=false;if(!q)return null;const k=q.lastIndexOf('/');if(q[0]==='/'&&k>1&&/^[gimsu]*$/.test(q.slice(k+1))){isRe=true;const fl=q.slice(k+1);return new RegExp(q.slice(1,k),fl.includes('g')?fl:fl+'g')}return new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').split(/\s+/).join('.*?'),'gi')}
-function textBlocks(){const g=new Map(),w=document.createTreeWalker(editor,NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){const b=n.parentElement.closest(BLOCK),el=b&&editor.contains(b)?b:editor;if(!g.has(el))g.set(el,{nodes:[],text:''});const x=g.get(el);x.nodes.push({n,s:x.text.length});x.text+=n.nodeValue}return[...g.values()]}
-function textPos(b,i,end){for(const x of b.nodes){const e=x.s+x.n.nodeValue.length;if(i<e||end&&i===e)return[x.n,i-x.s]}const l=b.nodes[b.nodes.length-1];return[l.n,l.n.nodeValue.length]}
-const esc=t=>t.replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
-function runFind(){let re;try{re=findPattern($('#findText').value)}catch(e){hits=[];showHits('正規表達式錯誤：'+e.message);return}hits=[];if(re)textBlocks().forEach((b,bi)=>{for(const m of b.text.matchAll(re)){if(!m[0])continue;const r=document.createRange();r.setStart(...textPos(b,m.index));r.setEnd(...textPos(b,m.index+m[0].length,1));hits.push({r,m:m[0],groups:m.slice(1),names:m.groups||null,no:bi+1,pre:b.text.slice(Math.max(0,m.index-30),m.index),post:b.text.slice(m.index+m[0].length,m.index+m[0].length+30),cut:[m.index>30,m.index+m[0].length+30<b.text.length]})}});hi=Math.min(hi,hits.length-1);showHits(re?'':'')}
-const HIT_LIST_MAX=400,HIT_MARK_MAX=800;   // 上萬筆命中時不要產生上萬個 DOM 節點與 Range
-function showHits(err){$('#findRes').classList.toggle('show',!!(err||$('#findText').value.trim()));
-  $('#findList').innerHTML=hits.slice(0,HIT_LIST_MAX).map((h,i)=>'<button class="hit" data-i="'+i+'"><small>第 '+h.no+' 段</small>'+(h.cut[0]?'…':'')+esc(h.pre)+'<mark>'+esc(h.m)+'</mark>'+esc(h.post)+(h.cut[1]?'…':'')+'</button>').join('');
-  if(HL)HL.set('find',new Highlight(...hits.slice(0,HIT_MARK_MAX).map(h=>h.r)));
-  markHit(err)}
-function markHit(err){$('#findCount').textContent=err||(!hits.length?'找不到符合項目':(hi<0?'共 '+hits.length+' 筆':(hi+1)+' / '+hits.length)+(hits.length>HIT_LIST_MAX?'（清單只列前 '+HIT_LIST_MAX+' 筆、標示前 '+HIT_MARK_MAX+' 筆）':''));document.querySelectorAll('.hit').forEach(b=>b.classList.toggle('cur',+b.dataset.i===hi));if(HL){if(hi<0)HL.delete('find-cur');else HL.set('find-cur',new Highlight(hits[hi].r))}}
-function goHit(i){if(!hits.length)return;hi=(i+hits.length)%hits.length;const h=hits[hi];markHit();if(!HL){const sel=getSelection();sel.removeAllRanges();sel.addRange(h.r)}h.r.startContainer.parentElement.scrollIntoView({block:'center',behavior:'smooth'});const b=document.querySelector('.hit.cur');if(b)b.scrollIntoView({block:'nearest'})}
+function safeName(fallback) {
+  return ($('#filename').value.trim() || fallback).replace(/[\\/:*?"<>|]+/g, '_');
+}
+function download(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+$('#pdfBtn').onclick = async () => {
+  document.body.classList.add('statusbusy');
+  msg('正在產生 PDF…');
+  editor.style.zoom = '';
+  try {
+    await loadScript(LIB.html2pdf, 'html2pdf');
+    const mg = marginMm();
+    const chain = html2pdf()
+      .set({
+        margin: [mg, mg, mg, mg],
+        filename: safeName('文件') + '.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: innerWidth < 640 ? 1.5 : 2,
+          useCORS: true,
+          letterRendering: true,
+          backgroundColor: '#fff',
+        },
+        jsPDF: { unit: 'mm', format: $('#pageSize').value, orientation: $('#orientation').value },
+        pagebreak: {
+          mode: ['css', 'legacy'],
+          avoid: ['tr', 'img', 'h1', 'h2', 'h3', 'table', 'pre', 'blockquote'],
+        },
+      })
+      .from(editor);
+    const wantNum = !!($('#pdfPageNum') && $('#pdfPageNum').checked);
+    if (wantNum) {
+      await chain
+        .toPdf()
+        .get('pdf')
+        .then(pdf => {
+          const n = pdf.internal.getNumberOfPages();
+          for (let i = 1; i <= n; i++) {
+            pdf.setPage(i);
+            pageNumStamp(pdf, i, n);
+          }
+        })
+        .save();
+    } else {
+      await chain.save();
+    }
+    msg(
+      'PDF 已下載（整份是點陣圖，文字不可選取；頁碼已畫在每頁下方。要可搜尋的 PDF 請用「列印」→「另存為 PDF」）',
+    );
+  } catch (err) {
+    msg('PDF 產生失敗：' + err.message + '；可改用「列印」後選擇另存為 PDF。', true);
+  } finally {
+    fit();
+    document.body.classList.remove('statusbusy');
+  }
+};
+function fit() {
+  editor.style.zoom = '';
+  if (document.body.classList.contains('desk')) {
+    const w = editor.parentElement,
+      c = getComputedStyle(w);
+    editor.style.zoom = Math.min(
+      1,
+      (w.clientWidth - parseFloat(c.paddingLeft) - parseFloat(c.paddingRight)) / editor.offsetWidth,
+    );
+  }
+}
+function setDesk(on) {
+  document.body.classList.toggle('desk', on);
+  editor.contentEditable = !on;
+  try {
+    localStorage.setItem('desk', on ? '1' : '');
+  } catch (e) {}
+  fit();
+}
+$('#deskToggle').onclick = () => setDesk(true);
+$('#readFind').onclick = () => $('#findToggle').click();
+$('#readExit').onclick = () => setDesk(false);
+addEventListener('resize', fit);
+try {
+  if (localStorage.getItem('desk')) setDesk(true);
+} catch (e) {}
+$('#pageSize').onchange = () => {
+  clearDocumentPage();
+  applyPageStyle();
+};
+$('#marginMm').oninput = () => {
+  clearDocumentPage();
+  applyPageStyle();
+};
+$('#marginMm').onchange = () => {
+  clearDocumentPage();
+  applyPageStyle();
+};
+$('#orientation').onchange = e => {
+  clearDocumentPage();
+  editor.classList.toggle('landscape', e.target.value === 'landscape');
+  applyPageStyle();
+  fit();
+};
+$('#findToggle').onclick = () => {
+  const open = $('#findbar').style.display !== 'flex';
+  $('#findbar').style.display = open ? 'flex' : 'none';
+  document.body.classList.toggle('finding', open);
+  if (open) {
+    $('#findText').focus();
+    runFind();
+  } else {
+    hits = [];
+    hi = -1;
+    if (HL) {
+      HL.delete('find');
+      HL.delete('find-cur');
+    }
+  }
+};
+const BLOCK = 'p,h1,h2,h3,h4,h5,h6,li,td,th,blockquote,pre,div',
+  HL = window.CSS && CSS.highlights;
+let hits = [],
+  hi = -1,
+  isRe = false,
+  findT;
+function findPattern(q) {
+  q = q.trim();
+  isRe = false;
+  if (!q) return null;
+  const k = q.lastIndexOf('/');
+  if (q[0] === '/' && k > 1 && /^[gimsu]*$/.test(q.slice(k + 1))) {
+    isRe = true;
+    const fl = q.slice(k + 1);
+    return new RegExp(q.slice(1, k), fl.includes('g') ? fl : fl + 'g');
+  }
+  return new RegExp(
+    q
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      .split(/\s+/)
+      .join('.*?'),
+    'gi',
+  );
+}
+function textBlocks() {
+  const g = new Map(),
+    w = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  let n;
+  while ((n = w.nextNode())) {
+    const b = n.parentElement.closest(BLOCK),
+      el = b && editor.contains(b) ? b : editor;
+    if (!g.has(el)) g.set(el, { nodes: [], text: '' });
+    const x = g.get(el);
+    x.nodes.push({ n, s: x.text.length });
+    x.text += n.nodeValue;
+  }
+  return [...g.values()];
+}
+function textPos(b, i, end) {
+  for (const x of b.nodes) {
+    const e = x.s + x.n.nodeValue.length;
+    if (i < e || (end && i === e)) return [x.n, i - x.s];
+  }
+  const l = b.nodes[b.nodes.length - 1];
+  return [l.n, l.n.nodeValue.length];
+}
+const esc = t => t.replace(/[&<>"]/g, c => '&#' + c.charCodeAt(0) + ';');
+function runFind() {
+  let re;
+  try {
+    re = findPattern($('#findText').value);
+  } catch (e) {
+    hits = [];
+    showHits('正規表達式錯誤：' + e.message);
+    return;
+  }
+  hits = [];
+  if (re)
+    textBlocks().forEach((b, bi) => {
+      for (const m of b.text.matchAll(re)) {
+        if (!m[0]) continue;
+        const r = document.createRange();
+        r.setStart(...textPos(b, m.index));
+        r.setEnd(...textPos(b, m.index + m[0].length, 1));
+        hits.push({
+          r,
+          m: m[0],
+          groups: m.slice(1),
+          names: m.groups || null,
+          no: bi + 1,
+          pre: b.text.slice(Math.max(0, m.index - 30), m.index),
+          post: b.text.slice(m.index + m[0].length, m.index + m[0].length + 30),
+          cut: [m.index > 30, m.index + m[0].length + 30 < b.text.length],
+        });
+      }
+    });
+  hi = Math.min(hi, hits.length - 1);
+  showHits(re ? '' : '');
+}
+const HIT_LIST_MAX = 400,
+  HIT_MARK_MAX = 800; // 上萬筆命中時不要產生上萬個 DOM 節點與 Range
+function showHits(err) {
+  $('#findRes').classList.toggle('show', !!(err || $('#findText').value.trim()));
+  $('#findList').innerHTML = hits
+    .slice(0, HIT_LIST_MAX)
+    .map(
+      (h, i) =>
+        '<button class="hit" data-i="' +
+        i +
+        '"><small>第 ' +
+        h.no +
+        ' 段</small>' +
+        (h.cut[0] ? '…' : '') +
+        esc(h.pre) +
+        '<mark>' +
+        esc(h.m) +
+        '</mark>' +
+        esc(h.post) +
+        (h.cut[1] ? '…' : '') +
+        '</button>',
+    )
+    .join('');
+  if (HL) HL.set('find', new Highlight(...hits.slice(0, HIT_MARK_MAX).map(h => h.r)));
+  markHit(err);
+}
+function markHit(err) {
+  $('#findCount').textContent =
+    err ||
+    (!hits.length
+      ? '找不到符合項目'
+      : (hi < 0 ? '共 ' + hits.length + ' 筆' : hi + 1 + ' / ' + hits.length) +
+        (hits.length > HIT_LIST_MAX
+          ? '（清單只列前 ' + HIT_LIST_MAX + ' 筆、標示前 ' + HIT_MARK_MAX + ' 筆）'
+          : ''));
+  document.querySelectorAll('.hit').forEach(b => b.classList.toggle('cur', +b.dataset.i === hi));
+  if (HL) {
+    if (hi < 0) HL.delete('find-cur');
+    else HL.set('find-cur', new Highlight(hits[hi].r));
+  }
+}
+function goHit(i) {
+  if (!hits.length) return;
+  hi = (i + hits.length) % hits.length;
+  const h = hits[hi];
+  markHit();
+  if (!HL) {
+    const sel = getSelection();
+    sel.removeAllRanges();
+    sel.addRange(h.r);
+  }
+  h.r.startContainer.parentElement.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  const b = document.querySelector('.hit.cur');
+  if (b) b.scrollIntoView({ block: 'nearest' });
+}
 // 取代字串依「命中當下」捕捉的群組展開（原本是拿命中的子字串再跑一次 regex，^ $、前後文與大小寫會走味）
-function expandReplacement(rep,full,groups,names){
-  return String(rep).replace(/\$(\$|&|\d{1,2}|<[^>]+>)/g,(all,tok)=>{
-    if(tok==='$')return '$';
-    if(tok==='&')return full;
-    if(tok.charAt(0)==='<'){const k=tok.slice(1,-1);return names&&names[k]!=null?names[k]:all}
-    const i=+tok;return groups&&i>=1&&i<=groups.length&&groups[i-1]!=null?groups[i-1]:all})}
-function replaceHit(h){const t=isRe?expandReplacement($('#replaceText').value,h.m,h.groups,h.names):$('#replaceText').value;
-  h.r.deleteContents();h.r.insertNode(document.createTextNode(t))}
-$('#findText').oninput=()=>{clearTimeout(findT);findT=setTimeout(()=>{hi=-1;runFind();goHit(0)},250)};$('#findText').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(findT);if(!hits.length)runFind();goHit(hi+(e.shiftKey?-1:1))}};
-$('#findNext').onclick=()=>goHit(hi+1);$('#findPrev').onclick=()=>goHit(hi-1);$('#findList').onclick=e=>{const b=e.target.closest('.hit');if(b)goHit(+b.dataset.i)};
-editor.addEventListener('input',()=>{if($('#findbar').style.display==='flex'){clearTimeout(findT);findT=setTimeout(runFind,300)}});
+function expandReplacement(rep, full, groups, names) {
+  return String(rep).replace(/\$(\$|&|\d{1,2}|<[^>]+>)/g, (all, tok) => {
+    if (tok === '$') return '$';
+    if (tok === '&') return full;
+    if (tok.charAt(0) === '<') {
+      const k = tok.slice(1, -1);
+      return names && names[k] != null ? names[k] : all;
+    }
+    const i = +tok;
+    return groups && i >= 1 && i <= groups.length && groups[i - 1] != null ? groups[i - 1] : all;
+  });
+}
+function replaceHit(h) {
+  const t = isRe
+    ? expandReplacement($('#replaceText').value, h.m, h.groups, h.names)
+    : $('#replaceText').value;
+  h.r.deleteContents();
+  h.r.insertNode(document.createTextNode(t));
+}
+$('#findText').oninput = () => {
+  clearTimeout(findT);
+  findT = setTimeout(() => {
+    hi = -1;
+    runFind();
+    goHit(0);
+  }, 250);
+};
+$('#findText').onkeydown = e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    clearTimeout(findT);
+    if (!hits.length) runFind();
+    goHit(hi + (e.shiftKey ? -1 : 1));
+  }
+};
+$('#findNext').onclick = () => goHit(hi + 1);
+$('#findPrev').onclick = () => goHit(hi - 1);
+$('#findList').onclick = e => {
+  const b = e.target.closest('.hit');
+  if (b) goHit(+b.dataset.i);
+};
+editor.addEventListener('input', () => {
+  if ($('#findbar').style.display === 'flex') {
+    clearTimeout(findT);
+    findT = setTimeout(runFind, 300);
+  }
+});
 // 貼上一律先清毒再插入（瀏覽器自己也會清，但這樣行為一致），圖片另外走縮圖管線
-editor.addEventListener('paste',e=>{const cd=e.clipboardData;if(!cd)return;
-  const html=cd.getData('text/html');
-  if(html){e.preventDefault();insertHtmlAtCaret(sanitizeHtml(html),{replaceSel:true})}
-  setTimeout(()=>{shrinkEditorImages().then((saved)=>{saveDraft();
-    if(saved>0)msg('貼上的圖片已自動縮圖，省下 '+Math.round(saved/1024)+'KB')})},30)});
-async function shrinkEditorImages(){
-  const imgs=[...editor.querySelectorAll('img')].filter(im=>/^(data:image\/|blob:)/i.test(im.getAttribute('src')||'')&&im.dataset.shrunk!=='1');
-  let saved=0;
-  for(const im of imgs){im.dataset.shrunk='1';
-    try{let src=im.getAttribute('src');
-      if(/^blob:/i.test(src)){const b=await (await fetch(src)).blob();src=await fileToDataUrl(b);im.setAttribute('src',src)}
-      const small=await shrinkDataUrl(src);
-      if(small!==src){saved+=src.length-small.length;im.setAttribute('src',small)}}catch(e){}}
-  return saved;}
-$('#replaceOne').onclick=()=>{runFind();if(!hits.length)return;const i=Math.max(hi,0);replaceHit(hits[i]);saveDraft();runFind();if(hits.length)goHit(Math.min(i,hits.length-1));msg('已取代 1 處')};
-$('#replaceAll').onclick=()=>{runFind();const n=hits.length;if(!n)return;hits.slice().reverse().forEach(replaceHit);saveDraft();hi=-1;runFind();msg('已取代 '+n+' 處')};
+editor.addEventListener('paste', e => {
+  const cd = e.clipboardData;
+  if (!cd) return;
+  const html = cd.getData('text/html');
+  if (html) {
+    e.preventDefault();
+    insertHtmlAtCaret(sanitizeHtml(html), { replaceSel: true });
+  }
+  setTimeout(() => {
+    shrinkEditorImages().then(saved => {
+      saveDraft();
+      if (saved > 0) msg('貼上的圖片已自動縮圖，省下 ' + Math.round(saved / 1024) + 'KB');
+    });
+  }, 30);
+});
+async function shrinkEditorImages() {
+  const imgs = [...editor.querySelectorAll('img')].filter(
+    im => /^(data:image\/|blob:)/i.test(im.getAttribute('src') || '') && im.dataset.shrunk !== '1',
+  );
+  let saved = 0;
+  for (const im of imgs) {
+    im.dataset.shrunk = '1';
+    try {
+      let src = im.getAttribute('src');
+      if (/^blob:/i.test(src)) {
+        const b = await (await fetch(src)).blob();
+        src = await fileToDataUrl(b);
+        im.setAttribute('src', src);
+      }
+      const small = await shrinkDataUrl(src);
+      if (small !== src) {
+        saved += src.length - small.length;
+        im.setAttribute('src', small);
+      }
+    } catch (e) {}
+  }
+  return saved;
+}
+$('#replaceOne').onclick = () => {
+  runFind();
+  if (!hits.length) return;
+  const i = Math.max(hi, 0);
+  replaceHit(hits[i]);
+  saveDraft();
+  runFind();
+  if (hits.length) goHit(Math.min(i, hits.length - 1));
+  msg('已取代 1 處');
+};
+$('#replaceAll').onclick = () => {
+  runFind();
+  const n = hits.length;
+  if (!n) return;
+  hits.slice().reverse().forEach(replaceHit);
+  saveDraft();
+  hi = -1;
+  runFind();
+  msg('已取代 ' + n + ' 處');
+};
 // Updates: changelog.json is the release record, newest first. Its top version at load is the one running; a later fetch saying otherwise means a newer deploy.
-let runningVer=null,logReady;const fetchLog=()=>fetch('./changelog.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()});
-function showLog(entries,title){$('#logTitle').textContent=title;$('#logBody').replaceChildren(...entries.map(e=>{const sec=document.createElement('section'),h=document.createElement('h4'),ul=document.createElement('ul');h.textContent=e.version;ul.append(...e.notes.map(n=>{const li=document.createElement('li');li.textContent=n;return li}));sec.append(h,ul);return sec}));$('#logModal').hidden=false}
-$('#logBtn').onclick=()=>fetchLog().then(l=>showLog(l,'更新紀錄')).catch(()=>msg('無法載入更新紀錄',true));$('#logClose').onclick=()=>{$('#logModal').hidden=true};$('#logModal').onclick=e=>{if(e.target.id==='logModal')e.target.hidden=true};
-(logReady=fetchLog()).then(log=>{runningVer=log[0]&&log[0].version;if(!runningVer)return;let seen=null,returning=false;try{seen=localStorage.getItem('seenVersion');returning=seen!==null||!!localStorage.getItem('draft')}catch(e){}if(seen!==runningVer&&returning){const i=log.findIndex(e=>e.version===seen);showLog(i===-1?log.slice(0,1):log.slice(0,i),'已更新到 '+runningVer)}try{localStorage.setItem('seenVersion',runningVer)}catch(e){}}).catch(()=>{});
-function checkUpdate(){if(!runningVer||document.hidden||!$('#updBar').hidden)return;fetchLog().then(l=>{if(l[0]&&l[0].version!==runningVer)$('#updBar').hidden=false}).catch(()=>{})}
-document.addEventListener('visibilitychange',checkUpdate);setInterval(checkUpdate,30*60*1000);$('#updReload').onclick=()=>location.reload();$('#updClose').onclick=()=>{$('#updBar').hidden=true};
+let runningVer = null,
+  logReady;
+const fetchLog = () =>
+  fetch('./changelog.json', { cache: 'no-store' }).then(r => {
+    if (!r.ok) throw new Error(r.status);
+    return r.json();
+  });
+function showLog(entries, title) {
+  $('#logTitle').textContent = title;
+  $('#logBody').replaceChildren(
+    ...entries.map(e => {
+      const sec = document.createElement('section'),
+        h = document.createElement('h4'),
+        ul = document.createElement('ul');
+      h.textContent = e.version;
+      ul.append(
+        ...e.notes.map(n => {
+          const li = document.createElement('li');
+          li.textContent = n;
+          return li;
+        }),
+      );
+      sec.append(h, ul);
+      return sec;
+    }),
+  );
+  $('#logModal').hidden = false;
+}
+$('#logBtn').onclick = () =>
+  fetchLog()
+    .then(l => showLog(l, '更新紀錄'))
+    .catch(() => msg('無法載入更新紀錄', true));
+$('#logClose').onclick = () => {
+  $('#logModal').hidden = true;
+};
+$('#logModal').onclick = e => {
+  if (e.target.id === 'logModal') e.target.hidden = true;
+};
+(logReady = fetchLog())
+  .then(log => {
+    runningVer = log[0] && log[0].version;
+    if (!runningVer) return;
+    let seen = null,
+      returning = false;
+    try {
+      seen = localStorage.getItem('seenVersion');
+      returning = seen !== null || !!localStorage.getItem('draft');
+    } catch (e) {}
+    if (seen !== runningVer && returning) {
+      const i = log.findIndex(e => e.version === seen);
+      showLog(i === -1 ? log.slice(0, 1) : log.slice(0, i), '已更新到 ' + runningVer);
+    }
+    try {
+      localStorage.setItem('seenVersion', runningVer);
+    } catch (e) {}
+  })
+  .catch(() => {});
+function checkUpdate() {
+  if (!runningVer || document.hidden || !$('#updBar').hidden) return;
+  fetchLog()
+    .then(l => {
+      if (l[0] && l[0].version !== runningVer) $('#updBar').hidden = false;
+    })
+    .catch(() => {});
+}
+document.addEventListener('visibilitychange', checkUpdate);
+setInterval(checkUpdate, 30 * 60 * 1000);
+$('#updReload').onclick = () => location.reload();
+$('#updClose').onclick = () => {
+  $('#updBar').hidden = true;
+};
 // Service Worker：第一次載入後即可離線開啟（DOCX 解析與 PDF 產生都已經在本機）
-if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){
-  navigator.serviceWorker.register('./sw.js').then(()=>navigator.serviceWorker.ready).then(async(reg)=>{
-    try{const log=await logReady;
-      const v=log&&log[0]&&log[0].version;
-      if(v&&reg.active)reg.active.postMessage({version:v});   // 版本換了就讓 SW 重抓 vendor 檔案
-    }catch(e){}
-  }).catch(()=>{})}
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  navigator.serviceWorker
+    .register('./sw.js')
+    .then(() => navigator.serviceWorker.ready)
+    .then(async reg => {
+      try {
+        const log = await logReady;
+        const v = log && log[0] && log[0].version;
+        if (v && reg.active) reg.active.postMessage({ version: v }); // 版本換了就讓 SW 重抓 vendor 檔案
+      } catch (e) {}
+    })
+    .catch(() => {});
+}
 </script>
 </body></html>
