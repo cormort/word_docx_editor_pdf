@@ -3,7 +3,9 @@
    目前版本 postMessage 進來；版本不同就重抓 shell 並把舊快取刪掉。 */
 const VERSION = 'unsigned';          // 拿不到 changelog.json 時用的備援版本
 let CACHE = 'wde-' + VERSION;
-const ASSETS = ['./', './index.html', './vendor/mammoth.browser.min.js', './vendor/html2pdf.bundle.min.js'];
+const ASSETS = ['./', './index.html', './docx-fidelity.js', './manifest.webmanifest',
+  './vendor/mammoth.browser.min.js', './vendor/html2pdf.bundle.min.js',
+  './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
 const cacheName = (v) => 'wde-' + String(v).replace(/[^0-9A-Za-z._-]/g, '-');
 
@@ -55,7 +57,10 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== self.location.origin) return;
 
   // 頁面本身與更新紀錄要拿最新的（「有新版本」提示靠 changelog.json 比對）
-  const fresh = req.mode === 'navigate' || url.pathname.endsWith('/index.html') || url.pathname.endsWith('changelog.json');
+  // 自家程式（頁面、更新紀錄、docx 保版面模組）走 network-first，改版才不會拿到舊的；
+  // vendor/ 的第三方函式庫維持 cache-first（版本換了才重抓）
+  const fresh = req.mode === 'navigate' || url.pathname.endsWith('/index.html')
+    || url.pathname.endsWith('changelog.json') || url.pathname.endsWith('/docx-fidelity.js');
   if (fresh) {
     e.respondWith((async () => {
       try {
