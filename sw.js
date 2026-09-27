@@ -7,6 +7,9 @@ const ASSETS = ['./', './index.html', './docx-fidelity.js', './manifest.webmanif
   './vendor/mammoth.browser.min.js', './vendor/html2pdf.bundle.min.js',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
+// SW 閒置被回收後重啟，CACHE 會回到預設值；沿用已存在的 shell 快取，免得寫進錯的快取或整包重抓
+const adopt = caches.keys().then((ks) => { const k = ks.find((x) => x.startsWith('wde-')); if (k && CACHE === 'wde-' + VERSION) CACHE = k; });
+
 const cacheName = (v) => 'wde-' + String(v).replace(/[^0-9A-Za-z._-]/g, '-');
 
 // 安裝時先問 changelog.json 目前是哪一版，這樣就不必手動維護版本
@@ -32,8 +35,9 @@ self.addEventListener('message', (e) => {
   const v = e.data && e.data.version;
   if (!v) return;
   const want = cacheName(v);
-  if (want === CACHE) return;
   e.waitUntil((async () => {
+    await adopt;
+    if (want === CACHE) return;
     const fresh = await caches.open(want);
     await fresh.addAll(ASSETS);
     const old = CACHE;
@@ -65,8 +69,7 @@ self.addEventListener('fetch', (e) => {
     e.respondWith((async () => {
       try {
         const res = await fetch(req);
-        const c = await caches.open(CACHE);
-        c.put(req, res.clone());
+        if (res.ok) { await adopt; (await caches.open(CACHE)).put(req, res.clone()); }   // 404／500 不要蓋掉好的快取
         return res;
       } catch {
         return (await caches.match(req)) || (await caches.match('./index.html')) || Response.error();
@@ -79,11 +82,12 @@ self.addEventListener('fetch', (e) => {
   e.respondWith((async () => {
     const hit = await caches.match(req);
     if (hit) {
-      fetch(req).then((res) => { if (res.ok) caches.open(CACHE).then((c) => c.put(req, res)); }).catch(() => {});
+      adopt.then(() => fetch(req)).then((res) => { if (res.ok) caches.open(CACHE).then((c) => c.put(req, res)); }).catch(() => {});
       return hit;
     }
     try {
       const res = await fetch(req);
+      await adopt;
       if (res.ok) caches.open(CACHE).then((c) => c.put(req, res.clone()));
       return res;
     } catch { return Response.error(); }

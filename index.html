@@ -176,7 +176,7 @@ function applyDocumentPage(pg){
 function clearDocumentPage(){
   if(editor.dataset.customPage!=='1')return;
   delete editor.dataset.customPage;
-  editor.style.width='';editor.style.minHeight='';editor.style.padding='';fit()}
+  editor.style.width='';editor.style.minHeight='';editor.style.padding='';applyPageStyle();fit()}
 function setDocInfo(text){$('#docinfo').textContent=text||''}
 
 // ---- 表格編輯：只有游標在表格內才有作用 ----
@@ -201,7 +201,7 @@ function tableOp(kind){
     const idx=[...row.children].indexOf(cell);
     if(kind==='delCol'&&[...row.children].length<2)return msg('表格至少要留一欄。',true);
     rows.forEach(tr=>{const cells=[...tr.children];if(!cells[idx])return;
-      if(kind==='addCol'){const nd=document.createElement(tr===row&&cell.tagName==='TH'?'th':'td');nd.innerHTML='<br>';cells[idx].after(nd)}
+      if(kind==='addCol'){const nd=document.createElement(cells[idx].tagName==='TH'?'th':'td');nd.innerHTML='<br>';cells[idx].after(nd)}
       else cells[idx].remove()});
     msg(kind==='addCol'?'已在右側插入一欄':'已刪除這一欄')}
   saveDraft()}
@@ -241,8 +241,8 @@ $('#file').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)openDoc
 async function openDocx(file){
   if(file.size>60*1024*1024)return msg('檔案超過 60MB，瀏覽器可能無法處理，請先簡化內容。',true);
   notice.style.display='none';document.body.classList.add('statusbusy');msg('正在解析 DOCX…');
-  const buf=await file.arrayBuffer();
   try{
+    const buf=await file.arrayBuffer();
     if($('#fidelityImport')&&$('#fidelityImport').checked){
       try{
         msg('正在解析 DOCX（保版面模式）…');
@@ -292,7 +292,7 @@ async function openDocx(file){
     msg(result.messages.length?'載入完成；複雜格式可能無法完整保留':'載入完成，可開始編輯',!!result.messages.length);
   }catch(err){msg('開啟失敗：'+err.message,true)}
   finally{document.body.classList.remove('statusbusy')}};
-$('#saveBtn').onclick=()=>{const title=$('#filename').value||'文件';const html='<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>'+title+'</title><style>body{font-family:"Microsoft JhengHei",sans-serif;line-height:1.75;max-width:210mm;margin:20px auto;padding:18mm}table{border-collapse:collapse;width:100%}th,td{border:1px solid #999;padding:6px}img{max-width:100%}</style></head><body>'+editor.innerHTML+'</body></html>';download(new Blob([html],{type:'text/html;charset=utf-8'}),title+'.html');msg('HTML 已下載')};
+$('#saveBtn').onclick=()=>{const title=safeName('文件');const html='<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>'+xmlEsc(title)+'</title><style>body{font-family:"Microsoft JhengHei",sans-serif;line-height:1.75;max-width:210mm;margin:20px auto;padding:18mm}table{border-collapse:collapse;width:100%}th,td{border:1px solid #999;padding:6px}img{max-width:100%}</style></head><body>'+editor.innerHTML+'</body></html>';download(new Blob([html],{type:'text/html;charset=utf-8'}),title+'.html');msg('HTML 已下載')};
 
 // ================= 匯出 Word（.docx）：自帶 ZIP 寫入器 ＋ OOXML，零外部依賴 =================
 const DOCX_PAGE={a4:[11906,16838],letter:[12240,15840],legal:[12240,20160]};
@@ -446,7 +446,7 @@ function tableXml(tbl,ctx){
       const rs=Math.max(1,parseInt(td.getAttribute('rowspan')||'1',10)||1);
       for(let i=0;i<rs;i++)for(let j=0;j<cs;j++){grid[r+i]=grid[r+i]||[];grid[r+i][c+j]={cell:td,start:i===0&&j===0,cs,rs,c0:c,r0:r}}
       c+=cs;cols=Math.max(cols,c)}});
-  const total=10546,colW=Math.round(total/Math.max(1,cols));
+  const total=ctx.textTw,colW=Math.round(total/Math.max(1,cols));
   const gridXml='<w:tblGrid>'+Array.from({length:cols},()=>'<w:gridCol w:w="'+colW+'"/>').join('')+'</w:tblGrid>';
   const borders='<w:tblBorders>'+['top','left','bottom','right','insideH','insideV']
     .map(b=>'<w:'+b+' w:val="single" w:sz="6" w:space="0" w:color="94A3B8"/>').join('')+'</w:tblBorders>';
@@ -489,15 +489,16 @@ function blockXml(el,ctx){
   return paragraphXml(el,ctx,'')}
 function buildDocx(){
   const enc=new TextEncoder();
-  const ctx={relN:0,imgN:0,picN:0,media:[],relList:[],rels:new Map(),
-    maxCx:(DOCX_PAGE[$('#pageSize').value]||DOCX_PAGE.a4)[0]-1360 > 0 ? ((DOCX_PAGE[$('#pageSize').value]||DOCX_PAGE.a4)[0]-1360)*635 : 6000000,
+  const [pw,ph]=DOCX_PAGE[$('#pageSize').value]||DOCX_PAGE.a4;
+  const land=$('#orientation').value==='landscape';
+  const mgTw=Math.round(marginMm()*56.7);            // mm → twips（1mm ≈ 56.7twips）
+  const textTw=Math.max(1440,(land?ph:pw)-2*mgTw);   // 版心寬（twips）：圖片與表格以此為上限
+  const ctx={relN:0,imgN:0,picN:0,media:[],relList:[],rels:new Map(),textTw,
+    maxCx:textTw*635,                                 // twips → EMU
     rel(kind,target,ext){const key=kind+'|'+target;if(this.rels.has(key))return this.rels.get(key);
       const id='rId'+(++this.relN);this.rels.set(key,id);this.relList.push({id,kind,target,ext});return id}};
   const body=[...editor.children].map(el=>blockXml(el,ctx)).join('');
-  const [pw,ph]=DOCX_PAGE[$('#pageSize').value]||DOCX_PAGE.a4;
-  const land=$('#orientation').value==='landscape';
   const wantPageNum=!!($('#docxPageNum')&&$('#docxPageNum').checked);
-  const mgTw=Math.round(marginMm()*56.7);            // mm → twips（1mm ≈ 56.7twips）
   const sect='<w:sectPr>'+(wantPageNum?'<w:footerReference w:type="default" r:id="rIdFooter"/>':'')
     +'<w:pgSz w:w="'+(land?ph:pw)+'" w:h="'+(land?pw:ph)+'"'+(land?' w:orient="landscape"':'')+'/>'
     +'<w:pgMar w:top="'+mgTw+'" w:right="'+mgTw+'" w:bottom="'+mgTw+'" w:left="'+mgTw+'" w:header="0" w:footer="'+(wantPageNum?mgTw:0)+'" w:gutter="0"/></w:sectPr>';
@@ -510,7 +511,7 @@ function buildDocx(){
     +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
     +'<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
     +'<Relationship Id="rIdNumbering" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>'
-    +(($('#docxPageNum')&&$('#docxPageNum').checked)?'<Relationship Id="rIdFooter" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>':'')
+    +(wantPageNum?'<Relationship Id="rIdFooter" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>':'')
     +ctx.relList.map(r=>'<Relationship Id="'+r.id+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'+r.kind
       +'" Target="'+xmlEsc(r.target)+'"'+(r.ext?' TargetMode="External"':'')+'/>').join('')+'</Relationships>';
   const styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -562,7 +563,7 @@ function buildDocx(){
       +'<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
       +'<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
       +'<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>'
-      +(($('#docxPageNum')&&$('#docxPageNum').checked)?'<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>':'')
+      +(wantPageNum?'<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>':'')
       +'</Types>')},
     {name:'_rels/.rels',data:enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
       +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
@@ -571,10 +572,10 @@ function buildDocx(){
     {name:'word/document.xml',data:enc.encode(docXml)},
     {name:'word/styles.xml',data:enc.encode(styles)},
     {name:'word/numbering.xml',data:enc.encode(numbering)},
-    ...(($('#docxPageNum')&&$('#docxPageNum').checked)?[{name:'word/footer1.xml',data:enc.encode(footer)}]:[]),
+    ...(wantPageNum?[{name:'word/footer1.xml',data:enc.encode(footer)}]:[]),
     {name:'word/_rels/document.xml.rels',data:enc.encode(docRels)},
     ...ctx.media];
-  const name=($('#filename').value.trim()||'文件').replace(/[\\/:*?"<>|]+/g,'_')+'.docx';
+  const name=safeName('文件')+'.docx';
   return {blob:zipStore(files),name,images:ctx.media.length}}
 $('#docxBtn').onclick=()=>{
   document.body.classList.add('statusbusy');msg('正在產生 .docx…');
@@ -584,8 +585,9 @@ $('#docxBtn').onclick=()=>{
   }catch(err){msg('產生 .docx 失敗：'+err.message+'；可先用「儲存 HTML」保存內容。',true)}
   finally{document.body.classList.remove('statusbusy')}};
 
+function safeName(fallback){return($('#filename').value.trim()||fallback).replace(/[\\/:*?"<>|]+/g,'_')}
 function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
-$('#pdfBtn').onclick=async()=>{document.body.classList.add('statusbusy');msg('正在產生 PDF…');editor.style.zoom='';try{await loadScript(LIB.html2pdf,'html2pdf');const mg=marginMm();const chain=html2pdf().set({margin:[mg,mg,mg,mg],filename:($('#filename').value||'文件')+'.pdf',image:{type:'jpeg',quality:.98},html2canvas:{scale:innerWidth<640?1.5:2,useCORS:true,letterRendering:true,backgroundColor:'#fff'},jsPDF:{unit:'mm',format:$('#pageSize').value,orientation:$('#orientation').value},pagebreak:{mode:['css','legacy'],avoid:['tr','img','h1','h2','h3','table','pre','blockquote']}}).from(editor);
+$('#pdfBtn').onclick=async()=>{document.body.classList.add('statusbusy');msg('正在產生 PDF…');editor.style.zoom='';try{await loadScript(LIB.html2pdf,'html2pdf');const mg=marginMm();const chain=html2pdf().set({margin:[mg,mg,mg,mg],filename:safeName('文件')+'.pdf',image:{type:'jpeg',quality:.98},html2canvas:{scale:innerWidth<640?1.5:2,useCORS:true,letterRendering:true,backgroundColor:'#fff'},jsPDF:{unit:'mm',format:$('#pageSize').value,orientation:$('#orientation').value},pagebreak:{mode:['css','legacy'],avoid:['tr','img','h1','h2','h3','table','pre','blockquote']}}).from(editor);
 const wantNum=!!($('#pdfPageNum')&&$('#pdfPageNum').checked);
 if(wantNum){await chain.toPdf().get('pdf').then(pdf=>{const n=pdf.internal.getNumberOfPages();
   for(let i=1;i<=n;i++){pdf.setPage(i);pageNumStamp(pdf,i,n)}}).save()}
@@ -633,16 +635,16 @@ async function shrinkEditorImages(){
 $('#replaceOne').onclick=()=>{runFind();if(!hits.length)return;const i=Math.max(hi,0);replaceHit(hits[i]);saveDraft();runFind();if(hits.length)goHit(Math.min(i,hits.length-1));msg('已取代 1 處')};
 $('#replaceAll').onclick=()=>{runFind();const n=hits.length;if(!n)return;hits.slice().reverse().forEach(replaceHit);saveDraft();hi=-1;runFind();msg('已取代 '+n+' 處')};
 // Updates: changelog.json is the release record, newest first. Its top version at load is the one running; a later fetch saying otherwise means a newer deploy.
-let runningVer=null;const fetchLog=()=>fetch('./changelog.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()});
+let runningVer=null,logReady;const fetchLog=()=>fetch('./changelog.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()});
 function showLog(entries,title){$('#logTitle').textContent=title;$('#logBody').replaceChildren(...entries.map(e=>{const sec=document.createElement('section'),h=document.createElement('h4'),ul=document.createElement('ul');h.textContent=e.version;ul.append(...e.notes.map(n=>{const li=document.createElement('li');li.textContent=n;return li}));sec.append(h,ul);return sec}));$('#logModal').hidden=false}
 $('#logBtn').onclick=()=>fetchLog().then(l=>showLog(l,'更新紀錄')).catch(()=>msg('無法載入更新紀錄',true));$('#logClose').onclick=()=>{$('#logModal').hidden=true};$('#logModal').onclick=e=>{if(e.target.id==='logModal')e.target.hidden=true};
-fetchLog().then(log=>{runningVer=log[0]&&log[0].version;if(!runningVer)return;let seen=null,returning=false;try{seen=localStorage.getItem('seenVersion');returning=seen!==null||!!localStorage.getItem('draft')}catch(e){}if(seen!==runningVer&&returning){const i=log.findIndex(e=>e.version===seen);showLog(i===-1?log.slice(0,1):log.slice(0,i),'已更新到 '+runningVer)}try{localStorage.setItem('seenVersion',runningVer)}catch(e){}}).catch(()=>{});
+(logReady=fetchLog()).then(log=>{runningVer=log[0]&&log[0].version;if(!runningVer)return;let seen=null,returning=false;try{seen=localStorage.getItem('seenVersion');returning=seen!==null||!!localStorage.getItem('draft')}catch(e){}if(seen!==runningVer&&returning){const i=log.findIndex(e=>e.version===seen);showLog(i===-1?log.slice(0,1):log.slice(0,i),'已更新到 '+runningVer)}try{localStorage.setItem('seenVersion',runningVer)}catch(e){}}).catch(()=>{});
 function checkUpdate(){if(!runningVer||document.hidden||!$('#updBar').hidden)return;fetchLog().then(l=>{if(l[0]&&l[0].version!==runningVer)$('#updBar').hidden=false}).catch(()=>{})}
 document.addEventListener('visibilitychange',checkUpdate);setInterval(checkUpdate,30*60*1000);$('#updReload').onclick=()=>location.reload();$('#updClose').onclick=()=>{$('#updBar').hidden=true};
 // Service Worker：第一次載入後即可離線開啟（DOCX 解析與 PDF 產生都已經在本機）
 if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){
   navigator.serviceWorker.register('./sw.js').then(()=>navigator.serviceWorker.ready).then(async(reg)=>{
-    try{const r=await fetch('./changelog.json',{cache:'no-store'});const log=await r.json();
+    try{const log=await logReady;
       const v=log&&log[0]&&log[0].version;
       if(v&&reg.active)reg.active.postMessage({version:v});   // 版本換了就讓 SW 重抓 vendor 檔案
     }catch(e){}

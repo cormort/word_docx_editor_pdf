@@ -158,7 +158,8 @@
     if (fonts) {
       const ea = val(fonts, 'eastAsia'), as = val(fonts, 'ascii') || val(fonts, 'hAnsi');
       const fam = [ea, as].filter(Boolean);
-      if (fam.length) st.css.push('font-family:' + fam.map((f) => (/[\s]/.test(f) ? '"' + f + '"' : f)).join(','));
+      // 字型名稱用單引號：這段 CSS 會放進 style="…"，雙引號會提早結束屬性
+      if (fam.length) st.css.push('font-family:' + fam.map((f) => "'" + f.replace(/['";<>&]/g, '') + "'").join(','));
     }
     const sz = num(val(tag(rPr, 'sz'), 'val'), 0);
     if (sz) st.css.push('font-size:' + (sz / 2) + 'pt');
@@ -238,7 +239,7 @@
               if (type === 'page') ctx.pageBreaks.push(parts.length);
               emit(type === 'page' ? '</p><div class="pagebreak" contenteditable="false"></div><p>' : '<br>');
             } else if (c.localName === 'drawing' || c.localName === 'pict') emit(docxImage(c, ctx));
-            else if (c.localName === 'sym') emit(esc(String.fromCharCode(num(val(c, 'char'), 0))));
+            else if (c.localName === 'sym') { const code = parseInt(val(c, 'char'), 16); if (code > 0) emit(esc(String.fromCharCode(code))); }  // w:char 是十六進位
             else if (c.localName === 'fldSimple' || c.localName === 'instrText') emit(esc(c.textContent));
           }
         } else if (ch.localName === 'hyperlink') {
