@@ -137,7 +137,7 @@ input {
 .tool {
   border: 0;
   background: white;
-  padding: 8px 10px;
+  padding: 8px;
   border-radius: 8px;
   cursor: pointer;
   min-width: 37px;
@@ -639,6 +639,89 @@ body.dragging .paper {
     padding: 0;
   }
 }
+/* 下拉選單（匯出／表格／版面）：面板用 fixed 定位，才不會被可橫向捲動的工具列裁掉 */
+.menu {
+  position: relative;
+  flex: none;
+}
+.menu > summary {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+}
+.menu > summary::-webkit-details-marker {
+  display: none;
+}
+.menu[open] > summary {
+  background: #dbeafe;
+}
+.menu .panel {
+  position: fixed;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  min-width: 200px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 10px 28px #0f172a30;
+}
+.menu .mi {
+  border: 0;
+  background: #fff;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.menu .mi:hover,
+.menu .mi:focus-visible {
+  background: #f1f5f9;
+}
+.menu .panel.settings {
+  margin: 0;
+  flex-wrap: nowrap;
+  gap: 10px;
+  padding: 12px;
+}
+.menu .panel.settings .chk {
+  font-size: 14px;
+}
+.menu .panel.settings select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff;
+}
+.tool:focus-visible,
+.btn:focus-visible,
+.menu > summary:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+#status {
+  transition: color 0.2s;
+}
+@media (max-width: 640px) {
+  /* 工具列右緣淡出，提示還能往右滑 */
+  .tools {
+    -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent);
+    mask-image: linear-gradient(90deg, #000 88%, transparent);
+  }
+  .tools.end {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .actions .menu > summary {
+    width: 100%;
+    justify-content: center;
+  }
+}
 </style>
 <style id="pageStyle"></style>
 </head>
@@ -657,9 +740,15 @@ body.dragging .paper {
       <input id="imageFile" type="file" accept="image/*" hidden>
       <button class="btn" id="newBtn">新文件</button>
       <button class="btn primary" id="openBtn">載入 Word</button>
-      <button class="btn" id="saveBtn">儲存 HTML</button>
-      <button class="btn" id="docxBtn" title="匯出 .docx（Word 可直接編輯）">下載 Word</button>
       <button class="btn pdf" id="pdfBtn">轉換 PDF</button>
+      <details class="menu">
+        <summary class="btn" aria-label="更多匯出方式">匯出 ▾</summary>
+        <div class="panel" role="menu">
+          <button class="mi" id="docxBtn" role="menuitem">下載 Word（.docx，可再編輯）</button>
+          <button class="mi" id="saveBtn" role="menuitem">儲存 HTML</button>
+          <button class="mi" id="printBtn" role="menuitem">列印／另存可搜尋 PDF</button>
+        </div>
+      </details>
     </div>
   </div>
 </header>
@@ -697,16 +786,21 @@ body.dragging .paper {
       <button class="tool" id="findToggle">尋找取代</button>
       <button class="tool" id="deskToggle" title="以電腦版 A4 版面唯讀檢視，縮放至螢幕寬">閱讀模式</button>
       <button class="tool" id="imgBtn" title="插入圖片" aria-label="插入圖片">圖片</button>
-      <button class="tool" id="tblBtn" title="插入表格" aria-label="插入表格">表格</button>
       <button class="tool" id="linkBtn" title="插入連結" aria-label="插入連結">連結</button>
-      <button class="tool" id="rowAddBtn" title="在游標所在列下方插入一列" aria-label="插入列">增列</button>
-      <button class="tool" id="colAddBtn" title="在游標所在欄右側插入一欄" aria-label="插入欄">增欄</button>
-      <button class="tool" id="rowDelBtn" title="刪除游標所在的列" aria-label="刪除列">刪列</button>
-      <button class="tool" id="colDelBtn" title="刪除游標所在的欄" aria-label="刪除欄">刪欄</button>
+      <details class="menu">
+        <summary class="tool" title="插入與編輯表格">表格 ▾</summary>
+        <div class="panel" role="menu">
+          <button class="tool mi" id="tblBtn" role="menuitem">插入表格…</button>
+          <button class="tool mi" id="rowAddBtn" role="menuitem">在下方插入列</button>
+          <button class="tool mi" id="colAddBtn" role="menuitem">在右側插入欄</button>
+          <button class="tool mi" id="rowDelBtn" role="menuitem">刪除這一列</button>
+          <button class="tool mi" id="colDelBtn" role="menuitem">刪除這一欄</button>
+        </div>
+      </details>
       <button class="tool" id="pbBtn" title="在這裡強制換頁（列印與 Word 匯出都有效）" aria-label="插入分頁">分頁</button>
-      <button class="tool" onclick="window.print()">列印</button>
-      <button class="tool" id="logBtn">更新紀錄</button>
-      <div class="settings">
+      <details class="menu">
+        <summary class="tool" title="紙張、方向、邊界、頁碼與更新紀錄">設定 ▾</summary>
+        <div class="panel settings">
         <label class="chk" title="Word 檔的頁尾置中頁碼"><input type="checkbox" id="docxPageNum" checked>Word 頁碼</label>
         <label class="chk" title="產生的 PDF 每頁下方加「第 X 頁 / 共 Y 頁」"><input type="checkbox" id="pdfPageNum" checked>PDF 頁碼</label>
         <label class="chk" title="列印與 PDF 的邊界（公釐）">邊界<input id="marginMm" class="num" type="number" min="0" max="40" step="1" value="12">mm</label>
@@ -720,7 +814,9 @@ body.dragging .paper {
           <option value="portrait">直向</option>
           <option value="landscape">橫向</option>
         </select>
+        <button class="mi" id="logBtn">更新紀錄</button>
       </div>
+      </details>
     </div>
     <div id="findbar" class="findbar">
       <input id="findText" placeholder="尋找：多個關鍵字用空格，/正則/" enterkeyhint="search">
@@ -1218,6 +1314,49 @@ document.addEventListener('drop', e => {
     msg('舊版 .doc 無法由純瀏覽器可靠解析，請先用 Word 或 LibreOffice 另存為 .docx。', true);
   else if (/^image\//.test(f.type)) insertImageFile(f);
   else msg('只支援 .docx 與圖片檔。', true);
+});
+// 下拉選單：一次只開一個、點外面或按 Esc 關閉、選完項目自動收起
+const menus = [...document.querySelectorAll('details.menu')];
+function placeMenu(d) {
+  const p = d.querySelector('.panel'),
+    r = d.querySelector('summary').getBoundingClientRect();
+  p.style.top = r.bottom + 4 + 'px';
+  p.style.left = Math.max(8, Math.min(r.left, innerWidth - p.offsetWidth - 8)) + 'px';
+}
+const closeMenus = keep => menus.forEach(d => d !== keep && d.removeAttribute('open'));
+menus.forEach(d => {
+  d.addEventListener('toggle', () => {
+    if (d.open) {
+      closeMenus(d);
+      placeMenu(d);
+    }
+  });
+  d.querySelectorAll('button.mi').forEach(b => b.addEventListener('click', () => d.removeAttribute('open')));
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('details.menu')) closeMenus();
+});
+addEventListener('resize', () => closeMenus());
+$('.tools').addEventListener('scroll', () => closeMenus(), { passive: true });
+$('#printBtn').onclick = () => window.print();
+// 手機工具列：捲到底就拿掉右側淡出提示
+const toolsEl = $('.tools');
+const syncToolsEnd = () =>
+  toolsEl.classList.toggle('end', toolsEl.scrollLeft + toolsEl.clientWidth >= toolsEl.scrollWidth - 2);
+toolsEl.addEventListener('scroll', syncToolsEnd, { passive: true });
+addEventListener('resize', syncToolsEnd);
+syncToolsEnd();
+// 快捷鍵：Ctrl/⌘+F 開尋找、Esc 關閉選單／更新紀錄
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeMenus();
+    $('#logModal').hidden = true;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f' && !document.body.classList.contains('desk')) {
+    e.preventDefault();
+    if ($('#findbar').style.display !== 'flex') $('#findToggle').click();
+    else $('#findText').focus();
+  }
 });
 $('.toolbar').addEventListener('mousedown', e => {
   if (e.target.closest('.tool')) e.preventDefault();
