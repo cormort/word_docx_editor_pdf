@@ -21,8 +21,9 @@ curl -sL -o vendor/html2pdf.bundle.min.js    https://cdn.jsdelivr.net/npm/html2p
 
 換版本時要一起改 `index.html` 裡的 `LIB` 常數路徑，並在瀏覽器實測「載入 Word」與「轉換 PDF」兩個流程。
 
-**換了這裡的檔案就要把 `sw.js` 的 `VERSION` 加一**：Service Worker 對 `vendor/` 走 cache-first，
-版本沒變的話舊快取會繼續被使用，使用者會拿到舊的函式庫。
+**換了這裡的檔案，記得把 `changelog.json` 最上面的 `version` 換掉**：Service Worker 對 `vendor/`
+走 cache-first，而它的快取名稱就是 `changelog.json` 的版本；頁面載入後會把版本送給 SW，
+版本一變就會重抓這裡的檔案並刪掉舊快取（不必手動改 `sw.js`）。
 
 ## 授權全文
 
