@@ -1285,7 +1285,93 @@ function applyPageStyle() {
 // ---- 插入內容：優先用 Range（execCommand 在沒有游標範圍時會甚麼都不做）----
 // 插入 HTML。重點：只有「貼上」才會覆蓋選取內容；插入圖片／表格一律不動既有內容，
 // 而且任何 Range 例外都要退回附加，絕不能像舊寫法那樣先刪掉內容才失敗。
+// ---- 復原／重做：自己記快照 ----
+// 瀏覽器內建的復原只認得打字與 execCommand；插入表格、增刪列欄、分頁、取代這些直接改 DOM 的動作
+// 都不在它的紀錄裡（按復原沒反應）。所以全部改用快照：打字停頓 0.6 秒記一筆，程式編輯前後各記一筆。
+const HIST_MAX = 100;
+let hist = [],
+  histI = -1,
+  histT;
+function selPath() {
+  const sel = getSelection();
+  if (!sel.rangeCount || !editor.contains(sel.anchorNode) || sel.anchorNode === editor) return null;
+  const path = [];
+  for (let x = sel.anchorNode; x !== editor; x = x.parentNode) path.unshift([...x.parentNode.childNodes].indexOf(x));
+  return { path, off: sel.anchorOffset };
+}
+function setSelPath(p) {
+  try {
+    let n = editor;
+    for (const i of p.path) n = n.childNodes[i];
+    const r = document.createRange();
+    r.setStart(n, Math.min(p.off, n.nodeType === 3 ? n.length : n.childNodes.length));
+    r.collapse(true);
+    const sel = getSelection();
+    sel.removeAllRanges();
+    sel.addRange(r);
+  } catch (e) {}
+}
+function snap() {
+  clearTimeout(histT);
+  const h = editor.innerHTML,
+    cur = hist[histI];
+  if (cur && cur.h === h) {
+    cur.sel = selPath() || cur.sel;
+    return;
+  }
+  hist = hist.slice(0, histI + 1);
+  hist.push({ h, sel: selPath() });
+  if (hist.length > HIST_MAX) hist.shift();
+  histI = hist.length - 1;
+}
+function resetHistory() {
+  hist = [];
+  histI = -1;
+  snap();
+}
+// 程式直接改內容時用它包起來：前後各記一筆，復原就能回到改之前
+function recordEdit(fn) {
+  snap();
+  const r = fn();
+  snap();
+  saveDraft();
+  return r;
+}
+function histGo(d) {
+  snap();
+  const j = histI + d;
+  if (j < 0 || j >= hist.length) return msg(d < 0 ? '沒有可以復原的動作' : '沒有可以重做的動作');
+  histI = j;
+  editor.innerHTML = hist[j].h;
+  editor.focus();
+  if (hist[j].sel) setSelPath(hist[j].sel);
+  saveDraft();
+  if ($('#findbar').style.display === 'flex') runFind();
+  msg(d < 0 ? '已復原' : '已重做');
+}
+editor.addEventListener('input', () => {
+  clearTimeout(histT);
+  histT = setTimeout(snap, 600);
+});
+editor.addEventListener('keydown', e => {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === 'z' || k === 'y') {
+    e.preventDefault();
+    histGo(k === 'y' || e.shiftKey ? 1 : -1);
+  }
+});
+// 手機的復原手勢、右鍵選單的「復原」會走 beforeinput
+editor.addEventListener('beforeinput', e => {
+  if (e.inputType === 'historyUndo' || e.inputType === 'historyRedo') {
+    e.preventDefault();
+    histGo(e.inputType === 'historyUndo' ? -1 : 1);
+  }
+});
 function insertHtmlAtCaret(html, opts) {
+  return recordEdit(() => insertHtmlAtCaretRaw(html, opts));
+}
+function insertHtmlAtCaretRaw(html, opts) {
   const replaceSel = !!(opts && opts.replaceSel);
   const t = document.createElement('template');
   t.innerHTML = html;
@@ -1496,41 +1582,102 @@ function cellOfCaret() {
   const cell = el && el.closest ? el.closest('td,th') : null;
   return cell && editor.contains(cell) ? cell : null;
 }
+// 表格展開成格線：grid[r][c] = 蓋住這一格的儲存格（合併儲存格會出現在多個位置）
+function tableGrid(table) {
+  const rows = [...table.rows],
+    grid = rows.map(() => []);
+  rows.forEach((tr, r) => {
+    let c = 0;
+    for (const td of tr.cells) {
+      while (grid[r][c]) c++;
+      for (let i = 0; i < td.rowSpan && r + i < rows.length; i++)
+        for (let j = 0; j < td.colSpan; j++) grid[r + i][c + j] = td;
+      c += td.colSpan;
+    }
+  });
+  return { rows, grid, cols: Math.max(0, ...grid.map(g => g.length)) };
+}
+const newCell = like => {
+  const nd = document.createElement(like && like.tagName === 'TH' ? 'th' : 'td');
+  nd.innerHTML = '<br>';
+  return nd;
+};
+// 在第 r 列、第 c 格線欄的位置插入儲存格（插在它左邊最近一個「從這一列開始」的格子後面）
+function placeCell(tr, grid, r, c, nd) {
+  for (let k = c - 1; k >= 0; k--) {
+    const td = grid[r][k];
+    if (td && td.parentElement === tr) return td.after(nd);
+  }
+  tr.prepend(nd);
+}
 function tableOp(kind) {
   const cell = cellOfCaret();
   if (!cell) return msg('請先把游標放在表格內，再按表格編輯。', true);
-  const table = cell.closest('table'),
-    row = cell.closest('tr'),
-    rows = [...table.rows];
-  const hasMerged = !!table.querySelector('[colspan],[rowspan]');
-  if (kind === 'addRow') {
-    const clone = row.cloneNode(true);
-    [...clone.children].forEach(td => {
-      td.removeAttribute('rowspan');
-      td.innerHTML = '<br>';
-    });
-    row.after(clone);
-    msg('已在下方插入一列');
-  } else if (kind === 'delRow') {
-    if (rows.length < 2) return msg('表格至少要留一列。', true);
-    row.remove();
-    msg('已刪除這一列');
-  } else {
-    if (hasMerged) return msg('這個表格有合併儲存格，暫時不支援插入／刪除欄。', true);
-    const idx = [...row.children].indexOf(cell);
-    if (kind === 'delCol' && [...row.children].length < 2) return msg('表格至少要留一欄。', true);
-    rows.forEach(tr => {
-      const cells = [...tr.children];
-      if (!cells[idx]) return;
-      if (kind === 'addCol') {
-        const nd = document.createElement(cells[idx].tagName === 'TH' ? 'th' : 'td');
-        nd.innerHTML = '<br>';
-        cells[idx].after(nd);
-      } else cells[idx].remove();
-    });
-    msg(kind === 'addCol' ? '已在右側插入一欄' : '已刪除這一欄');
-  }
-  saveDraft();
+  const table = cell.closest('table');
+  const { rows, grid, cols } = tableGrid(table);
+  const r = rows.indexOf(cell.parentElement),
+    c = grid[r].indexOf(cell);
+  const colgroup = table.querySelector(':scope > colgroup');
+  const colEls = colgroup ? [...colgroup.children] : [];
+  recordEdit(() => {
+    if (kind === 'addRow') {
+      const r2 = r + cell.rowSpan - 1; // 合併格：插在它蓋住的最後一列下面
+      const tr = document.createElement('tr');
+      const seen = new Set();
+      for (let k = 0; k < cols; k++) {
+        const td = grid[r2][k];
+        if (td && grid[r2 + 1] && grid[r2 + 1][k] === td) {
+          if (!seen.has(td)) td.rowSpan++; // 縱向合併跨過插入點：拉長一列
+          seen.add(td);
+        } else tr.appendChild(newCell(td && td.tagName === 'TH' && r2 > 0 ? td : null));
+      }
+      rows[r2].after(tr);
+      msg('已在下方插入一列');
+    } else if (kind === 'delRow') {
+      if (rows.length < 2) return msg('表格至少要留一列。', true);
+      const tr = rows[r],
+        seen = new Set();
+      for (let k = 0; k < cols; k++) {
+        const td = grid[r][k];
+        if (!td || seen.has(td)) continue;
+        seen.add(td);
+        if (td.rowSpan < 2) continue;
+        td.rowSpan--;
+        if (td.parentElement === tr) placeCell(rows[r + 1], grid, r + 1, k, td); // 從這列開始的合併格移到下一列
+      }
+      tr.remove();
+      msg('已刪除這一列');
+    } else if (kind === 'delCol') {
+      if (cols < 2) return msg('表格至少要留一欄。', true);
+      const seen = new Set();
+      for (let i = 0; i < rows.length; i++) {
+        const td = grid[i][c];
+        if (!td || seen.has(td)) continue;
+        seen.add(td);
+        if (td.colSpan > 1) td.colSpan--;
+        else td.remove();
+      }
+      if (colEls.length === cols) colEls[c].remove();
+      msg('已刪除這一欄');
+    } else {
+      const c2 = c + cell.colSpan - 1; // 插在這格（含合併）右邊
+      const seen = new Set();
+      for (let i = 0; i < rows.length; i++) {
+        const td = grid[i][c2];
+        if (td && grid[i][c2 + 1] === td) {
+          if (!seen.has(td)) td.colSpan++; // 橫向合併跨過插入點：拉寬一欄
+          seen.add(td);
+        } else if (!td || td.parentElement === rows[i]) {
+          const nd = newCell(td);
+          if (td && td.rowSpan > 1) nd.rowSpan = td.rowSpan;
+          if (td) td.after(nd);
+          else rows[i].appendChild(nd);
+        }
+      }
+      if (colEls.length === cols) colEls[c2].after(colEls[c2].cloneNode());
+      msg('已在右側插入一欄');
+    }
+  });
 }
 $('#pbBtn').onclick = () => {
   editor.focus();
@@ -1657,6 +1804,7 @@ $('.tools').addEventListener('click', e => {
   const b = e.target.closest('[data-cmd]');
   if (!b) return;
   editor.focus();
+  if (b.dataset.cmd === 'undo' || b.dataset.cmd === 'redo') return histGo(b.dataset.cmd === 'undo' ? -1 : 1);
   document.execCommand(b.dataset.cmd, false, null);
   syncToolbar();
 });
@@ -1786,6 +1934,7 @@ idbGet('draft')
   })
   .finally(() => {
     draftReady = true;
+    resetHistory();
   });
 syncTitle();
 applyPageStyle();
@@ -1809,6 +1958,7 @@ $('#newBtn').onclick = () => {
   $('#findList').innerHTML = '';
   $('#findRes').classList.remove('show');
   notice.style.display = 'none';
+  resetHistory();
   msg('已開新文件');
 };
 $('#openBtn').onclick = () => $('#file').click();
@@ -1847,6 +1997,7 @@ async function openDocx(file) {
           hi = -1;
           $('#findList').innerHTML = '';
           $('#findRes').classList.remove('show');
+          resetHistory();
           saveDraft();
           msg(
             r.warnings && r.warnings.length
@@ -1907,6 +2058,7 @@ async function openDocx(file) {
     hi = -1;
     $('#findList').innerHTML = '';
     $('#findRes').classList.remove('show');
+    resetHistory();
     saveDraft();
     msg(
       result.messages.length ? '載入完成；複雜格式可能無法完整保留' : '載入完成，可開始編輯',
@@ -3037,8 +3189,7 @@ $('#replaceOne').onclick = () => {
   runFind();
   if (!hits.length) return;
   const i = Math.max(hi, 0);
-  replaceHit(hits[i]);
-  saveDraft();
+  recordEdit(() => replaceHit(hits[i]));
   runFind();
   if (hits.length) goHit(Math.min(i, hits.length - 1));
   msg('已取代 1 處');
@@ -3047,8 +3198,7 @@ $('#replaceAll').onclick = () => {
   runFind();
   const n = hits.length;
   if (!n) return;
-  hits.slice().reverse().forEach(replaceHit);
-  saveDraft();
+  recordEdit(() => hits.slice().reverse().forEach(replaceHit));
   hi = -1;
   runFind();
   msg('已取代 ' + n + ' 處');
