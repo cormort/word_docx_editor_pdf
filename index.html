@@ -212,23 +212,48 @@ function zipStore(files){const enc=new TextEncoder(),local=[],central=[];let off
   return new Blob([...local,...central,eo],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'})}
 
 // 收集行內文字與樣式（b/i/u/code/font size、換行）
+// 顏色：inline style 的顏色轉成 RRGGBB（Word 的 w:color／w:shd 用）
+function toHex(v){if(!v)return '';v=String(v).trim();
+  if(/^#[0-9a-f]{3}$/i.test(v))return (v[1]+v[1]+v[2]+v[2]+v[3]+v[3]).toUpperCase();
+  if(/^#[0-9a-f]{6}$/i.test(v))return v.slice(1).toUpperCase();
+  const m=/^rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/i.exec(v);
+  if(m)return [1,2,3].map(i=>('0'+Math.max(0,Math.min(255,+m[i])).toString(16)).slice(-2)).join('').toUpperCase();
+  return ''}
+// 段落對齊 → w:jc
+function jcOf(el){let v='';try{v=(el.style&&el.style.textAlign)||'';if(!v&&el.nodeType===1)v=getComputedStyle(el).textAlign||''}catch(e){}
+  v=String(v).toLowerCase();
+  if(v==='center')return 'center';if(v==='right'||v==='end')return 'right';if(v==='justify')return 'both';return ''}
+// 把某個元素自己的標籤與行內樣式疊到 inherited 上（起始節點也要算，否則 <b>粗</b> 這種直接
+// 放在段落裡的行內元素會整個掉格式 —— 這是回讀測試抓到的）
+function nodeStyle(node,inherited){
+  const st=Object.assign({},inherited);
+  if(!node||node.nodeType!==1)return st;
+  const tag=node.tagName.toLowerCase();
+  if(tag==='b'||tag==='strong')st.b=true;
+  if(tag==='i'||tag==='em')st.i=true;
+  if(tag==='u')st.u=true;
+  if(tag==='code'||tag==='pre')st.mono=true;
+  if(tag==='mark'&&!st.shade)st.shade='FFFF00';
+  if(tag==='font'){const sz=+node.getAttribute('size');st.half=({2:20,3:22,4:26,5:32})[sz]||st.half}
+  try{const cs=node.style;
+    const c=cs&&cs.color?toHex(cs.color):'';if(c&&c!=='000000')st.color=c;
+    const bg=cs&&cs.backgroundColor?toHex(cs.backgroundColor):'';if(bg)st.shade=bg;
+  }catch(e){}
+  return st}
 function collectRuns(node,style,out){
+  const self=nodeStyle(node,style);
   if(node.nodeType===3){if(node.nodeValue)out.push(Object.assign({text:node.nodeValue},style));return}
   for(const ch of node.childNodes){
-    if(ch.nodeType===3){if(ch.nodeValue)out.push(Object.assign({text:ch.nodeValue},style));continue}
+    if(ch.nodeType===3){if(ch.nodeValue)out.push(Object.assign({text:ch.nodeValue},self));continue}
     if(ch.nodeType!==1)continue;
     const tag=ch.tagName.toLowerCase();
-    if(tag==='br'){out.push(Object.assign({text:'\n'},style));continue}
-    const st=Object.assign({},style);
-    if(tag==='b'||tag==='strong')st.b=true;
-    if(tag==='i'||tag==='em')st.i=true;
-    if(tag==='u')st.u=true;
-    if(tag==='code'||tag==='pre')st.mono=true;
-    if(tag==='font'){const sz=+ch.getAttribute('size');st.half=({2:20,3:22,4:26,5:32})[sz]||style.half}
-    collectRuns(ch,st,out)}}
+    if(tag==='br'){out.push(Object.assign({text:'\n'},self));continue}
+    collectRuns(ch,self,out)}}
 function runsXml(runs){return runs.map(r=>{
   const rPr=[r.b?'<w:b/>':'',r.i?'<w:i/>':'',r.u?'<w:u w:val="single"/>':'',
     r.mono?'<w:rFonts w:ascii="Consolas" w:hAnsi="Consolas" w:eastAsia="Consolas"/>':'',
+    r.color?'<w:color w:val="'+r.color+'"/>':'',
+    r.shade?'<w:shd w:val="clear" w:color="auto" w:fill="'+r.shade+'"/>':'',
     r.half?'<w:sz w:val="'+r.half+'"/><w:szCs w:val="'+r.half+'"/>':''].join('');
   const body=String(r.text).split('\n').map((seg,i)=>(i?'<w:br/>':'')+'<w:t xml:space="preserve">'+xmlEsc(seg)+'</w:t>').join('');
   return '<w:r>'+(rPr?'<w:rPr>'+rPr+'</w:rPr>':'')+body+'</w:r>'}).join('')}
@@ -246,6 +271,7 @@ function inlineXml(el,ctx,out){
       else out.push({runs});
       continue}
     if(/^(span|font|b|strong|i|em|u|code|sub|sup|mark|small|time|label)$/.test(tag)){const runs=[];collectRuns(ch,{},runs);if(runs.length)out.push({runs});continue}
+    if(/^(ul|ol|table)$/i.test(tag))continue;          // 巢狀清單／表格由區塊層處理
     inlineXml(ch,ctx,out)}}
 function imageXml(img,ctx){
   let src=img.getAttribute('src')||'';let m=/^data:image\/(png|jpe?g|gif|webp|bmp);base64,([\s\S]+)$/i.exec(src);
@@ -283,40 +309,68 @@ function paragraphXml(el,ctx,style,prefix){
   if(prefix)inner='<w:r><w:t xml:space="preserve">'+xmlEsc(prefix)+'</w:t></w:r>'+inner;
   if(!inner&&!hasImg)inner='<w:r><w:t xml:space="preserve"></w:t></w:r>';
   const pStyle=style?'<w:pStyle w:val="'+style+'"/>':'';
+  const jcXml=jcOf(el)?'<w:jc w:val="'+jcOf(el)+'"/>':'';
   // 圖片單獨一段時不要行距，避免每張圖後面拖一大段空白
   const spacing=(hasImg&&!prefix)?'<w:spacing w:after="0" w:line="240" w:lineRule="auto"/>':'';
-  return '<w:p>'+(pStyle||spacing?'<w:pPr>'+pStyle+spacing+'</w:pPr>':'')+inner+'</w:p>'}
+  return '<w:p>'+(pStyle||jcXml||spacing?'<w:pPr>'+pStyle+jcXml+spacing+'</w:pPr>':'')+inner+'</w:p>'}
+function cellXml(td,ctx,colW,span,vmerge){
+  const blocks=[...td.childNodes].filter(n=>n.nodeType===1&&/^(p|div|h[1-6]|ul|ol|table|pre|blockquote)$/i.test(n.tagName));
+  let inner=blocks.length?blocks.map(b=>blockXml(b,ctx)).join(''):paragraphXml(td,ctx,'');
+  if(!inner)inner='<w:p><w:r><w:t xml:space="preserve"></w:t></w:r></w:p>';
+  const pr='<w:tcW w:w="'+(colW*(span||1))+'" w:type="dxa"/>'
+    +(span>1?'<w:gridSpan w:val="'+span+'"/>':'')
+    +(vmerge==='restart'?'<w:vMerge w:val="restart"/>':(vmerge==='cont'?'<w:vMerge/>':''));
+  return '<w:tc><w:tcPr>'+pr+'</w:tcPr>'+inner+'</w:tc>'}
 function tableXml(tbl,ctx){
   const rows=[...tbl.querySelectorAll('tr')];if(!rows.length)return '';
-  const cols=Math.max(...rows.map(r=>r.children.length));
+  // HTML 的表格省略了被 colspan／rowspan 蓋掉的格子，這裡先把格線展開成矩陣，
+  // 才能輸出合法的 OOXML（每列的 gridSpan＋vMerge 覆蓋必須剛好等於 tblGrid 的欄數）
+  const grid=[];let cols=0;
+  rows.forEach((tr,r)=>{grid[r]=grid[r]||[];let c=0;
+    for(const td of [...tr.children]){
+      while(grid[r][c])c++;
+      const cs=Math.max(1,parseInt(td.getAttribute('colspan')||'1',10)||1);
+      const rs=Math.max(1,parseInt(td.getAttribute('rowspan')||'1',10)||1);
+      for(let i=0;i<rs;i++)for(let j=0;j<cs;j++){grid[r+i]=grid[r+i]||[];grid[r+i][c+j]={cell:td,start:i===0&&j===0,cs,rs,c0:c,r0:r}}
+      c+=cs;cols=Math.max(cols,c)}});
   const total=10546,colW=Math.round(total/Math.max(1,cols));
-  const grid='<w:tblGrid>'+Array.from({length:cols},()=>'<w:gridCol w:w="'+colW+'"/>').join('')+'</w:tblGrid>';
+  const gridXml='<w:tblGrid>'+Array.from({length:cols},()=>'<w:gridCol w:w="'+colW+'"/>').join('')+'</w:tblGrid>';
   const borders='<w:tblBorders>'+['top','left','bottom','right','insideH','insideV']
-    .map(s=>'<w:'+s+' w:val="single" w:sz="6" w:space="0" w:color="94A3B8"/>').join('')+'</w:tblBorders>';
-  const body=rows.map(tr=>'<w:tr>'+[...tr.children].map(td=>{
-    const blocks=[...td.childNodes].filter(n=>n.nodeType===1&&/^(p|div|h[1-6]|ul|ol|table|pre|blockquote)$/i.test(n.tagName));
-    let inner=blocks.length?blocks.map(b=>blockXml(b,ctx)).join(''):paragraphXml(td,ctx,'');
-    if(!inner)inner='<w:p><w:r><w:t xml:space="preserve"></w:t></w:r></w:p>';
-    return '<w:tc><w:tcPr><w:tcW w:w="'+colW+'" w:type="dxa"/></w:tcPr>'+inner+'</w:tc>'}).join('')+'</w:tr>').join('');
-  return '<w:tbl><w:tblPr><w:tblW w:w="'+total+'" w:type="dxa"/>'+borders+'</w:tblPr>'+grid+body+'</w:tbl>'+
+    .map(b=>'<w:'+b+' w:val="single" w:sz="6" w:space="0" w:color="94A3B8"/>').join('')+'</w:tblBorders>';
+  const body=rows.map((tr,r)=>{let out='';
+    for(let c=0;c<cols;c++){const m=grid[r][c];
+      if(!m){out+=cellXml(document.createElement('td'),ctx,colW,1,'');continue}
+      if(m.c0!==c)continue;                                  // 橫向被 gridSpan 蓋掉
+      if(!m.start&&m.r0<r){out+=cellXml(m.cell,ctx,colW,1,'cont');continue}  // 縱向續格
+      out+=cellXml(m.cell,ctx,colW,m.cs,m.rs>1?'restart':'')}
+    return '<w:tr>'+out+'</w:tr>'}).join('');
+  return '<w:tbl><w:tblPr><w:tblW w:w="'+total+'" w:type="dxa"/>'+borders+'</w:tblPr>'+gridXml+body+'</w:tbl>'+
     '<w:p><w:r><w:t xml:space="preserve"></w:t></w:r></w:p>'}
 function blockXml(el,ctx){
   const tag=el.tagName.toLowerCase();
   if(tag==='ul'||tag==='ol'){
     const numId=tag==='ol'?'2':'1';   // numbering.xml：1=項目符號、2=編號
+    let lvl=0;for(let n=el.parentElement;n&&n!==editor;n=n.parentElement)if(/^(ul|ol)$/i.test(n.tagName))lvl++;
+    lvl=Math.min(lvl,2);
+    const indent=420+420*lvl;
     return [...el.children].filter(li=>li.tagName.toLowerCase()==='li').map(li=>{
-      const items=[];inlineXml(li,ctx,items);
+      const holder=document.createElement('div');       // 巢狀清單另外處理，不要混進這一段文字
+      for(const n of li.childNodes){if(n.nodeType===1&&/^(ul|ol)$/i.test(n.tagName))continue;holder.appendChild(n.cloneNode(true))}
+      const items=[];inlineXml(holder,ctx,items);
       let inner='';
       for(const it of items){if(it.image){inner+=drawingXml(it.image);continue}
         const x=runsXml(it.runs||[]);inner+=it.rid?('<w:hyperlink r:id="'+it.rid+'">'+x+'</w:hyperlink>'):x}
       if(!inner)inner='<w:r><w:t xml:space="preserve"></w:t></w:r>';
-      return '<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="'+numId+'"/></w:numPr>'
-        +'<w:ind w:left="420" w:hanging="220"/></w:pPr>'+inner+'</w:p>'}).join('')}
+      let xml='<w:p><w:pPr><w:numPr><w:ilvl w:val="'+lvl+'"/><w:numId w:val="'+numId+'"/></w:numPr>'
+        +'<w:ind w:left="'+indent+'" w:hanging="220"/></w:pPr>'+inner+'</w:p>';
+      for(const n of li.children)if(/^(ul|ol)$/i.test(n.tagName))xml+=blockXml(n,ctx);   // 巢狀清單
+      return xml}).join('')}
   if(tag==='img'){const im=imageXml(el,ctx);return im?'<w:p><w:pPr><w:spacing w:after="120"/></w:pPr>'+drawingXml(im)+'</w:p>':''}
+  if(tag==='hr')return '<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="94A3B8"/></w:pBdr></w:pPr></w:p>';
   if(tag==='table')return tableXml(el,ctx);
   if(tag==='pre'){const runs=[];collectRuns(el,{mono:true},runs);
     return '<w:p><w:pPr><w:pStyle w:val="Pre"/><w:shd w:val="clear" w:fill="F1F5F9"/></w:pPr>'+runsXml(runs)+'</w:p>'}
-  const styleMap={h1:'Heading1',h2:'Heading2',h3:'Heading3',h4:'Heading3',h5:'Heading3',h6:'Heading3',blockquote:'Quote'};
+  const styleMap={h1:'Heading1',h2:'Heading2',h3:'Heading3',h4:'Heading4',h5:'Heading4',h6:'Heading4',blockquote:'Quote'};
   if(styleMap[tag])return paragraphXml(el,ctx,styleMap[tag]);
   return paragraphXml(el,ctx,'')}
 function buildDocx(){
@@ -353,6 +407,8 @@ function buildDocx(){
     +'<w:pPr><w:outlineLvl w:val="1"/><w:spacing w:before="240" w:after="120"/></w:pPr><w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr></w:style>'
     +'<w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/><w:basedOn w:val="Normal"/><w:qFormat/>'
     +'<w:pPr><w:outlineLvl w:val="2"/><w:spacing w:before="200" w:after="100"/></w:pPr><w:rPr><w:b/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:style>'
+    +'<w:style w:type="paragraph" w:styleId="Heading4"><w:name w:val="heading 4"/><w:basedOn w:val="Normal"/><w:qFormat/>'
+    +'<w:pPr><w:outlineLvl w:val="3"/><w:spacing w:before="180" w:after="90"/></w:pPr><w:rPr><w:b/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:style>'
     +'<w:style w:type="paragraph" w:styleId="Quote"><w:name w:val="Quote"/><w:basedOn w:val="Normal"/>'
     +'<w:pPr><w:ind w:left="720"/></w:pPr><w:rPr><w:i/><w:color w:val="555555"/></w:rPr></w:style>'
     +'<w:style w:type="paragraph" w:styleId="Pre"><w:name w:val="Pre"/><w:basedOn w:val="Normal"/>'
@@ -361,11 +417,13 @@ function buildDocx(){
   const numbering='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     +'<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
     +'<w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="hybridMultilevel"/>'
-    +'<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\u2022"/><w:lvlJc w:val="left"/>'
-    +'<w:pPr><w:ind w:left="420" w:hanging="220"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl></w:abstractNum>'
+    +[0,1,2].map(i=>'<w:lvl w:ilvl="'+i+'"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\u2022"/><w:lvlJc w:val="left"/>'
+      +'<w:pPr><w:ind w:left="'+(420+420*i)+'" w:hanging="220"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl>').join('')
+    +'</w:abstractNum>'
     +'<w:abstractNum w:abstractNumId="1"><w:multiLevelType w:val="hybridMultilevel"/>'
-    +'<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/><w:lvlJc w:val="left"/>'
-    +'<w:pPr><w:ind w:left="420" w:hanging="220"/></w:pPr></w:lvl></w:abstractNum>'
+    +[0,1,2].map(i=>'<w:lvl w:ilvl="'+i+'"><w:start w:val="1"/><w:numFmt w:val="'+['decimal','lowerLetter','lowerRoman'][i]+'"/>'
+      +'<w:lvlText w:val="%'+(i+1)+'."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="'+(420+420*i)+'" w:hanging="220"/></w:pPr></w:lvl>').join('')
+    +'</w:abstractNum>'
     +'<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>'
     +'<w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num>'
     +'</w:numbering>';
@@ -433,10 +491,12 @@ editor.addEventListener('paste',e=>{const cd=e.clipboardData;if(!cd)return;
   setTimeout(()=>{shrinkEditorImages().then((saved)=>{saveDraft();
     if(saved>0)msg('貼上的圖片已自動縮圖，省下 '+Math.round(saved/1024)+'KB')})},30)});
 async function shrinkEditorImages(){
-  const imgs=[...editor.querySelectorAll('img')].filter(im=>/^data:image\//i.test(im.getAttribute('src')||'')&&im.dataset.shrunk!=='1');
+  const imgs=[...editor.querySelectorAll('img')].filter(im=>/^(data:image\/|blob:)/i.test(im.getAttribute('src')||'')&&im.dataset.shrunk!=='1');
   let saved=0;
   for(const im of imgs){im.dataset.shrunk='1';
-    try{const src=im.getAttribute('src'),small=await shrinkDataUrl(src);
+    try{let src=im.getAttribute('src');
+      if(/^blob:/i.test(src)){const b=await (await fetch(src)).blob();src=await fileToDataUrl(b);im.setAttribute('src',src)}
+      const small=await shrinkDataUrl(src);
       if(small!==src){saved+=src.length-small.length;im.setAttribute('src',small)}}catch(e){}}
   return saved;}
 $('#replaceOne').onclick=()=>{runFind();if(!hits.length)return;const i=Math.max(hi,0);replaceHit(hits[i]);saveDraft();runFind();if(hits.length)goHit(Math.min(i,hits.length-1));msg('已取代 1 處')};
@@ -449,6 +509,12 @@ fetchLog().then(log=>{runningVer=log[0]&&log[0].version;if(!runningVer)return;le
 function checkUpdate(){if(!runningVer||document.hidden||!$('#updBar').hidden)return;fetchLog().then(l=>{if(l[0]&&l[0].version!==runningVer)$('#updBar').hidden=false}).catch(()=>{})}
 document.addEventListener('visibilitychange',checkUpdate);setInterval(checkUpdate,30*60*1000);$('#updReload').onclick=()=>location.reload();$('#updClose').onclick=()=>{$('#updBar').hidden=true};
 // Service Worker：第一次載入後即可離線開啟（DOCX 解析與 PDF 產生都已經在本機）
-if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){navigator.serviceWorker.register('./sw.js').catch(()=>{})}
+if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){
+  navigator.serviceWorker.register('./sw.js').then(()=>navigator.serviceWorker.ready).then(async(reg)=>{
+    try{const r=await fetch('./changelog.json',{cache:'no-store'});const log=await r.json();
+      const v=log&&log[0]&&log[0].version;
+      if(v&&reg.active)reg.active.postMessage({version:v});   // 版本換了就讓 SW 重抓 vendor 檔案
+    }catch(e){}
+  }).catch(()=>{})}
 </script>
 </body></html>
