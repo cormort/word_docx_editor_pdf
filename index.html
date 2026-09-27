@@ -10,8 +10,8 @@
 <style id="pageStyle"></style>
 </head>
 <body>
-<header class="top no-print"><div class="topin"><div class="brand"><div class="logo">W</div><div><h1>Word 文件簡易編輯器</h1><p>檔案在本機瀏覽器處理，不主動上傳</p></div></div><div class="actions"><input id="file" type="file" accept=".doc,.docx" hidden><input id="imageFile" type="file" accept="image/*" hidden><button class="btn" id="newBtn">新文件</button><button class="btn primary" id="openBtn">載入 Word</button><button class="btn" id="saveBtn">儲存 HTML</button><button class="btn pdf" id="pdfBtn">轉換 PDF</button></div></div></header>
-<div class="wrap"><div id="notice" class="notice no-print" role="alert"></div><section class="toolbar no-print"><div class="tools"><select id="blockStyle" title="段落樣式" aria-label="段落樣式"><option value="p" selected>內文</option><option value="h1">標題 1</option><option value="h2">標題 2</option><option value="h3">標題 3</option><option value="blockquote">引言</option><option value="pre">預格式</option></select><button class="tool" data-cmd="undo" title="復原" aria-label="復原">↶</button><button class="tool" data-cmd="redo" title="重做" aria-label="重做">↷</button><span class="sep"></span><select id="fontSize" title="字級" aria-label="字級"><option value="2">小字</option><option value="3" selected>一般</option><option value="4">大字</option><option value="5">標題</option></select><button class="tool" data-cmd="bold" aria-label="粗體" aria-pressed="false"><b>B</b></button><button class="tool" data-cmd="italic" aria-label="斜體" aria-pressed="false"><i>I</i></button><button class="tool" data-cmd="underline" aria-label="底線" aria-pressed="false"><u>U</u></button><span class="sep"></span><button class="tool" data-cmd="justifyLeft">靠左</button><button class="tool" data-cmd="justifyCenter">置中</button><button class="tool" data-cmd="justifyRight">靠右</button><button class="tool" data-cmd="insertUnorderedList">• 清單</button><button class="tool" data-cmd="insertOrderedList">1. 編號</button><span class="sep"></span><button class="tool" id="findToggle">尋找取代</button><button class="tool" id="deskToggle" title="以電腦版 A4 版面唯讀檢視，縮放至螢幕寬">閱讀模式</button><button class="tool" id="imgBtn" title="插入圖片" aria-label="插入圖片">圖片</button><button class="tool" id="tblBtn" title="插入表格" aria-label="插入表格">表格</button><button class="tool" id="linkBtn" title="插入連結" aria-label="插入連結">連結</button><button class="tool" onclick="window.print()">列印</button><button class="tool" id="logBtn">更新紀錄</button><div class="settings"><select id="pageSize"><option value="a4">A4</option><option value="letter">Letter</option><option value="legal">Legal</option></select><select id="orientation"><option value="portrait">直向</option><option value="landscape">橫向</option></select></div></div><div id="findbar" class="findbar"><input id="findText" placeholder="尋找：多個關鍵字用空格，/正則/" enterkeyhint="search"><input id="replaceText" placeholder="取代為"><button class="btn" id="replaceOne">取代</button><button class="btn" id="replaceAll">全部取代</button><div id="findRes" class="findres"><div class="findhead"><span id="findCount"></span><button class="tool" id="findPrev" title="上一筆">‹</button><button class="tool" id="findNext" title="下一筆">›</button></div><div id="findList"></div></div></div></section><div class="meta no-print"><input id="filename" class="filename" value="未命名文件"><span id="status" aria-live="polite">請載入 DOCX 文件，或直接開始輸入內容</span></div><article id="editor" class="paper" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="文件內容"><h1>文件標題</h1><p>可直接在此輸入或貼上內容。</p></article></div>
+<header class="top no-print"><div class="topin"><div class="brand"><div class="logo">W</div><div><h1>Word 文件簡易編輯器</h1><p>檔案在本機瀏覽器處理，不主動上傳</p></div></div><div class="actions"><input id="file" type="file" accept=".doc,.docx" hidden><input id="imageFile" type="file" accept="image/*" hidden><button class="btn" id="newBtn">新文件</button><button class="btn primary" id="openBtn">載入 Word</button><button class="btn" id="saveBtn">儲存 HTML</button><button class="btn" id="docxBtn" title="匯出 .docx（Word 可直接編輯）">下載 Word</button><button class="btn pdf" id="pdfBtn">轉換 PDF</button></div></div></header>
+<div class="wrap"><div id="notice" class="notice no-print" role="alert"></div><section class="toolbar no-print" role="toolbar" aria-label="編輯工具列"><div class="tools"><select id="blockStyle" title="段落樣式" aria-label="段落樣式"><option value="p" selected>內文</option><option value="h1">標題 1</option><option value="h2">標題 2</option><option value="h3">標題 3</option><option value="blockquote">引言</option><option value="pre">預格式</option></select><button class="tool" data-cmd="undo" title="復原" aria-label="復原">↶</button><button class="tool" data-cmd="redo" title="重做" aria-label="重做">↷</button><span class="sep"></span><select id="fontSize" title="字級" aria-label="字級"><option value="2">小字</option><option value="3" selected>一般</option><option value="4">大字</option><option value="5">標題</option></select><button class="tool" data-cmd="bold" aria-label="粗體" aria-pressed="false"><b>B</b></button><button class="tool" data-cmd="italic" aria-label="斜體" aria-pressed="false"><i>I</i></button><button class="tool" data-cmd="underline" aria-label="底線" aria-pressed="false"><u>U</u></button><span class="sep"></span><button class="tool" data-cmd="justifyLeft">靠左</button><button class="tool" data-cmd="justifyCenter">置中</button><button class="tool" data-cmd="justifyRight">靠右</button><button class="tool" data-cmd="insertUnorderedList">• 清單</button><button class="tool" data-cmd="insertOrderedList">1. 編號</button><span class="sep"></span><button class="tool" id="findToggle">尋找取代</button><button class="tool" id="deskToggle" title="以電腦版 A4 版面唯讀檢視，縮放至螢幕寬">閱讀模式</button><button class="tool" id="imgBtn" title="插入圖片" aria-label="插入圖片">圖片</button><button class="tool" id="tblBtn" title="插入表格" aria-label="插入表格">表格</button><button class="tool" id="linkBtn" title="插入連結" aria-label="插入連結">連結</button><button class="tool" onclick="window.print()">列印</button><button class="tool" id="logBtn">更新紀錄</button><div class="settings"><select id="pageSize"><option value="a4">A4</option><option value="letter">Letter</option><option value="legal">Legal</option></select><select id="orientation"><option value="portrait">直向</option><option value="landscape">橫向</option></select></div></div><div id="findbar" class="findbar"><input id="findText" placeholder="尋找：多個關鍵字用空格，/正則/" enterkeyhint="search"><input id="replaceText" placeholder="取代為"><button class="btn" id="replaceOne">取代</button><button class="btn" id="replaceAll">全部取代</button><div id="findRes" class="findres"><div class="findhead"><span id="findCount"></span><button class="tool" id="findPrev" title="上一筆">‹</button><button class="tool" id="findNext" title="下一筆">›</button></div><div id="findList"></div></div></div></section><div class="meta no-print"><input id="filename" class="filename" value="未命名文件"><span id="status" aria-live="polite">請載入 DOCX 文件，或直接開始輸入內容</span></div><article id="editor" class="paper" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="文件內容"><h1>文件標題</h1><p>可直接在此輸入或貼上內容。</p></article></div>
 <div id="updBar" class="no-print" hidden><span>有新版本可以使用</span><button class="btn primary" id="updReload">立即更新</button><button class="tool" id="updClose" aria-label="稍後再更新">✕</button></div><div id="logModal" class="no-print" hidden><div class="logbox" role="dialog" aria-modal="true" aria-labelledby="logTitle"><div class="loghead"><b id="logTitle">更新紀錄</b><button class="tool" id="logClose" aria-label="關閉">✕</button></div><div id="logBody"></div></div></div><div class="readbar no-print"><button id="readFind" class="btn">搜尋</button><button id="readExit" class="btn primary">結束閱讀</button></div>
 <script>
 const $=s=>document.querySelector(s), editor=$('#editor'), statusEl=$('#status'), notice=$('#notice');
@@ -77,14 +77,45 @@ function applyPageStyle(){const wh=(PAGE[$('#pageSize').value]||PAGE.a4).split('
   $('#pageStyle').textContent='@page{size:'+(land?wh[1]+' '+wh[0]:wh[0]+' '+wh[1])+';margin:12mm}'}
 
 // ---- 插入內容：優先用 Range（execCommand 在沒有游標範圍時會甚麼都不做）----
-function insertHtmlAtCaret(html){const sel=getSelection();
-  const has=sel.rangeCount&&editor.contains(sel.getRangeAt(0).startContainer);
-  if(!has){editor.insertAdjacentHTML('beforeend',html);return true}
-  const r=sel.getRangeAt(0);r.deleteContents();
+// 插入 HTML。重點：只有「貼上」才會覆蓋選取內容；插入圖片／表格一律不動既有內容，
+// 而且任何 Range 例外都要退回附加，絕不能像舊寫法那樣先刪掉內容才失敗。
+function insertHtmlAtCaret(html,opts){
+  const replaceSel=!!(opts&&opts.replaceSel);
   const t=document.createElement('template');t.innerHTML=html;
   const frag=t.content,last=frag.lastChild;
-  r.insertNode(frag);
-  if(last){r.setStartAfter(last);r.collapse(true);sel.removeAllRanges();sel.addRange(r)}
+  const blocky=/^\s*<(p|div|table|ul|ol|h[1-6]|blockquote|pre)\b/i.test(html);
+  let r=null;
+  try{const sel=getSelection();
+    if(sel.rangeCount){const c=sel.getRangeAt(0);
+      if(editor.contains(c.startContainer)&&editor.contains(c.endContainer))r=c.cloneRange()}
+  }catch(e){r=null}
+  // 插入的是整塊內容（段落／表格／清單）而且游標在某一塊裡面 → 插在那一塊後面，
+  // 否則會變成 <p><p>…</p></p> 這種疊在一起的 DOM
+  if(r&&blocky){
+    try{
+      const node=r.startContainer.nodeType===1?r.startContainer:r.startContainer.parentElement;
+      const host=node&&node.closest?node.closest('p,li,h1,h2,h3,h4,h5,h6,blockquote,pre,td,th'):null;
+      if(host&&editor.contains(host)){
+        if(replaceSel)r.deleteContents();
+        let ref=host;const nodes=[...frag.childNodes];
+        if(replaceSel&&nodes.length&&!host.textContent.trim()&&!host.querySelector('img,table')){
+          host.replaceWith(...nodes);ref=nodes[nodes.length-1];   // 整段被取代掉就換掉它，不留空段落
+        }else for(const n of nodes){ref.after(n);ref=n}
+        const sel=getSelection();const rr=document.createRange();rr.setStartAfter(ref);rr.collapse(true);
+        sel.removeAllRanges();sel.addRange(rr);
+        return true}
+    }catch(e){/* 落回下面的插入方式 */}
+  }
+  if(r){
+    try{
+      if(replaceSel)r.deleteContents();else r.collapse(false);
+      r.insertNode(frag);
+      const sel=getSelection();if(last){const after=document.createRange();after.setStartAfter(last);after.collapse(true);
+        sel.removeAllRanges();sel.addRange(after)}
+      return true
+    }catch(e){/* 落到下面的附加 */ }
+  }
+  editor.insertAdjacentHTML('beforeend',html);
   return true}
 
 async function insertImageFile(file){if(!/^image\//.test(file.type))return msg('請選擇圖片檔。',true);
@@ -149,14 +180,233 @@ async function openDocx(file){
   }catch(err){msg('開啟失敗：'+err.message+'。若一直失敗，請確認網路可連線或改用「儲存 HTML」流程。',true)}
   finally{document.body.classList.remove('statusbusy')}};
 $('#saveBtn').onclick=()=>{const title=$('#filename').value||'文件';const html='<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>'+title+'</title><style>body{font-family:"Microsoft JhengHei",sans-serif;line-height:1.75;max-width:210mm;margin:20px auto;padding:18mm}table{border-collapse:collapse;width:100%}th,td{border:1px solid #999;padding:6px}img{max-width:100%}</style></head><body>'+editor.innerHTML+'</body></html>';download(new Blob([html],{type:'text/html;charset=utf-8'}),title+'.html');msg('HTML 已下載')};
+
+// ================= 匯出 Word（.docx）：自帶 ZIP 寫入器 ＋ OOXML，零外部依賴 =================
+const DOCX_PAGE={a4:[11906,16838],letter:[12240,15840],legal:[12240,20160]};
+const DOCX_FONT='Microsoft JhengHei';
+function xmlEsc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]))}
+const CRC_TBL=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0}return t})();
+function crc32(u8){let c=0xFFFFFFFF;for(let i=0;i<u8.length;i++)c=CRC_TBL[(c^u8[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0}
+// ZIP（store，不壓縮：docx 不需要壓縮率，換來的是完全不用外部套件）
+function zipStore(files){const enc=new TextEncoder(),local=[],central=[];let off=0;
+  const d=new Date(),tm=((d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1))&0xFFFF,
+    dt=(((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate())&0xFFFF;
+  for(const f of files){const name=enc.encode(f.name),data=f.data,crc=crc32(data);
+    const lh=new Uint8Array(30+name.length),lv=new DataView(lh.buffer);
+    lv.setUint32(0,0x04034b50,true);lv.setUint16(4,20,true);lv.setUint16(6,0x0800,true);lv.setUint16(8,0,true);
+    lv.setUint16(10,tm,true);lv.setUint16(12,dt,true);lv.setUint32(14,crc,true);
+    lv.setUint32(18,data.length,true);lv.setUint32(22,data.length,true);
+    lv.setUint16(26,name.length,true);lv.setUint16(28,0,true);lh.set(name,30);
+    local.push(lh,data);
+    const ch=new Uint8Array(46+name.length),cv=new DataView(ch.buffer);
+    cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);cv.setUint16(8,0x0800,true);cv.setUint16(10,0,true);
+    cv.setUint16(12,tm,true);cv.setUint16(14,dt,true);cv.setUint32(16,crc,true);
+    cv.setUint32(20,data.length,true);cv.setUint32(24,data.length,true);
+    cv.setUint16(28,name.length,true);cv.setUint16(30,0,true);cv.setUint16(32,0,true);cv.setUint16(34,0,true);cv.setUint16(36,0,true);
+    cv.setUint32(38,0,true);cv.setUint32(42,off,true);ch.set(name,46);
+    central.push(ch);off+=lh.length+data.length}
+  let cdLen=0;for(const c of central)cdLen+=c.length;
+  const eo=new Uint8Array(22),ev=new DataView(eo.buffer);
+  ev.setUint32(0,0x06054b50,true);ev.setUint16(8,files.length,true);ev.setUint16(10,files.length,true);
+  ev.setUint32(12,cdLen,true);ev.setUint32(16,off,true);ev.setUint16(20,0,true);
+  return new Blob([...local,...central,eo],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'})}
+
+// 收集行內文字與樣式（b/i/u/code/font size、換行）
+function collectRuns(node,style,out){
+  if(node.nodeType===3){if(node.nodeValue)out.push(Object.assign({text:node.nodeValue},style));return}
+  for(const ch of node.childNodes){
+    if(ch.nodeType===3){if(ch.nodeValue)out.push(Object.assign({text:ch.nodeValue},style));continue}
+    if(ch.nodeType!==1)continue;
+    const tag=ch.tagName.toLowerCase();
+    if(tag==='br'){out.push(Object.assign({text:'\n'},style));continue}
+    const st=Object.assign({},style);
+    if(tag==='b'||tag==='strong')st.b=true;
+    if(tag==='i'||tag==='em')st.i=true;
+    if(tag==='u')st.u=true;
+    if(tag==='code'||tag==='pre')st.mono=true;
+    if(tag==='font'){const sz=+ch.getAttribute('size');st.half=({2:20,3:22,4:26,5:32})[sz]||style.half}
+    collectRuns(ch,st,out)}}
+function runsXml(runs){return runs.map(r=>{
+  const rPr=[r.b?'<w:b/>':'',r.i?'<w:i/>':'',r.u?'<w:u w:val="single"/>':'',
+    r.mono?'<w:rFonts w:ascii="Consolas" w:hAnsi="Consolas" w:eastAsia="Consolas"/>':'',
+    r.half?'<w:sz w:val="'+r.half+'"/><w:szCs w:val="'+r.half+'"/>':''].join('');
+  const body=String(r.text).split('\n').map((seg,i)=>(i?'<w:br/>':'')+'<w:t xml:space="preserve">'+xmlEsc(seg)+'</w:t>').join('');
+  return '<w:r>'+(rPr?'<w:rPr>'+rPr+'</w:rPr>':'')+body+'</w:r>'}).join('')}
+// 一段段落內的內容（含連結與圖片）
+function inlineXml(el,ctx,out){
+  for(const ch of el.childNodes){
+    if(ch.nodeType===3){const runs=[];collectRuns(ch,{},runs);if(runs.some(r=>r.text.trim()))out.push({runs});continue}
+    if(ch.nodeType!==1)continue;
+    const tag=ch.tagName.toLowerCase();
+    if(tag==='img'){const im=imageXml(ch,ctx);if(im)out.push({image:im});continue}
+    if(tag==='br'){out.push({runs:[{text:'\n'}]});continue}
+    if(tag==='a'){
+      const href=ch.getAttribute('href')||'';const runs=[];collectRuns(ch,{},runs);
+      if(/^https?:\/\//i.test(href))out.push({runs,rid:ctx.rel('hyperlink',href,true)});
+      else out.push({runs});
+      continue}
+    if(/^(span|font|b|strong|i|em|u|code|sub|sup|mark|small|time|label)$/.test(tag)){const runs=[];collectRuns(ch,{},runs);if(runs.length)out.push({runs});continue}
+    inlineXml(ch,ctx,out)}}
+function imageXml(img,ctx){
+  let src=img.getAttribute('src')||'';let m=/^data:image\/(png|jpe?g|gif|webp|bmp);base64,([\s\S]+)$/i.exec(src);
+  if(!m)return null;
+  let ext=m[1].toLowerCase()==='jpg'?'jpeg':m[1].toLowerCase(),b64=m[2];
+  if(ext!=='png'&&ext!=='jpeg'){            // Word 不吃的格式（webp/gif/bmp）轉成 PNG
+    try{const c=document.createElement('canvas');c.width=img.naturalWidth||img.width;c.height=img.naturalHeight||img.height;
+      const g=c.getContext('2d');if(ext==='jpeg'){g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height)}
+      g.drawImage(img,0,0);const d=c.toDataURL('image/png');b64=d.split(',')[1];ext='png'}catch(e){return null}}
+  let bin;try{bin=atob(b64)}catch(e){return null}
+  const u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
+  const name='image'+(++ctx.imgN)+'.'+ext;
+  ctx.media.push({name:'word/media/'+name,data:u8});
+  const rid=ctx.rel('image','media/'+name,false);
+  let cx=Math.round((img.naturalWidth||img.width||600)*9525),cy=Math.round((img.naturalHeight||img.height||400)*9525);
+  if(cx>ctx.maxCx){cy=Math.round(cy*ctx.maxCx/cx);cx=ctx.maxCx}
+  return {rid,cx,cy,id:++ctx.picN,name}}
+function drawingXml(im){return '<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">'
+  +'<wp:extent cx="'+im.cx+'" cy="'+im.cy+'"/><wp:docPr id="'+im.id+'" name="'+xmlEsc(im.name)+'"/>'
+  +'<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">'
+  +'<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">'
+  +'<pic:nvPicPr><pic:cNvPr id="'+im.id+'" name="'+xmlEsc(im.name)+'"/><pic:cNvPicPr/></pic:nvPicPr>'
+  +'<pic:blipFill><a:blip r:embed="'+im.rid+'"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>'
+  +'<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="'+im.cx+'" cy="'+im.cy+'"/></a:xfrm>'
+  +'<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>'
+  +'</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>'}
+function paragraphXml(el,ctx,style,prefix){
+  const items=[];inlineXml(el,ctx,items);
+  let inner='',hasImg=false;
+  for(const it of items){
+    if(it.image){inner+=drawingXml(it.image);hasImg=true;continue}
+    const x=runsXml(it.runs);
+    if(!x)continue;
+    inner+=it.rid?('<w:hyperlink r:id="'+it.rid+'">'+x+'</w:hyperlink>'):x}
+  if(prefix)inner='<w:r><w:t xml:space="preserve">'+xmlEsc(prefix)+'</w:t></w:r>'+inner;
+  if(!inner&&!hasImg)inner='<w:r><w:t xml:space="preserve"></w:t></w:r>';
+  const pStyle=style?'<w:pStyle w:val="'+style+'"/>':'';
+  // 圖片單獨一段時不要行距，避免每張圖後面拖一大段空白
+  const spacing=(hasImg&&!prefix)?'<w:spacing w:after="0" w:line="240" w:lineRule="auto"/>':'';
+  return '<w:p>'+(pStyle||spacing?'<w:pPr>'+pStyle+spacing+'</w:pPr>':'')+inner+'</w:p>'}
+function tableXml(tbl,ctx){
+  const rows=[...tbl.querySelectorAll('tr')];if(!rows.length)return '';
+  const cols=Math.max(...rows.map(r=>r.children.length));
+  const total=10546,colW=Math.round(total/Math.max(1,cols));
+  const grid='<w:tblGrid>'+Array.from({length:cols},()=>'<w:gridCol w:w="'+colW+'"/>').join('')+'</w:tblGrid>';
+  const borders='<w:tblBorders>'+['top','left','bottom','right','insideH','insideV']
+    .map(s=>'<w:'+s+' w:val="single" w:sz="6" w:space="0" w:color="94A3B8"/>').join('')+'</w:tblBorders>';
+  const body=rows.map(tr=>'<w:tr>'+[...tr.children].map(td=>{
+    const blocks=[...td.childNodes].filter(n=>n.nodeType===1&&/^(p|div|h[1-6]|ul|ol|table|pre|blockquote)$/i.test(n.tagName));
+    let inner=blocks.length?blocks.map(b=>blockXml(b,ctx)).join(''):paragraphXml(td,ctx,'');
+    if(!inner)inner='<w:p><w:r><w:t xml:space="preserve"></w:t></w:r></w:p>';
+    return '<w:tc><w:tcPr><w:tcW w:w="'+colW+'" w:type="dxa"/></w:tcPr>'+inner+'</w:tc>'}).join('')+'</w:tr>').join('');
+  return '<w:tbl><w:tblPr><w:tblW w:w="'+total+'" w:type="dxa"/>'+borders+'</w:tblPr>'+grid+body+'</w:tbl>'+
+    '<w:p><w:r><w:t xml:space="preserve"></w:t></w:r></w:p>'}
+function blockXml(el,ctx){
+  const tag=el.tagName.toLowerCase();
+  if(tag==='ul'||tag==='ol'){
+    const numId=tag==='ol'?'2':'1';   // numbering.xml：1=項目符號、2=編號
+    return [...el.children].filter(li=>li.tagName.toLowerCase()==='li').map(li=>{
+      const items=[];inlineXml(li,ctx,items);
+      let inner='';
+      for(const it of items){if(it.image){inner+=drawingXml(it.image);continue}
+        const x=runsXml(it.runs||[]);inner+=it.rid?('<w:hyperlink r:id="'+it.rid+'">'+x+'</w:hyperlink>'):x}
+      if(!inner)inner='<w:r><w:t xml:space="preserve"></w:t></w:r>';
+      return '<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="'+numId+'"/></w:numPr>'
+        +'<w:ind w:left="420" w:hanging="220"/></w:pPr>'+inner+'</w:p>'}).join('')}
+  if(tag==='img'){const im=imageXml(el,ctx);return im?'<w:p><w:pPr><w:spacing w:after="120"/></w:pPr>'+drawingXml(im)+'</w:p>':''}
+  if(tag==='table')return tableXml(el,ctx);
+  if(tag==='pre'){const runs=[];collectRuns(el,{mono:true},runs);
+    return '<w:p><w:pPr><w:pStyle w:val="Pre"/><w:shd w:val="clear" w:fill="F1F5F9"/></w:pPr>'+runsXml(runs)+'</w:p>'}
+  const styleMap={h1:'Heading1',h2:'Heading2',h3:'Heading3',h4:'Heading3',h5:'Heading3',h6:'Heading3',blockquote:'Quote'};
+  if(styleMap[tag])return paragraphXml(el,ctx,styleMap[tag]);
+  return paragraphXml(el,ctx,'')}
+function buildDocx(){
+  const enc=new TextEncoder();
+  const ctx={relN:0,imgN:0,picN:0,media:[],relList:[],rels:new Map(),
+    maxCx:(DOCX_PAGE[$('#pageSize').value]||DOCX_PAGE.a4)[0]-1360 > 0 ? ((DOCX_PAGE[$('#pageSize').value]||DOCX_PAGE.a4)[0]-1360)*635 : 6000000,
+    rel(kind,target,ext){const key=kind+'|'+target;if(this.rels.has(key))return this.rels.get(key);
+      const id='rId'+(++this.relN);this.rels.set(key,id);this.relList.push({id,kind,target,ext});return id}};
+  const body=[...editor.children].map(el=>blockXml(el,ctx)).join('');
+  const [pw,ph]=DOCX_PAGE[$('#pageSize').value]||DOCX_PAGE.a4;
+  const land=$('#orientation').value==='landscape';
+  const sect='<w:sectPr><w:pgSz w:w="'+(land?ph:pw)+'" w:h="'+(land?pw:ph)+'"'+(land?' w:orient="landscape"':'')+'/>'
+    +'<w:pgMar w:top="680" w:right="680" w:bottom="680" w:left="680" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr>';
+  const docXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+    +'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" '
+    +'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">'
+    +'<w:body>'+body+sect+'</w:body></w:document>';
+  const docRels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    +'<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+    +'<Relationship Id="rIdNumbering" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>'
+    +ctx.relList.map(r=>'<Relationship Id="'+r.id+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'+r.kind
+      +'" Target="'+xmlEsc(r.target)+'"'+(r.ext?' TargetMode="External"':'')+'/>').join('')+'</Relationships>';
+  const styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+    +'<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="'+DOCX_FONT+'" w:cs="'+DOCX_FONT+'"/>'
+    +'<w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:rPrDefault>'
+    +'<w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="300" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>'
+    +'<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>'
+    +'<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:qFormat/>'
+    +'<w:pPr><w:outlineLvl w:val="0"/><w:spacing w:before="280" w:after="140"/></w:pPr><w:rPr><w:b/><w:sz w:val="32"/><w:szCs w:val="32"/></w:rPr></w:style>'
+    +'<w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:qFormat/>'
+    +'<w:pPr><w:outlineLvl w:val="1"/><w:spacing w:before="240" w:after="120"/></w:pPr><w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr></w:style>'
+    +'<w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/><w:basedOn w:val="Normal"/><w:qFormat/>'
+    +'<w:pPr><w:outlineLvl w:val="2"/><w:spacing w:before="200" w:after="100"/></w:pPr><w:rPr><w:b/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:style>'
+    +'<w:style w:type="paragraph" w:styleId="Quote"><w:name w:val="Quote"/><w:basedOn w:val="Normal"/>'
+    +'<w:pPr><w:ind w:left="720"/></w:pPr><w:rPr><w:i/><w:color w:val="555555"/></w:rPr></w:style>'
+    +'<w:style w:type="paragraph" w:styleId="Pre"><w:name w:val="Pre"/><w:basedOn w:val="Normal"/>'
+    +'<w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas" w:eastAsia="Consolas"/></w:rPr></w:style>'
+    +'</w:styles>';
+  const numbering='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+    +'<w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="hybridMultilevel"/>'
+    +'<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\u2022"/><w:lvlJc w:val="left"/>'
+    +'<w:pPr><w:ind w:left="420" w:hanging="220"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl></w:abstractNum>'
+    +'<w:abstractNum w:abstractNumId="1"><w:multiLevelType w:val="hybridMultilevel"/>'
+    +'<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/><w:lvlJc w:val="left"/>'
+    +'<w:pPr><w:ind w:left="420" w:hanging="220"/></w:pPr></w:lvl></w:abstractNum>'
+    +'<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>'
+    +'<w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num>'
+    +'</w:numbering>';
+  const docRelsPath='word/_rels/document.xml.rels';
+  const files=[
+    {name:'[Content_Types].xml',data:enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      +'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+      +'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+      +'<Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/>'
+      +'<Default Extension="jpeg" ContentType="image/jpeg"/>'
+      +'<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+      +'<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
+      +'<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>'
+      +'</Types>')},
+    {name:'_rels/.rels',data:enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      +'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
+      +'</Relationships>')},
+    {name:'word/document.xml',data:enc.encode(docXml)},
+    {name:'word/styles.xml',data:enc.encode(styles)},
+    {name:'word/numbering.xml',data:enc.encode(numbering)},
+    {name:'word/_rels/document.xml.rels',data:enc.encode(docRels)},
+    ...ctx.media];
+  const name=($('#filename').value.trim()||'文件').replace(/[\\/:*?"<>|]+/g,'_')+'.docx';
+  return {blob:zipStore(files),name,images:ctx.media.length}}
+$('#docxBtn').onclick=()=>{
+  document.body.classList.add('statusbusy');msg('正在產生 .docx…');
+  try{const{blob,name,images}=buildDocx();download(blob,name);
+    const kb=Math.round(blob.size/1024);
+    msg(images?'Word 檔已下載（.docx，'+kb+'KB，含 '+images+' 張圖片）':'Word 檔已下載（.docx，'+kb+'KB）');
+  }catch(err){msg('產生 .docx 失敗：'+err.message+'；可先用「儲存 HTML」保存內容。',true)}
+  finally{document.body.classList.remove('statusbusy')}};
+
 function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 $('#pdfBtn').onclick=async()=>{document.body.classList.add('statusbusy');msg('正在產生 PDF…');editor.style.zoom='';try{await loadScript(LIB.html2pdf,'html2pdf');await html2pdf().set({margin:[12,12,12,12],filename:($('#filename').value||'文件')+'.pdf',image:{type:'jpeg',quality:.98},html2canvas:{scale:innerWidth<640?1.5:2,useCORS:true,letterRendering:true,backgroundColor:'#fff'},jsPDF:{unit:'mm',format:$('#pageSize').value,orientation:$('#orientation').value},pagebreak:{mode:['css','legacy'],avoid:['tr','img','h1','h2','h3','table','pre','blockquote']}}).from(editor).save();msg('PDF 已下載（html2pdf 產生的是點陣圖，文字不可選取；需要可搜尋文字的 PDF 請用「列印」→「另存為 PDF」）')}catch(err){msg('PDF 產生失敗：'+err.message+'；可改用「列印」後選擇另存為 PDF。',true)}finally{fit();document.body.classList.remove('statusbusy')}};
 function fit(){editor.style.zoom='';if(document.body.classList.contains('desk')){const w=editor.parentElement,c=getComputedStyle(w);editor.style.zoom=Math.min(1,(w.clientWidth-parseFloat(c.paddingLeft)-parseFloat(c.paddingRight))/editor.offsetWidth)}}function setDesk(on){document.body.classList.toggle('desk',on);editor.contentEditable=!on;try{localStorage.setItem('desk',on?'1':'')}catch(e){}fit()}$('#deskToggle').onclick=()=>setDesk(true);$('#readFind').onclick=()=>$('#findToggle').click();$('#readExit').onclick=()=>setDesk(false);addEventListener('resize',fit);try{if(localStorage.getItem('desk'))setDesk(true)}catch(e){}$('#pageSize').onchange=applyPageStyle;$('#orientation').onchange=e=>{editor.classList.toggle('landscape',e.target.value==='landscape');applyPageStyle();fit()};$('#findToggle').onclick=()=>{const open=$('#findbar').style.display!=='flex';$('#findbar').style.display=open?'flex':'none';document.body.classList.toggle('finding',open);if(open){$('#findText').focus();runFind()}else{hits=[];hi=-1;if(HL){HL.delete('find');HL.delete('find-cur')}}};const BLOCK='p,h1,h2,h3,h4,h5,h6,li,td,th,blockquote,pre,div',HL=window.CSS&&CSS.highlights;let hits=[],hi=-1,isRe=false,findT;
-function findPattern(q){q=q.trim();isRe=false;if(!q)return null;const k=q.lastIndexOf('/');if(q[0]==='/'&&k>1&&/^[imsu]*$/.test(q.slice(k+1))){isRe=true;return new RegExp(q.slice(1,k),q.slice(k+1)+'g')}return new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').split(/\s+/).join('.*?'),'gi')}
+function findPattern(q){q=q.trim();isRe=false;if(!q)return null;const k=q.lastIndexOf('/');if(q[0]==='/'&&k>1&&/^[gimsu]*$/.test(q.slice(k+1))){isRe=true;const fl=q.slice(k+1);return new RegExp(q.slice(1,k),fl.includes('g')?fl:fl+'g')}return new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').split(/\s+/).join('.*?'),'gi')}
 function textBlocks(){const g=new Map(),w=document.createTreeWalker(editor,NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){const b=n.parentElement.closest(BLOCK),el=b&&editor.contains(b)?b:editor;if(!g.has(el))g.set(el,{nodes:[],text:''});const x=g.get(el);x.nodes.push({n,s:x.text.length});x.text+=n.nodeValue}return[...g.values()]}
 function textPos(b,i,end){for(const x of b.nodes){const e=x.s+x.n.nodeValue.length;if(i<e||end&&i===e)return[x.n,i-x.s]}const l=b.nodes[b.nodes.length-1];return[l.n,l.n.nodeValue.length]}
 const esc=t=>t.replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
-function runFind(){let re;try{re=findPattern($('#findText').value)}catch(e){hits=[];showHits('正規表達式錯誤：'+e.message);return}hits=[];if(re)textBlocks().forEach((b,bi)=>{for(const m of b.text.matchAll(re)){if(!m[0])continue;const r=document.createRange();r.setStart(...textPos(b,m.index));r.setEnd(...textPos(b,m.index+m[0].length,1));hits.push({r,m:m[0],no:bi+1,pre:b.text.slice(Math.max(0,m.index-30),m.index),post:b.text.slice(m.index+m[0].length,m.index+m[0].length+30),cut:[m.index>30,m.index+m[0].length+30<b.text.length]})}});hi=Math.min(hi,hits.length-1);showHits(re?'':'')}
+function runFind(){let re;try{re=findPattern($('#findText').value)}catch(e){hits=[];showHits('正規表達式錯誤：'+e.message);return}hits=[];if(re)textBlocks().forEach((b,bi)=>{for(const m of b.text.matchAll(re)){if(!m[0])continue;const r=document.createRange();r.setStart(...textPos(b,m.index));r.setEnd(...textPos(b,m.index+m[0].length,1));hits.push({r,m:m[0],groups:m.slice(1),names:m.groups||null,no:bi+1,pre:b.text.slice(Math.max(0,m.index-30),m.index),post:b.text.slice(m.index+m[0].length,m.index+m[0].length+30),cut:[m.index>30,m.index+m[0].length+30<b.text.length]})}});hi=Math.min(hi,hits.length-1);showHits(re?'':'')}
 const HIT_LIST_MAX=400,HIT_MARK_MAX=800;   // 上萬筆命中時不要產生上萬個 DOM 節點與 Range
 function showHits(err){$('#findRes').classList.toggle('show',!!(err||$('#findText').value.trim()));
   $('#findList').innerHTML=hits.slice(0,HIT_LIST_MAX).map((h,i)=>'<button class="hit" data-i="'+i+'"><small>第 '+h.no+' 段</small>'+(h.cut[0]?'…':'')+esc(h.pre)+'<mark>'+esc(h.m)+'</mark>'+esc(h.post)+(h.cut[1]?'…':'')+'</button>').join('');
@@ -164,10 +414,31 @@ function showHits(err){$('#findRes').classList.toggle('show',!!(err||$('#findTex
   markHit(err)}
 function markHit(err){$('#findCount').textContent=err||(!hits.length?'找不到符合項目':(hi<0?'共 '+hits.length+' 筆':(hi+1)+' / '+hits.length)+(hits.length>HIT_LIST_MAX?'（清單只列前 '+HIT_LIST_MAX+' 筆、標示前 '+HIT_MARK_MAX+' 筆）':''));document.querySelectorAll('.hit').forEach(b=>b.classList.toggle('cur',+b.dataset.i===hi));if(HL){if(hi<0)HL.delete('find-cur');else HL.set('find-cur',new Highlight(hits[hi].r))}}
 function goHit(i){if(!hits.length)return;hi=(i+hits.length)%hits.length;const h=hits[hi];markHit();if(!HL){const sel=getSelection();sel.removeAllRanges();sel.addRange(h.r)}h.r.startContainer.parentElement.scrollIntoView({block:'center',behavior:'smooth'});const b=document.querySelector('.hit.cur');if(b)b.scrollIntoView({block:'nearest'})}
-function replaceHit(h){const t=isRe?h.m.replace(findPattern($('#findText').value),$('#replaceText').value):$('#replaceText').value;h.r.deleteContents();h.r.insertNode(document.createTextNode(t))}
+// 取代字串依「命中當下」捕捉的群組展開（原本是拿命中的子字串再跑一次 regex，^ $、前後文與大小寫會走味）
+function expandReplacement(rep,full,groups,names){
+  return String(rep).replace(/\$(\$|&|\d{1,2}|<[^>]+>)/g,(all,tok)=>{
+    if(tok==='$')return '$';
+    if(tok==='&')return full;
+    if(tok.charAt(0)==='<'){const k=tok.slice(1,-1);return names&&names[k]!=null?names[k]:all}
+    const i=+tok;return groups&&i>=1&&i<=groups.length&&groups[i-1]!=null?groups[i-1]:all})}
+function replaceHit(h){const t=isRe?expandReplacement($('#replaceText').value,h.m,h.groups,h.names):$('#replaceText').value;
+  h.r.deleteContents();h.r.insertNode(document.createTextNode(t))}
 $('#findText').oninput=()=>{clearTimeout(findT);findT=setTimeout(()=>{hi=-1;runFind();goHit(0)},250)};$('#findText').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(findT);if(!hits.length)runFind();goHit(hi+(e.shiftKey?-1:1))}};
 $('#findNext').onclick=()=>goHit(hi+1);$('#findPrev').onclick=()=>goHit(hi-1);$('#findList').onclick=e=>{const b=e.target.closest('.hit');if(b)goHit(+b.dataset.i)};
 editor.addEventListener('input',()=>{if($('#findbar').style.display==='flex'){clearTimeout(findT);findT=setTimeout(runFind,300)}});
+// 貼上一律先清毒再插入（瀏覽器自己也會清，但這樣行為一致），圖片另外走縮圖管線
+editor.addEventListener('paste',e=>{const cd=e.clipboardData;if(!cd)return;
+  const html=cd.getData('text/html');
+  if(html){e.preventDefault();insertHtmlAtCaret(sanitizeHtml(html),{replaceSel:true})}
+  setTimeout(()=>{shrinkEditorImages().then((saved)=>{saveDraft();
+    if(saved>0)msg('貼上的圖片已自動縮圖，省下 '+Math.round(saved/1024)+'KB')})},30)});
+async function shrinkEditorImages(){
+  const imgs=[...editor.querySelectorAll('img')].filter(im=>/^data:image\//i.test(im.getAttribute('src')||'')&&im.dataset.shrunk!=='1');
+  let saved=0;
+  for(const im of imgs){im.dataset.shrunk='1';
+    try{const src=im.getAttribute('src'),small=await shrinkDataUrl(src);
+      if(small!==src){saved+=src.length-small.length;im.setAttribute('src',small)}}catch(e){}}
+  return saved;}
 $('#replaceOne').onclick=()=>{runFind();if(!hits.length)return;const i=Math.max(hi,0);replaceHit(hits[i]);saveDraft();runFind();if(hits.length)goHit(Math.min(i,hits.length-1));msg('已取代 1 處')};
 $('#replaceAll').onclick=()=>{runFind();const n=hits.length;if(!n)return;hits.slice().reverse().forEach(replaceHit);saveDraft();hi=-1;runFind();msg('已取代 '+n+' 處')};
 // Updates: changelog.json is the release record, newest first. Its top version at load is the one running; a later fetch saying otherwise means a newer deploy.
@@ -177,5 +448,7 @@ $('#logBtn').onclick=()=>fetchLog().then(l=>showLog(l,'更新紀錄')).catch(()=
 fetchLog().then(log=>{runningVer=log[0]&&log[0].version;if(!runningVer)return;let seen=null,returning=false;try{seen=localStorage.getItem('seenVersion');returning=seen!==null||!!localStorage.getItem('draft')}catch(e){}if(seen!==runningVer&&returning){const i=log.findIndex(e=>e.version===seen);showLog(i===-1?log.slice(0,1):log.slice(0,i),'已更新到 '+runningVer)}try{localStorage.setItem('seenVersion',runningVer)}catch(e){}}).catch(()=>{});
 function checkUpdate(){if(!runningVer||document.hidden||!$('#updBar').hidden)return;fetchLog().then(l=>{if(l[0]&&l[0].version!==runningVer)$('#updBar').hidden=false}).catch(()=>{})}
 document.addEventListener('visibilitychange',checkUpdate);setInterval(checkUpdate,30*60*1000);$('#updReload').onclick=()=>location.reload();$('#updClose').onclick=()=>{$('#updBar').hidden=true};
+// Service Worker：第一次載入後即可離線開啟（DOCX 解析與 PDF 產生都已經在本機）
+if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){navigator.serviceWorker.register('./sw.js').catch(()=>{})}
 </script>
 </body></html>
