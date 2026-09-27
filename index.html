@@ -1040,6 +1040,9 @@ body.dragging .paper {
           <button class="tool mi" id="colAddBtn" role="menuitem">在右側插入欄</button>
           <button class="tool mi" id="rowDelBtn" role="menuitem">刪除這一列</button>
           <button class="tool mi" id="colDelBtn" role="menuitem">刪除這一欄</button>
+          <button class="tool mi" id="mergeBtn" role="menuitem" title="先拖曳選取要合併的多個格子">合併選取的格子</button>
+          <button class="tool mi" id="mergeRBtn" role="menuitem">與右邊合併</button>
+          <button class="tool mi" id="mergeDBtn" role="menuitem">與下方合併</button>
           <button class="tool mi" id="splitBtn" role="menuitem">分割儲存格</button>
           <button class="tool mi" id="tblDelBtn" role="menuitem">刪除整個表格</button>
         </div>
@@ -1626,8 +1629,69 @@ function tableOp(kind) {
   const colEls = colgroup ? [...colgroup.children] : [];
   // 刪到只剩最後一列／一欄時，就是刪掉整個表格（可以復原）
   if ((kind === 'delRow' && rows.length < 2) || (kind === 'delCol' && cols < 2)) kind = 'delTable';
+  // 合併的範圍（格線座標）：選取多格就用選取範圍，否則是這一格加上右邊／下方一格
+  let box = null;
+  if (kind === 'merge' || kind === 'mergeRight' || kind === 'mergeDown') {
+    const ext = td => {
+      const rr = rows.indexOf(td.parentElement),
+        cc = grid[rr].indexOf(td);
+      return [rr, cc, rr + td.rowSpan - 1, cc + td.colSpan - 1];
+    };
+    let [r1, c1, r2, c2] = ext(cell);
+    if (kind === 'merge') {
+      const sel = getSelection();
+      for (let i = 0; i < sel.rangeCount; i++) {
+        const rg = sel.getRangeAt(i);
+        for (const n of [rg.startContainer, rg.endContainer]) {
+          const el = n.nodeType === 1 ? n : n.parentElement,
+            td = el && el.closest('td,th');
+          if (!td || td.closest('table') !== table) continue;
+          const [a, b, x, y] = ext(td);
+          [r1, c1, r2, c2] = [Math.min(r1, a), Math.min(c1, b), Math.max(r2, x), Math.max(c2, y)];
+        }
+      }
+    } else if (kind === 'mergeRight') c2++;
+    else r2++;
+    if (r2 >= rows.length || c2 >= cols || !grid[r2][c2])
+      return msg(kind === 'merge' ? '請先拖曳選取要合併的多個格子。' : '這個方向沒有格子可以合併。', true);
+    // 範圍碰到既有的合併格時要擴大到把它整個包進來，重複到範圍不再變動
+    for (let grow = true; grow; ) {
+      grow = false;
+      for (let i = r1; i <= r2; i++)
+        for (let j = c1; j <= c2; j++) {
+          if (!grid[i][j]) continue;
+          const [a, b, x, y] = ext(grid[i][j]);
+          if (a < r1 || b < c1 || x > r2 || y > c2) {
+            [r1, c1, r2, c2] = [Math.min(r1, a), Math.min(c1, b), Math.max(r2, x), Math.max(c2, y)];
+            grow = true;
+          }
+        }
+    }
+    if (grid[r1][c1] === grid[r2][c2]) return msg('請先拖曳選取要合併的多個格子。', true);
+    box = [r1, c1, r2, c2];
+  }
   recordEdit(() => {
-    if (kind === 'split') {
+    if (box) {
+      const [r1, c1, r2, c2] = box,
+        tl = grid[r1][c1],
+        seen = new Set([tl]);
+      // 其他格的內容依閱讀順序接到左上格後面（空格略過），再把那些格子移除
+      for (let i = r1; i <= r2; i++)
+        for (let j = c1; j <= c2; j++) {
+          const td = grid[i][j];
+          if (!td || seen.has(td)) continue;
+          seen.add(td);
+          if (td.textContent.trim() || td.querySelector('img,table')) {
+            if (tl.textContent.trim() || tl.querySelector('img,table')) tl.appendChild(document.createElement('br'));
+            else tl.replaceChildren();
+            while (td.firstChild) tl.appendChild(td.firstChild);
+          }
+          td.remove();
+        }
+      tl.rowSpan = r2 - r1 + 1;
+      tl.colSpan = c2 - c1 + 1;
+      msg('已合併成 1 格（' + tl.rowSpan + '×' + tl.colSpan + '）');
+    } else if (kind === 'split') {
       const rs = cell.rowSpan,
         cs = cell.colSpan;
       if (rs < 2 && cs < 2) return msg('這一格沒有合併，不需要分割。', true);
@@ -1723,6 +1787,9 @@ $('#rowDelBtn').onclick = () => tableOp('delRow');
 $('#colDelBtn').onclick = () => tableOp('delCol');
 $('#tblDelBtn').onclick = () => tableOp('delTable');
 $('#splitBtn').onclick = () => tableOp('split');
+$('#mergeBtn').onclick = () => tableOp('merge');
+$('#mergeRBtn').onclick = () => tableOp('mergeRight');
+$('#mergeDBtn').onclick = () => tableOp('mergeDown');
 
 // ---- 拖放 .docx／圖片到頁面上 ----
 ['dragenter', 'dragover'].forEach(ev =>
