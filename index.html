@@ -914,6 +914,14 @@ body.dragging .paper {
   cursor: pointer;
   white-space: nowrap;
 }
+.menu .msep {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 4px 6px;
+}
+.menu .mi.danger {
+  color: #b91c1c;
+}
 .menu .mi:hover,
 .menu .mi:focus-visible {
   background: #f1f5f9;
@@ -1036,15 +1044,18 @@ body.dragging .paper {
         <summary class="tool" title="插入與編輯表格" aria-label="表格"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="1.5"/><path d="M3 10h18M3 14.5h18M9 5v14M15 5v14"/></svg><span class="lbl">表格</span><span class="caret">▾</span></summary>
         <div class="panel" role="menu">
           <button class="tool mi" id="tblBtn" role="menuitem">插入表格…</button>
+          <hr class="msep" role="separator">
           <button class="tool mi" id="rowAddBtn" role="menuitem">在下方插入列</button>
           <button class="tool mi" id="colAddBtn" role="menuitem">在右側插入欄</button>
           <button class="tool mi" id="rowDelBtn" role="menuitem">刪除這一列</button>
           <button class="tool mi" id="colDelBtn" role="menuitem">刪除這一欄</button>
+          <hr class="msep" role="separator">
           <button class="tool mi" id="mergeBtn" role="menuitem" title="先拖曳選取要合併的多個格子">合併選取的格子</button>
           <button class="tool mi" id="mergeRBtn" role="menuitem">與右邊合併</button>
           <button class="tool mi" id="mergeDBtn" role="menuitem">與下方合併</button>
           <button class="tool mi" id="splitBtn" role="menuitem">分割儲存格</button>
-          <button class="tool mi" id="tblDelBtn" role="menuitem">刪除整個表格</button>
+          <hr class="msep" role="separator">
+          <button class="tool mi danger" id="tblDelBtn" role="menuitem">刪除整個表格</button>
         </div>
       </details>
       <button class="tool" id="pbBtn" title="在這裡強制換頁（列印與 Word 匯出都有效）" aria-label="插入分頁"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v5h12V3M6 21v-5h12v5M3 12h2M8 12h2M13 12h2M18 12h3"/></svg><span class="lbl">分頁</span></button>
