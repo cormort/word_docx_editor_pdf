@@ -685,6 +685,52 @@ body.dragging .paper {
   flex: none;
   white-space: nowrap;
 }
+/* 游標在表格裡：工具列最前面換成表格工具，插入組先收起 */
+.grp.tblgrp,
+body.intable .grp.grp-insert {
+  display: none;
+}
+body.intable .grp.tblgrp {
+  display: flex;
+}
+/* 桌機：表格模式也要維持一列（高度一變，下面的內容就會跳動），收起檢視組文字與段落／字級選單 */
+body.intable .lbl,
+body.intable #blockStyle,
+body.intable #fontSize {
+  display: none;
+}
+@media (max-width: 1100px) {
+  /* 放不下一列時改成左右滑動，不換行 */
+  body.intable .tools {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+}
+body:not(.intable) .tblgrp + .grp {
+  padding-left: 0;
+  border-left: 0;
+}
+.tblchip {
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1d4ed8;
+  background: #dbeafe;
+  border-radius: 6px;
+  padding: 3px 7px;
+  margin-right: 2px;
+}
+.tsep {
+  flex: none;
+  width: 1px;
+  height: 20px;
+  background: var(--line);
+  margin: 0 2px;
+}
+.tool.danger {
+  color: #b91c1c;
+}
 /* 工具列分組與圖示 */
 .tools {
   gap: 4px;
@@ -1007,6 +1053,20 @@ body.dragging .paper {
   <div id="notice" class="notice no-print" role="alert"></div>
   <section class="toolbar no-print" role="toolbar" aria-label="編輯工具列">
     <div class="tools">
+      <div class="grp tblgrp" role="group" aria-label="表格工具">
+      <span class="tblchip">表格</span>
+      <button class="tool" data-top="addRow" title="在下方插入列">＋列</button>
+      <button class="tool" data-top="addCol" title="在右側插入欄">＋欄</button>
+      <button class="tool" data-top="delRow" title="刪除這一列">−列</button>
+      <button class="tool" data-top="delCol" title="刪除這一欄">−欄</button>
+      <span class="tsep"></span>
+      <button class="tool" data-top="mergeRight" title="與右邊合併">合併→</button>
+      <button class="tool" data-top="mergeDown" title="與下方合併">合併↓</button>
+      <button class="tool" data-top="merge" title="合併拖曳選取的多個格子">合併選取</button>
+      <button class="tool" data-top="split" title="分割合併的儲存格">分割</button>
+      <span class="tsep"></span>
+      <button class="tool danger" data-top="delTable" title="刪除整個表格">刪除表格</button>
+      </div>
       <div class="grp" role="group" aria-label="段落">
       <select id="blockStyle" title="段落樣式" aria-label="段落樣式">
         <option value="p" selected>內文</option>
@@ -1037,7 +1097,7 @@ body.dragging .paper {
       <button class="tool" data-cmd="insertUnorderedList" title="項目符號清單" aria-label="項目符號清單" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="7" r="1.3"/><circle cx="5" cy="12" r="1.3"/><circle cx="5" cy="17" r="1.3"/><path d="M9 7h11M9 12h11M9 17h11"/></svg></button>
       <button class="tool" data-cmd="insertOrderedList" title="編號清單" aria-label="編號清單" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h1.5v4M4 9h3M4 14.5c0-1 2.8-1 2.8.3 0 1-2.8 1.6-2.8 3.2h3M10 7h10M10 12h10M10 17h10"/></svg></button>
       </div>
-      <div class="grp" role="group" aria-label="插入">
+      <div class="grp grp-insert" role="group" aria-label="插入">
       <button class="tool" id="imgBtn" title="插入圖片（也可拖放）" aria-label="插入圖片"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-8 8"/></svg><span class="lbl">圖片</span></button>
       <button class="tool" id="linkBtn" title="插入連結" aria-label="插入連結"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span class="lbl">連結</span></button>
       <details class="menu">
@@ -1261,6 +1321,11 @@ let stateT;
 function syncToolbar() {
   const sel = getSelection();
   if (!sel.rangeCount || !editor.contains(sel.anchorNode)) return;
+  const inTable = !!cellOfCaret();
+  if (inTable !== document.body.classList.contains('intable')) {
+    document.body.classList.toggle('intable', inTable);
+    $('.tools').scrollLeft = 0; // 手機：切換後回到最前面，剛出現的那組按鈕才看得到
+  }
   document.querySelectorAll('.tool[data-cmd]').forEach(b => {
     const c = b.dataset.cmd;
     let on = false;
@@ -1798,6 +1863,10 @@ $('#rowDelBtn').onclick = () => tableOp('delRow');
 $('#colDelBtn').onclick = () => tableOp('delCol');
 $('#tblDelBtn').onclick = () => tableOp('delTable');
 $('#splitBtn').onclick = () => tableOp('split');
+$('.tblgrp').addEventListener('click', e => {
+  const b = e.target.closest('[data-top]');
+  if (b) tableOp(b.dataset.top);
+});
 $('#mergeBtn').onclick = () => tableOp('merge');
 $('#mergeRBtn').onclick = () => tableOp('mergeRight');
 $('#mergeDBtn').onclick = () => tableOp('mergeDown');
