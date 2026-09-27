@@ -3151,12 +3151,22 @@ editor.addEventListener('paste', e => {
   const cd = e.clipboardData;
   if (!cd) return;
   const html = cd.getData('text/html');
+  snap();
+  const before = hist[histI]; // 貼上前的狀態
   if (html) {
     e.preventDefault();
     insertHtmlAtCaret(sanitizeHtml(html), { replaceSel: true });
   }
   setTimeout(() => {
     shrinkEditorImages().then(saved => {
+      // 縮圖併進「貼上」那一筆，不另外多一步復原：貼上已經記過就改寫那筆，還沒記（瀏覽器原生貼上、
+      // 打字停頓計時還沒到）就現在記
+      const k = hist.indexOf(before);
+      // （就算沒縮小，也會標上 data-shrunk，HTML 一樣有變）
+      if (k >= 0 && histI === k + 1) {
+        hist[histI].h = editor.innerHTML;
+        hist[histI].sel = selPath() || hist[histI].sel;
+      } else snap();
       saveDraft();
       if (saved > 0) msg('貼上的圖片已自動縮圖，省下 ' + Math.round(saved / 1024) + 'KB');
     });
