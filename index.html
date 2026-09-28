@@ -308,6 +308,21 @@ input {
     width: 100% !important;
   }
 }
+/* 滑鼠移到工具按鈕上立即顯示說明（瀏覽器原生 title 要等約一秒，觸控裝置也不顯示） */
+.tip {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+  background: #1e293b;
+  color: #fff;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 /* 平板與電腦：編輯工具列固定在頁首下方，不跟著捲動 */
 @media screen and (min-width: 641px) and (min-height: 501px) {
   body:not(.desk) .toolbar {
@@ -2120,6 +2135,28 @@ document.querySelectorAll('[data-para]').forEach(b =>
     });
   }),
 );
+// 工具提示：把 title 搬到 data-tip，避免原生提示同時跳出
+if (matchMedia('(hover: hover)').matches) {
+  const tip = document.createElement('div');
+  tip.className = 'tip no-print';
+  tip.hidden = true;
+  document.body.append(tip);
+  document.addEventListener('mouseover', e => {
+    const b = e.target.closest('.toolbar [title], .toolbar [data-tip], .top [title], .top [data-tip]');
+    if (!b) return (tip.hidden = true);
+    if (b.title) {
+      b.dataset.tip = b.title;
+      b.removeAttribute('title');
+    }
+    tip.textContent = b.dataset.tip;
+    tip.hidden = false;
+    const r = b.getBoundingClientRect();
+    tip.style.top = r.bottom + 6 + 'px';
+    tip.style.left = Math.max(4, Math.min(innerWidth - tip.offsetWidth - 4, r.left + r.width / 2 - tip.offsetWidth / 2)) + 'px';
+  });
+  document.addEventListener('mousedown', () => (tip.hidden = true));
+  addEventListener('scroll', () => (tip.hidden = true), true);
+}
 new ResizeObserver(() => document.documentElement.style.setProperty('--toph', $('.top').offsetHeight + 'px')).observe($('.top'));
 $('#blockStyle').onchange = e => {
   editor.focus();
