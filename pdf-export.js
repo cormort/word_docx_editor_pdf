@@ -79,6 +79,55 @@
     for (const li of items.slice(kept)) rest.appendChild(li);
     return rest;
   }
+  // 段落在行與行之間切開（跟分頁檢視一樣：下一頁不只剩一行、這頁不只留一行）。
+  // limit＝這頁內容區底端（視窗座標）。回傳接到下一頁的後半段，整段都要搬就回傳 null。
+  const TEXTBLK = /^(P|H[1-6]|PRE|BLOCKQUOTE)$/,
+    INNER = 'p,div,table,ul,ol,li,h1,h2,h3,h4,h5,h6,blockquote,pre';
+  function splitPara(block, limit) {
+    if (!TEXTBLK.test(block.tagName) || block.querySelector(INNER)) return null;
+    const rg = document.createRange();
+    rg.selectNodeContents(block);
+    const lines = [];
+    for (const r of [...rg.getClientRects()].filter(r => r.height > 0).sort((a, b) => a.top - b.top)) {
+      const l = lines[lines.length - 1];
+      if (l && r.top < l.b - 2) l.b = Math.max(l.b, r.bottom);
+      else lines.push({ t: r.top, b: r.bottom });
+    }
+    let n = lines.findIndex(l => l.b > limit + 0.5);
+    if (n < 0) return null;
+    if (n === lines.length - 1 && n >= 2) n--; // 寡行
+    if (n <= 1) return null; // 孤行：整段搬到下一頁
+    // 第 n 行第一個字的位置
+    const tw = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+    const one = document.createRange();
+    let at = null;
+    for (let t; !at && (t = tw.nextNode()); ) {
+      if (!t.length) continue;
+      one.setStart(t, t.length - 1);
+      one.setEnd(t, t.length);
+      if (one.getBoundingClientRect().top < lines[n].t - 1) continue; // 整個文字節點都在前面幾行
+      for (let i = 0; i < t.length; i++) {
+        one.setStart(t, i);
+        one.setEnd(t, i + 1);
+        const r = one.getBoundingClientRect();
+        if (r.height && r.top >= lines[n].t - 1) {
+          at = { t, i };
+          break;
+        }
+      }
+    }
+    if (!at) return null;
+    const cut = document.createRange();
+    cut.setStart(at.t, at.i);
+    cut.setEnd(block, block.childNodes.length);
+    const rest = block.cloneNode(false);
+    rest.appendChild(cut.extractContents()); // 連同粗體、顏色等行內格式一起切
+    rest.removeAttribute('id');
+    rest.style.textIndent = '0'; // 續段不再首行縮排
+    rest.style.marginTop = '0';
+    block.style.marginBottom = '0';
+    return rest;
+  }
   const hasContent = body => body.textContent.trim() !== '' || !!body.querySelector('img,table,hr');
 
   function paginate(source, o) {
@@ -115,7 +164,11 @@
       body.appendChild(block);
       if (fits()) continue;
       const rest =
-        block.tagName === 'TABLE' ? splitTable(block, fits) : /^(UL|OL)$/.test(block.tagName) ? splitList(block, fits) : null;
+        block.tagName === 'TABLE'
+          ? splitTable(block, fits)
+          : /^(UL|OL)$/.test(block.tagName)
+            ? splitList(block, fits)
+            : splitPara(block, body.getBoundingClientRect().top + contentH);
       if (rest) {
         blocks.splice(i + 1, 0, rest);
         newPage();
