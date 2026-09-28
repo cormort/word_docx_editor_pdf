@@ -3859,8 +3859,8 @@ function paginate() {
           if (hh) heads.push({ table: el.closest('table'), y: (k + 1) * step + T });
           rules.push(s + '>td,' + s + '>th{padding-top:' + (pt + d).toFixed(1) + 'px!important}');
           acc += d;
-        } else if (!first && h > room && tag === 'DIV' && el.children.length) {
-          walk(el, s); // 比一頁還高的文字方塊：進去逐段換頁
+        } else if (!first && /^(DIV|SECTION)$/.test(tag) && el.children.length && !soleImg(el)) {
+          walk(el, s); // 文字方塊等容器：進去逐段換頁（段落逐行、圖片在頁尾切開）
         } else if (!first && soleImg(el) && splitImg(s, el, soleImg(el), cs)) {
           // 圖片已在頁尾切開
         } else if (!first && TEXTBLK.test(tag) && !el.querySelector(INNER) && splitPara(s, el, cs, prev)) {
