@@ -314,6 +314,37 @@ input {
     content: none;
   }
 }
+/* 圖片：點選後外框＋小工具列；拖曳時的插入位置線 */
+.imgselbox {
+  position: fixed;
+  z-index: 59;
+  border: 2px solid var(--blue);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.imgbar {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  gap: 2px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 3px;
+  box-shadow: 0 4px 14px #0f172a26;
+}
+.imgbar .tool {
+  min-width: 34px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+.dropcaret {
+  position: fixed;
+  z-index: 61;
+  width: 2px;
+  background: var(--blue);
+  pointer-events: none;
+}
 /* 滑鼠移到工具按鈕上立即顯示說明（瀏覽器原生 title 要等約一秒，觸控裝置也不顯示） */
 .tip {
   position: fixed;
@@ -1980,6 +2011,147 @@ $('#mergeBtn').onclick = () => tableOp('merge');
 $('#mergeRBtn').onclick = () => tableOp('mergeRight');
 $('#mergeDBtn').onclick = () => tableOp('mergeDown');
 
+// ---- 圖片：拖曳移動（顯示插入位置）＋點選後的小工具列（對齊、文繞圖、上下移、刪除）----
+// 瀏覽器內建的圖片拖放在可編輯區裡不穩（Safari、浮動圖常拖不動，觸控完全不行），所以自己做。
+const imgBar = document.createElement('div');
+imgBar.className = 'imgbar no-print';
+imgBar.hidden = true;
+imgBar.innerHTML =
+  '<button class="tool" data-img="left" title="靠左（獨立一行）">靠左</button>' +
+  '<button class="tool" data-img="center" title="置中（獨立一行）">置中</button>' +
+  '<button class="tool" data-img="right" title="靠右（獨立一行）">靠右</button>' +
+  '<button class="tool" data-img="floatL" title="文字繞在圖片右邊">繞左</button>' +
+  '<button class="tool" data-img="floatR" title="文字繞在圖片左邊">繞右</button>' +
+  '<button class="tool" data-img="up" title="往上移一段">↑</button>' +
+  '<button class="tool" data-img="down" title="往下移一段">↓</button>' +
+  '<button class="tool danger" data-img="del" title="刪除圖片">刪除</button>';
+document.body.append(imgBar);
+// 選取外框用浮在上面的框畫，不在圖片上加 class（否則會跟著存進草稿與匯出檔）
+const selBox = document.createElement('div');
+selBox.className = 'imgselbox no-print';
+selBox.hidden = true;
+document.body.append(selBox);
+const dropCaret = document.createElement('div');
+dropCaret.className = 'dropcaret no-print';
+dropCaret.hidden = true;
+document.body.append(dropCaret);
+let selImg = null;
+function placeImgBar() {
+  if (!selImg || !selImg.isConnected) return selectImg(null);
+  const r = selImg.getBoundingClientRect();
+  Object.assign(selBox.style, { left: r.left - 3 + 'px', top: r.top - 3 + 'px', width: r.width + 6 + 'px', height: r.height + 6 + 'px' });
+  imgBar.style.left = Math.max(4, Math.min(innerWidth - imgBar.offsetWidth - 4, r.left)) + 'px';
+  imgBar.style.top = (r.top - imgBar.offsetHeight - 8 > 60 ? r.top - imgBar.offsetHeight - 8 : Math.min(r.bottom + 8, innerHeight - imgBar.offsetHeight - 4)) + 'px';
+}
+function selectImg(img) {
+  selImg = img;
+  imgBar.hidden = selBox.hidden = !img;
+  if (img) placeImgBar();
+}
+function caretAt(x, y) {
+  if (document.caretPositionFromPoint) {
+    const p = document.caretPositionFromPoint(x, y);
+    if (!p) return null;
+    const r = document.createRange();
+    r.setStart(p.offsetNode, p.offset);
+    return r;
+  }
+  return document.caretRangeFromPoint ? document.caretRangeFromPoint(x, y) : null;
+}
+const blockOf = img => img.parentElement.closest('p,h1,h2,h3,h4,li,blockquote,pre,div,td,th');
+function imgOp(k) {
+  const img = selImg;
+  if (!img) return;
+  recordEdit(() => {
+    const st = img.style;
+    if (k === 'del') {
+      img.remove();
+      return;
+    }
+    if (k === 'up' || k === 'down') {
+      const blk = blockOf(img);
+      if (!blk || blk === editor) return;
+      const alone = blk.tagName === 'P' && !blk.textContent.trim() && blk.querySelectorAll('img').length === 1;
+      if (alone) {
+        const sib = k === 'up' ? blk.previousElementSibling : blk.nextElementSibling;
+        if (sib) k === 'up' ? sib.before(blk) : sib.after(blk);
+      } else {
+        const p = document.createElement('p');
+        p.append(img);
+        k === 'up' ? blk.before(p) : blk.after(p);
+      }
+      return;
+    }
+    st.float = k === 'floatL' ? 'left' : k === 'floatR' ? 'right' : '';
+    st.display = k === 'floatL' || k === 'floatR' ? '' : 'block';
+    st.marginTop = st.marginBottom = '';
+    if (k === 'floatL') st.margin = '0 8pt 4pt 0';
+    else if (k === 'floatR') st.margin = '0 0 4pt 8pt';
+    else {
+      st.marginLeft = k === 'left' ? '0' : 'auto';
+      st.marginRight = k === 'right' ? '0' : 'auto';
+    }
+  });
+  if (!selImg.isConnected) selectImg(null);
+  else requestAnimationFrame(placeImgBar);
+}
+imgBar.addEventListener('pointerdown', e => e.preventDefault()); // 按工具列不要讓編輯區失去選取
+imgBar.addEventListener('click', e => {
+  const b = e.target.closest('[data-img]');
+  if (b) imgOp(b.dataset.img);
+});
+editor.addEventListener('dragstart', e => {
+  if (e.target.tagName === 'IMG') e.preventDefault();
+});
+editor.addEventListener('pointerdown', e => {
+  const img = e.target.closest && e.target.closest('img');
+  if (!img || !editor.isContentEditable) return selectImg(null);
+  selectImg(img);
+  if (e.pointerType !== 'mouse' || e.button !== 0) return; // 觸控只選取（用工具列的 ↑↓ 移動），不擋住捲動
+  e.preventDefault();
+  const sx = e.clientX,
+    sy = e.clientY;
+  let moving = false,
+    dest = null;
+  const move = ev => {
+    if (!moving && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 6) return;
+    moving = true;
+    img.style.opacity = '0.4';
+    imgBar.hidden = selBox.hidden = true;
+    dest = caretAt(ev.clientX, ev.clientY);
+    const ok = dest && editor.contains(dest.startContainer) && !img.contains(dest.startContainer);
+    const rc = ok && (dest.getClientRects()[0] || (dest.startContainer.nodeType === 1 ? dest.startContainer.getBoundingClientRect() : null));
+    dropCaret.hidden = !rc;
+    if (rc) Object.assign(dropCaret.style, { left: rc.left - 1 + 'px', top: rc.top + 'px', height: Math.max(16, rc.height) + 'px' });
+    if (!ok) dest = null;
+  };
+  const up = () => {
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+    dropCaret.hidden = true;
+    img.style.opacity = '';
+    if (!img.getAttribute('style')) img.removeAttribute('style');
+    if (moving && dest)
+      recordEdit(() => {
+        const old = blockOf(img);
+        dest.insertNode(img);
+        // 原本只放這張圖的段落搬空了就一起拿掉
+        if (old && old !== editor && old.tagName === 'P' && !old.textContent.trim() && !old.querySelector('img,table')) old.remove();
+      });
+    selectImg(img);
+  };
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+});
+editor.addEventListener('keydown', e => {
+  if (!selImg) return;
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    e.preventDefault();
+    imgOp('del');
+  } else selectImg(null);
+});
+addEventListener('scroll', () => selImg && placeImgBar(), true);
+addEventListener('resize', () => selImg && placeImgBar());
 // ---- 拖放 .docx／圖片到頁面上 ----
 ['dragenter', 'dragover'].forEach(ev =>
   document.addEventListener(ev, e => {
@@ -2149,7 +2321,7 @@ if (matchMedia('(hover: hover)').matches) {
   tip.hidden = true;
   document.body.append(tip);
   document.addEventListener('mouseover', e => {
-    const b = e.target.closest('.toolbar [title], .toolbar [data-tip], .top [title], .top [data-tip]');
+    const b = e.target.closest('.toolbar [title], .toolbar [data-tip], .top [title], .top [data-tip], .imgbar [title], .imgbar [data-tip]');
     if (!b) return (tip.hidden = true);
     if (b.title) {
       b.dataset.tip = b.title;
