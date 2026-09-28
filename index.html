@@ -434,6 +434,26 @@ input {
 .paper td[data-diag] p {
   cursor: move;
 }
+/* Word 常見的中文編號（匯入時對應到這些 list-style-type） */
+@counter-style tw-han-dun {
+  system: extends trad-chinese-informal;
+  suffix: '、';
+}
+@counter-style tw-han-paren {
+  system: extends trad-chinese-informal;
+  prefix: '（';
+  suffix: '）';
+}
+@counter-style tw-dec-paren {
+  system: extends decimal;
+  prefix: '(';
+  suffix: ') ';
+}
+@counter-style tw-circled {
+  system: fixed;
+  symbols: '①' '②' '③' '④' '⑤' '⑥' '⑦' '⑧' '⑨' '⑩' '⑪' '⑫' '⑬' '⑭' '⑮' '⑯' '⑰' '⑱' '⑲' '⑳';
+  suffix: ' ';
+}
 /* 滑鼠移到工具按鈕上立即顯示說明（瀏覽器原生 title 要等約一秒，觸控裝置也不顯示） */
 .tip {
   position: fixed;
@@ -3924,12 +3944,28 @@ function tableXml(tbl, ctx) {
     '<w:p><w:r><w:t xml:space="preserve"></w:t></w:r></w:p>'
   );
 }
+// 清單的 list-style-type → Word 的編號定義（中文編號、圈號、自訂符號各自一組，匯出時才產生）
+const LIST_DEFS = new Map();
+function listNumId(el, tag) {
+  const t = (el.style.listStyleType || '').trim();
+  const m = /^["'](.+?)\s*["']$/.exec(t); // 自訂符號，例如 '➢ '
+  const def = m
+    ? { fmt: 'bullet', text: m[1] }
+    : { 'tw-han-dun': { fmt: 'taiwaneseCountingThousand', text: '%1、' }, 'trad-chinese-informal': { fmt: 'taiwaneseCountingThousand', text: '%1、' },
+        'tw-han-paren': { fmt: 'taiwaneseCountingThousand', text: '（%1）' }, 'tw-dec-paren': { fmt: 'decimal', text: '(%1)' },
+        'tw-circled': { fmt: 'decimalEnclosedCircle', text: '%1' }, 'lower-alpha': { fmt: 'lowerLetter', text: '%1.' },
+        'upper-alpha': { fmt: 'upperLetter', text: '%1.' }, 'lower-roman': { fmt: 'lowerRoman', text: '%1.' }, 'upper-roman': { fmt: 'upperRoman', text: '%1.' } }[t];
+  if (!def) return tag === 'ol' ? '2' : '1';
+  const key = def.fmt + '|' + def.text;
+  if (!LIST_DEFS.has(key)) LIST_DEFS.set(key, Object.assign({ id: String(LIST_DEFS.size + 3) }, def));
+  return LIST_DEFS.get(key).id;
+}
 function blockXml(el, ctx) {
   if (el.classList && el.classList.contains('pagebreak'))
     return '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
   const tag = el.tagName.toLowerCase();
   if (tag === 'ul' || tag === 'ol') {
-    const numId = tag === 'ol' ? '2' : '1'; // numbering.xml：1=項目符號、2=編號
+    const numId = listNumId(el, tag); // numbering.xml：1=項目符號、2=編號、3 起＝匯入或自訂的編號樣式
     let lvl = 0;
     for (let n = el.parentElement; n && n !== editor; n = n.parentElement)
       if (/^(ul|ol)$/i.test(n.tagName)) lvl++;
@@ -4024,6 +4060,7 @@ function buildDocx() {
       return id;
     },
   };
+  LIST_DEFS.clear(); // 每次匯出重新編號定義
   const body = [...editor.children].map(el => blockXml(el, ctx)).join('');
   const wantPageNum = !!($('#docxPageNum') && $('#docxPageNum').checked);
   const sect =
@@ -4150,8 +4187,24 @@ function buildDocx() {
       )
       .join('') +
     '</w:abstractNum>' +
+    [...LIST_DEFS.values()]
+      .map(
+        d =>
+          '<w:abstractNum w:abstractNumId="' + d.id + '"><w:multiLevelType w:val="hybridMultilevel"/>' +
+          [0, 1, 2]
+            .map(
+              i =>
+                '<w:lvl w:ilvl="' + i + '"><w:start w:val="1"/><w:numFmt w:val="' + d.fmt + '"/><w:lvlText w:val="' +
+                xmlEsc(d.text.replace('%1', '%' + (i + 1))) + '"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="' + (420 + 420 * i) +
+                '" w:hanging="' + (d.fmt === 'bullet' ? 220 : 420) + '"/></w:pPr></w:lvl>',
+            )
+            .join('') +
+          '</w:abstractNum>',
+      )
+      .join('') +
     '<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>' +
     '<w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num>' +
+    [...LIST_DEFS.values()].map(d => '<w:num w:numId="' + d.id + '"><w:abstractNumId w:val="' + d.id + '"/></w:num>').join('') +
     '</w:numbering>';
   const docRelsPath = 'word/_rels/document.xml.rels';
   const files = [

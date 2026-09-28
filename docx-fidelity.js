@@ -125,6 +125,24 @@
     }
     return { abs, nums };
   }
+  // Word 的項目符號常用 Wingdings／Symbol 字型的私用區字碼，換成看得到的 Unicode 字
+  const SYM = { 0xF0D8: '➢', 0xF06C: '●', 0xF0A7: '▪', 0xF0FC: '✔', 0xF06E: '■', 0xF076: '❖', 0xF075: '◆', 0xF0B7: '•', 0xF0A8: '□', 0xF071: '❑', 0xF0D7: '➤', 0xF0E8: '➔', 0xF0B2: '◇', 0xF09F: '•' };
+  // 清單層級 → CSS list-style-type（中文編號用 index.html 定義的 @counter-style）
+  function listStyleOf(lv) {
+    if (!lv) return 'disc';
+    const t = lv.text || '';
+    if (lv.fmt === 'bullet') {
+      const c = t.codePointAt(0);
+      const ch = c == null ? '•' : SYM[c] || (c >= 0xF000 && c <= 0xF0FF ? '•' : String.fromCodePoint(c));
+      return "'" + ch + " '";
+    }
+    if (lv.fmt === 'none') return 'none';
+    if (/^(taiwaneseCounting|taiwaneseCountingThousand|ideographTraditional|chineseCounting|chineseCountingThousand|ideographLegalTraditional|chineseLegalSimplified)$/.test(lv.fmt))
+      return /[（(]%\d[）)]/.test(t) ? 'tw-han-paren' : 'tw-han-dun';
+    if (/^decimalEnclosedCircle/.test(lv.fmt)) return 'tw-circled';
+    if (/^decimal/.test(lv.fmt)) return /[（(]%\d[）)]/.test(t) ? 'tw-dec-paren' : 'decimal';
+    return LIST_STYLE[lv.fmt] || 'decimal';
+  }
   const LIST_STYLE = { bullet: 'disc', decimal: 'decimal', lowerLetter: 'lower-alpha', upperLetter: 'upper-alpha', lowerRoman: 'lower-roman', upperRoman: 'upper-roman', none: 'none' };
 
   // ---------- rels ----------
@@ -408,10 +426,7 @@
     const boxes = all.filter((e) => e.localName === 'txbxContent' && !inTxbx(e));
     if (boxes.length) {
       let inner = '';
-      for (const b of boxes) for (const ch of b.children) {
-        if (ch.localName === 'p') { const r = docxParagraph(ch, ctx); inner += r.html + r.after; }
-        else if (ch.localName === 'tbl') inner += docxTable(ch, ctx);
-      }
+      for (const b of boxes) inner += blocksHtml(b.children, ctx);   // 文字方塊裡的編號段落也組成清單
       if (inner.replace(/<[^>]+>/g, '').trim()) {
         const b = imgBox(node, ctx, true);
         const div = '<div class="docx-txbx" style="' + b.css + '">' + inner + '</div>';
@@ -884,7 +899,7 @@
         const attrs = (span > 1 ? ' colspan="' + span + '"' : '') + (rs > 1 ? ' rowspan="' + rs + '"' : '');
         const isHead = val(tcPr && tag(tcPr, 'tcW'), 'w') && false;
         let inner = '';
-        for (const p of tags(m.tc, 'p')) { const r = docxParagraph(p, ctx); inner += r.html + r.after; }
+        inner += blocksHtml([...m.tc.children].filter((n) => n.localName === 'p' || n.localName === 'tbl'), ctx);
         if (!inner) inner = '<p><br></p>';
         // 儲存格垂直對齊：Word 預設靠上（CSS 已預設），置中／靠下才另外標
         const va = { center: 'middle', bottom: 'bottom' }[val(tag(tcPr, 'vAlign'), 'val')];
@@ -946,6 +961,52 @@
     return /[^\s]/.test(out.replace(/<[^>]+>/g, '')) ? out : null;
   }
 
+  // 一串 w:p／w:tbl → HTML：連續的編號段落組成 <ul>／<ol>（本文、文字方塊、表格儲存格共用）
+  function blocksHtml(nodes, ctx) {
+    const html = [];
+    let listCtx = null;                                  // {numId, ilvl, tag}
+    const closeList = (level) => { while (listCtx && listCtx.ilvl >= level) { html.push(listCtx.tag === 'ol' ? '</ol>' : '</ul>'); listCtx = listCtx.parent || null; } };
+    const openList = (numId, ilvl) => {
+      const absId = ctx.numbering.nums.get(numId);
+      const lv = absId != null ? (ctx.numbering.abs.get(absId) || [])[ilvl] : null;
+      const fmt = lv ? lv.fmt : 'bullet';
+      const tagName = fmt === 'bullet' || fmt === 'none' ? 'ul' : 'ol';
+      const style = 'list-style-type:' + listStyleOf(lv) + (lv ? ';padding-left:' + Math.max(6, (lv.left * TWIP_MM)).toFixed(1) + 'mm' : '');
+      // Word 同一個編號定義整份文件接續編號（分在不同文字方塊、中間隔著其他段落也一樣）
+      const key = numId + '|' + ilvl, done = (ctx.numCount || (ctx.numCount = new Map())).get(key) || 0;
+      html.push('<' + tagName + (tagName === 'ol' && done ? ' start="' + (done + 1) + '"' : '') + ' style="' + style + '">');
+      listCtx = { numId, ilvl, tag: tagName, parent: listCtx };
+      ctx.listCount = (ctx.listCount || 0) + 1;
+    };
+    for (const node of nodes) {
+      if (node.localName === 'p') {
+        const r = docxParagraph(node, ctx);
+        if (r.numId != null && r.numId !== '0') {
+          const ilvl = r.ilvl;
+          while (listCtx && listCtx.ilvl > ilvl) closeList(listCtx.ilvl);
+          if (!listCtx || listCtx.numId !== r.numId || listCtx.ilvl < ilvl) openList(r.numId, ilvl);
+          // 段落的屬性（style、以行設定間距的 data-*）整組搬到 <li>，class 不帶（標題樣式不適用在清單項目）
+          // 縮排交給清單本身（ul/ol 的 padding）：段落自己的左縮排與凸排會讓符號壓到文字
+          const attrs = (r.html.match(/^<[a-z0-9]+([^>]*)>/i) || ['', ''])[1].replace(/\sclass="[^"]*"/, '')
+            .replace(/(style="[^"]*)"/, (m, st) => st.replace(/(^|;|")\s*(margin-left|text-indent):[^;"]*/g, '$1') + '"');
+          const ck = r.numId + '|' + ilvl;
+          ctx.numCount.set(ck, (ctx.numCount.get(ck) || 0) + 1);
+          html.push('<li' + attrs + '>' + r.html.replace(/^<[^>]+>|<\/[^>]+>$/g, '') + r.after + '</li>');
+        } else {
+          closeList(0);
+          html.push((r.html || '<p><br></p>') + r.after);
+        }
+      } else if (node.localName === 'tbl') {
+        closeList(0);
+        html.push(docxTable(node, ctx));
+      } else if (node.localName === 'sectPr') {
+        ctx.sectPr = node;
+      }
+    }
+    closeList(0);
+    return html.join('\n');
+  }
+
   // ---------- 主流程 ----------
   async function convert(arrayBuffer) {
     const zip = await unzip(arrayBuffer);
@@ -974,43 +1035,8 @@
     const body = [...doc.getElementsByTagName('*')].find((e) => e.localName === 'body');
     if (!body) throw new Error('docx 內容格式不認識');
 
-    const html = [];
-    let listCtx = null;                                  // {numId, ilvl, tag}
-    let listCount = 0;
-    const closeList = (level) => { while (listCtx && listCtx.ilvl >= level) { html.push(listCtx.tag === 'ol' ? '</ol>' : '</ul>'); listCtx = listCtx.parent || null; } };
-    const openList = (numId, ilvl) => {
-      const absId = ctx.numbering.nums.get(numId);
-      const lv = absId != null ? (ctx.numbering.abs.get(absId) || [])[ilvl] : null;
-      const fmt = lv ? lv.fmt : 'bullet';
-      const tagName = fmt === 'bullet' || fmt === 'none' ? 'ul' : 'ol';
-      const style = 'list-style-type:' + (LIST_STYLE[fmt] || 'disc') + (lv ? ';padding-left:' + Math.max(6, (lv.left * TWIP_MM)).toFixed(1) + 'mm' : '');
-      html.push('<' + tagName + ' style="' + style + '">');
-      listCtx = { numId, ilvl, tag: tagName, parent: listCtx };
-      listCount++;
-    };
-
-    for (const node of body.children) {
-      if (node.localName === 'p') {
-        const r = docxParagraph(node, ctx);
-        if (r.numId != null) {
-          const ilvl = r.ilvl;
-          while (listCtx && listCtx.ilvl > ilvl) closeList(listCtx.ilvl);
-          if (!listCtx || listCtx.numId !== r.numId || listCtx.ilvl < ilvl) openList(r.numId, ilvl);
-          // 段落的屬性（style、以行設定間距的 data-*）整組搬到 <li>，class 不帶（標題樣式不適用在清單項目）
-          const attrs = (r.html.match(/^<[a-z0-9]+([^>]*)>/i) || ['', ''])[1].replace(/\sclass="[^"]*"/, '');
-          html.push('<li' + attrs + '>' + r.html.replace(/^<[^>]+>|<\/[^>]+>$/g, '') + r.after + '</li>');
-        } else {
-          closeList(0);
-          html.push((r.html || '<p><br></p>') + r.after);
-        }
-      } else if (node.localName === 'tbl') {
-        closeList(0);
-        html.push(docxTable(node, ctx));
-      } else if (node.localName === 'sectPr') {
-        ctx.sectPr = node;
-      }
-    }
-    closeList(0);
+    const html = [blocksHtml(body.children, ctx)];
+    const listCount = ctx.listCount || 0;
 
     // 紙張與邊界
     const sect = ctx.sectPr || [...doc.getElementsByTagName('*')].find((e) => e.localName === 'sectPr');
