@@ -297,9 +297,9 @@
 
   // 圖片大小照 docx 的外框（寬高都照，比例跟 Word 一樣）；浮動圖片依水平對齊／位移擺放
   const FLOAT_MAX_PT = 200;   // ponytail: 比這寬的浮動圖改成獨立一行，免得滿版編輯區裡文字繞到旁邊
-  function imgBox(node) {
+  function imgBox(node, ctx, isBox) {
     const all = [...node.getElementsByTagName('*')];
-    const css = ['max-width:100%', 'height:auto'];
+    const css = isBox ? ['max-width:100%'] : ['max-width:100%', 'height:auto'];
     let wPt = 0, hPt = 0;
     const ext = all.find((e) => e.localName === 'extent');
     if (ext) { wPt = num(ext.getAttribute('cx'), 0) / EMU_PT; hPt = num(ext.getAttribute('cy'), 0) / EMU_PT; }
@@ -310,7 +310,7 @@
       wPt = len('width'); hPt = len('height');
     }
     if (wPt) css.push('width:' + wPt.toFixed(1) + 'pt');
-    if (wPt && hPt) css.push('aspect-ratio:' + wPt.toFixed(2) + '/' + hPt.toFixed(2));
+    if (wPt && hPt && !isBox) css.push('aspect-ratio:' + wPt.toFixed(2) + '/' + hPt.toFixed(2));
     const anchor = all.find((e) => e.localName === 'anchor');
     let vBlock = 0;
     if (anchor) {
@@ -320,10 +320,21 @@
       // 垂直：只處理相對段落／行的位移（相對頁面的在沒有分頁引擎下無從對應）
       const posV = tag(anchor, 'positionV'), relV = posV ? posV.getAttribute('relativeFrom') : '';
       const voff = posV && tag(posV, 'posOffset') && /^(paragraph|line)$/.test(relV) ? num(tag(posV, 'posOffset').textContent, 0) / EMU_PT : 0;
+      // 文字方塊「不繞排」＝浮在文字上：小方塊（標籤、註記）用零高度外框＋絕對定位疊上去；
+      // 大方塊通常是整頁版面框，沒有分頁引擎時疊上去會互相覆蓋，改成照寬度與水平對齊留在文字流裡
+      const noWrap = !wrap || wrap.localName === 'wrapNone';
+      if (isBox && noWrap && wPt && wPt <= FLOAT_MAX_PT && hPt <= FLOAT_MAX_PT) {
+        const base = posH && posH.getAttribute('relativeFrom') === 'page' ? -(ctx.marL || 0) : 0;
+        const pos = ['position:absolute', 'top:' + voff.toFixed(1) + 'pt'];
+        if (align === 'center') pos.push('left:50%', 'transform:translateX(-50%)');
+        else if (align === 'right' || align === 'outside') pos.push('right:0');
+        else pos.push('left:' + (base + off).toFixed(1) + 'pt');
+        return { css: css.concat(pos).join(';'), voff: 0, abs: true };
+      }
       const floaty = wrap && /^wrap(Square|Tight|Through)$/.test(wrap.localName) && wPt && wPt <= FLOAT_MAX_PT && align !== 'center';
       if (floaty) css.push('float:' + (align === 'right' || align === 'outside' ? 'right' : 'left'), 'margin:' + Math.max(0, voff).toFixed(1) + 'pt 6pt 4pt ' + (off > 0 && !align ? off.toFixed(1) : '0') + 'pt');
-      else if (voff) vBlock = voff;                               // 大圖：匯入後依實際排版挪到對應高度（index.html placeFloats）
       else {
+        if (voff && !(isBox && noWrap)) vBlock = voff;            // 大圖：匯入後依實際排版挪到對應高度（index.html placeFloats）
         css.push('display:block');
         if (align === 'center') css.push('margin-left:auto', 'margin-right:auto');
         else if (align === 'right' || align === 'outside') css.push('margin-left:auto');
@@ -354,7 +365,11 @@
         if (ch.localName === 'p') inner += docxParagraph(ch, ctx).html;
         else if (ch.localName === 'tbl') inner += docxTable(ch, ctx);
       }
-      if (inner.replace(/<[^>]+>/g, '').trim()) out += '</p><div class="docx-txbx">' + inner + '</div><p>';
+      if (inner.replace(/<[^>]+>/g, '').trim()) {
+        const b = imgBox(node, ctx, true);
+        const div = '<div class="docx-txbx" style="' + b.css + '"' + (b.voff ? ' data-voff="' + b.voff.toFixed(1) + '"' : '') + '>' + inner + '</div>';
+        out += '</p>' + (b.abs ? '<div class="docx-txbx-anchor" style="position:relative;height:0">' + div + '</div>' : div) + '<p>';
+      }
     }
     return out;
   }
@@ -385,7 +400,7 @@
       for (let i = 0; i < bytes.length; i += chunk) b64 += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
       dataUrl = 'data:' + mime + ';base64,' + btoa(b64);
     }
-    const box = imgBox(node);
+    const box = imgBox(node, ctx, false);
     return '<img src="' + dataUrl + '" style="' + box.css + '"' + (box.voff ? ' data-voff="' + box.voff.toFixed(1) + '"' : '') + ' alt="">';
   }
 
@@ -854,6 +869,8 @@
       ctx.media.set(name, b);
     }
     const doc = xml(documentXml);
+    const mar0 = [...doc.getElementsByTagName('*')].find((e) => e.localName === 'pgMar');
+    ctx.marL = mar0 ? num(val(mar0, 'left'), 1134) / 20 : 0;       // 相對「頁面」的水平位移要扣掉左邊界（pt）
     const body = [...doc.getElementsByTagName('*')].find((e) => e.localName === 'body');
     if (!body) throw new Error('docx 內容格式不認識');
 

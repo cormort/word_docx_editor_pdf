@@ -2317,16 +2317,20 @@ $('#file').onchange = e => {
 };
 // 浮動大圖在 Word 裡是「錨點段落往下 N pt」：以紙張寬度排版、先把這些圖抽出來量高度，再把圖放到那個高度的段落前
 function placeFloats() {
-  const imgs = [...editor.querySelectorAll('img[data-voff]')];
+  const imgs = [...editor.querySelectorAll('[data-voff]')]; // 圖片與文字方塊
   if (!imgs.length) return;
   const PT = 96 / 72,
     w = editor.style.width;
   if (w) editor.style.setProperty('width', w, 'important'); // 暫時用 Word 的紙寬量，高度才對得上
   imgs.forEach(i => (i.style.display = 'none'));
   const plan = imgs.map(img => {
-    const src = img.closest('p,li,h1,h2,h3,h4,blockquote,pre');
+    // 圖片在錨點段落裡；文字方塊是錨點段落後面的獨立區塊，本身就是要搬的東西
+    const isBox = img.tagName !== 'IMG',
+      src = isBox ? img : img.closest('p,li,h1,h2,h3,h4,blockquote,pre');
     if (!src || !src.parentNode) return null;
-    const target = src.getBoundingClientRect().top + parseFloat(img.dataset.voff) * PT;
+    const ref = isBox ? src.previousElementSibling : src;
+    const top0 = ref ? ref.getBoundingClientRect().top : src.parentNode.getBoundingClientRect().top;
+    const target = top0 + parseFloat(img.dataset.voff) * PT;
     let at = null;
     for (let s = src.parentNode.firstElementChild; s; s = s.nextElementSibling) {
       if (s.getBoundingClientRect().top >= target - 1) {
@@ -2334,21 +2338,25 @@ function placeFloats() {
         break;
       }
     }
-    return { img, src, at };
+    return { img, src, at, isBox };
   });
   editor.style.width = w;
   imgs.forEach(i => {
-    i.style.display = 'block';
+    i.style.display = i.tagName === 'IMG' ? 'block' : '';
     i.removeAttribute('data-voff');
   });
   for (const x of plan) {
     if (!x || x.at === x.src || x.at === x.src.nextElementSibling) continue;
+    if (x.isBox) {
+      x.src.parentNode.insertBefore(x.src, x.at);
+      continue;
+    }
     const p = document.createElement('p');
     p.append(x.img);
     x.src.parentNode.insertBefore(p, x.at);
   }
   // 圖搬走後只剩空白的錨點段落：全部搬完再刪（其他圖可能以它為插入點）
-  for (const x of plan) if (x && x.src.isConnected && !x.src.textContent.trim() && !x.src.querySelector('img,table')) x.src.remove();
+  for (const x of plan) if (x && !x.isBox && x.src.isConnected && !x.src.textContent.trim() && !x.src.querySelector('img,table')) x.src.remove();
 }
 async function openDocx(file) {
   if (file.size > 60 * 1024 * 1024) return msg('檔案超過 60MB，瀏覽器可能無法處理，請先簡化內容。', true);
