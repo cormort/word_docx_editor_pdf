@@ -322,8 +322,11 @@
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
     await img.decode();
     const canvas = document.createElement('canvas');
-    canvas.width = Math.round(w * scale);
-    canvas.height = Math.round(h * scale);
+    // 瀏覽器的 canvas 有邊長上限（Chromium 約 16384px）：超過的話整頁會畫成空白（只剩看不見的文字層）。
+    // 超過一張紙高度的區塊（例如一張超高圖片）會把頁面拉長，這裡自動把倍率降到上限內
+    const s = Math.min(scale, 16000 / Math.max(1, w, h));
+    canvas.width = Math.max(1, Math.round(w * s));
+    canvas.height = Math.max(1, Math.round(h * s));
     const g = canvas.getContext('2d');
     g.fillStyle = '#fff';
     g.fillRect(0, 0, canvas.width, canvas.height);
@@ -356,18 +359,28 @@
       const text = node.nodeValue;
       for (let i = 0; i < text.length; i++) {
         const code = text.charCodeAt(i);
-        if ((code >= 0xd800 && code <= 0xdfff) || code < 32) continue; // 超出 2 位元組 CID／控制字元
+        if (code < 32) continue;                                        // 控制字元不進文字層
+        // 非 BMP 字元（emoji、CJK 擴充 B 區）在 JS 字串裡是兩個代理碼；只跳過的話那個字會整個消失在
+        // 文字層（畫面上有、搜尋複製卻沒有），所以整對一起處理，兩個碼都寫進 TJ
+        const pair = code >= 0xd800 && code <= 0xdbff && i + 1 < text.length
+          && text.charCodeAt(i + 1) >= 0xdc00 && text.charCodeAt(i + 1) <= 0xdfff;
+        if (code >= 0xd800 && code <= 0xdfff && !pair) continue;         // 落單的半個代理，沒有合法字元可表示
+        const codes = pair ? [code, text.charCodeAt(i + 1)] : [code];
         range.setStart(node, i);
-        range.setEnd(node, i + 1);
+        range.setEnd(node, i + codes.length);
         const r = range.getClientRects()[0];
         if (!r || !r.width) continue; // 被摺疊掉的空白
-        if (!(code in widths)) widths[code] = Math.round((r.width / size) * 1000);
+        const adv = Math.round((r.width / size) * 1000);
+        if (!(codes[0] in widths)) widths[codes[0]] = codes.length === 2 ? 0 : adv;  // 高位代理不佔寬度
+        const last = codes[codes.length - 1];
+        if (!(last in widths)) widths[last] = adv;
         glyphs.push({
-          code,
+          codes,
           size: size * PT,
           x: (r.left - base.left) * PT,
           y: (height - (r.bottom - base.top) + size * 0.22) * PT,
         });
+        i += codes.length - 1;
       }
     }
     const ops = ['BT 3 Tr'];
@@ -386,8 +399,9 @@
         const adjust = Math.round(((run.penX - g.x) * 1000) / g.size); // TJ 的數字是千分之一字級
         if (adjust) run.parts.push(adjust);
       }
-      run.parts.push('<' + hex4(g.code) + '>');
-      run.penX = g.x + (widths[g.code] * g.size) / 1000;
+      run.parts.push(g.codes.map(c => '<' + hex4(c) + '>').join(''));
+      const adv = g.codes.reduce((sum, c) => sum + (widths[c] || 0), 0);
+      run.penX = g.x + (adv * g.size) / 1000;
     }
     flush();
     ops.push('ET');

@@ -1585,10 +1585,21 @@ function loadScript(src, global) {
 function sanitizeHtml(html) {
   const t = document.createElement('template');
   t.innerHTML = String(html == null ? '' : html);
-  t.content.querySelectorAll('script,style,iframe,object,embed,link,meta,base,form').forEach(n => n.remove());
-  const w = document.createTreeWalker(t.content, NodeFilter.SHOW_ELEMENT);
+  cleanNode(t.content);
+  return t.innerHTML;
+}
+// <template> 的內容放在自己的 content fragment，querySelectorAll／TreeWalker 都不會走進去，
+// 所以每一層都要各自清（否則 <template><img onerror=…></template> 會原封不動留下來）
+function cleanNode(root) {
+  // 純文字元素（plaintext／xmp／title…）的子節點對 TreeWalker 是不透明的，別讓它們混進編輯區：
+  // 序列化時內容會原樣吐出來，等於有 markup 沒被檢查到
+  root.querySelectorAll('script,style,iframe,object,embed,link,meta,base,form,plaintext,xmp,noembed,noframes,title,textarea').forEach(n => n.remove());
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+  const nested = [];
   let el;
   while ((el = w.nextNode())) {
+    // SVG／MathML 命名空間下的 <template> 沒有 .content（只有 HTML 的才有），不能直接往下遞迴
+    if (el.localName === 'template' && el.content) nested.push(el);
     for (const a of [...el.attributes]) {
       const n = a.name.toLowerCase(),
         v = a.value.replace(/[\u0000-\u0020]/g, '').toLowerCase();
@@ -1596,13 +1607,30 @@ function sanitizeHtml(html) {
         n.startsWith('on') ||
         n === 'srcdoc' ||
         n === 'formaction' ||
+        n === 'id' || // 匯入的內容不可以搶走 App 自己的 id（#updBar／#logModal 之類）
         ((n === 'href' || n === 'src' || n === 'xlink:href') &&
-          /^(javascript:|vbscript:|data:text\/html)/.test(v))
+          /^(javascript:|vbscript:|data:text\/html)/.test(v)) ||
+        (n === 'style' && /url\s*\(|@import/i.test(a.value))
       )
         el.removeAttribute(a.name);
     }
   }
-  return t.innerHTML;
+  // 文字裡的 XML 不合法控制字元：U+000B／U+000C（Word／Excel 複製出來的軟換行）換成 <br> 保留換行，
+  // 其餘（NUL、BEL…）直接丟掉。留著會讓匯出的 .docx 變成非 well-formed 的 XML。
+  const tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const texts = [];
+  let tn;
+  while ((tn = tw.nextNode())) if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(tn.nodeValue)) texts.push(tn);
+  for (const node of texts) {
+    const frag = document.createDocumentFragment();
+    node.nodeValue.split(/[\u000B\u000C]/).forEach((part, i) => {
+      if (i) frag.appendChild(document.createElement('br'));
+      const s = part.replace(/[\u0000-\u0008\u000E-\u001F]/g, '');
+      if (s) frag.appendChild(document.createTextNode(s));
+    });
+    node.replaceWith(frag);
+  }
+  nested.forEach(t => cleanNode(t.content));
 }
 
 // ---- 圖片：插入前先縮圖，避免文件、PDF 與草稿爆掉 ----
@@ -1717,7 +1745,17 @@ function applyPageStyle() {
 // ---- 復原／重做：自己記快照 ----
 // 瀏覽器內建的復原只認得打字與 execCommand；插入表格、增刪列欄、分頁、取代這些直接改 DOM 的動作
 // 都不在它的紀錄裡（按復原沒反應）。所以全部改用快照：打字停頓 0.6 秒記一筆，程式編輯前後各記一筆。
-const HIST_MAX = 100;
+// 復原紀錄：一筆就是整份 innerHTML（含圖片的 data: URL）。圖片多的文件一筆就可能好幾 MB，
+// 只按筆數上限留 100 筆會吃掉數百 MB 記憶體（實測 2.3MB 的文件 × 31 筆 ≈ 142MB），手機分頁會直接掛掉，
+// 所以另外設總字數上限，並至少保留 HIST_KEEP 筆讓「復原」還有層數可用。
+const HIST_MAX = 100,
+  HIST_CHARS = 16000000,
+  HIST_KEEP = 2;
+function histChars() {
+  let n = 0;
+  for (const e of hist) n += e.h.length;
+  return n;
+}
 let hist = [],
   histI = -1,
   histT;
@@ -1750,7 +1788,11 @@ function snap() {
   }
   hist = hist.slice(0, histI + 1);
   hist.push({ h, sel: selPath() });
-  if (hist.length > HIST_MAX) hist.shift();
+  let total = histChars();
+  while (hist.length > HIST_MAX || (hist.length > HIST_KEEP && total > HIST_CHARS)) {
+    total -= hist[0].h.length;
+    hist.shift();
+  }
   histI = hist.length - 1;
 }
 function resetHistory() {
@@ -3158,11 +3200,20 @@ function draftSaved() {
   statusEl.textContent =
     '已自動儲存草稿 ' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
 }
+// 內容沒變就不必再寫一次草稿：大文件每次存檔都要把整份內容（含圖片 data: URL）結構化複製進
+// IndexedDB，打字時反覆寫入會造成卡頓。這裡比對整份字串（相同參考時是 O(1)）。
+let lastDraftHtml = null,
+  lastDraftName = null;
 function saveDraft() {
   if (!draftReady) return;
-  const d = { v: 3, html: editor.innerHTML, name: $('#filename').value, at: Date.now() };
+  const html = editor.innerHTML,
+    name = $('#filename').value;
+  if (html === lastDraftHtml && name === lastDraftName) return;
+  const d = { v: 3, html, name, at: Date.now() };
   idbSet('draft', d)
     .then(() => {
+      lastDraftHtml = html;
+      lastDraftName = name;
       try {
         localStorage.removeItem('draft'); // 舊版草稿已搬到 IndexedDB
       } catch (e) {}
@@ -3175,6 +3226,8 @@ function saveDraft() {
 function saveDraftLS() {
   try {
     writeDraft(editor.innerHTML);
+    lastDraftHtml = editor.innerHTML;
+    lastDraftName = $('#filename').value;
     draftWarned = false;
     const t = new Date();
     msg(
@@ -3218,16 +3271,30 @@ function restoreDraft(d) {
       (d.at ? '（' + new Date(d.at).toLocaleString('zh-TW', { hour12: false }).slice(0, -3) + '）' : ''),
   );
 }
-// 先讀 IndexedDB，沒有才讀舊版存在 localStorage 的草稿（下次儲存時會自動搬過去）
-idbGet('draft')
-  .catch(() => null)
-  .then(d => {
-    if (!d)
-      try {
-        d = JSON.parse(localStorage.getItem('draft'));
-      } catch (e) {}
+// 先讀 IndexedDB，沒有才讀舊版存在 localStorage 的草稿
+// 兩邊都讀、挑時間戳比較新的那一筆：IndexedDB 寫入失敗時會退回 localStorage，
+// 只認 IndexedDB 會讓使用者拿回舊內容（還以為那是最新草稿），新的編輯就再也找不回來
+Promise.all([
+  idbGet('draft').catch(() => null),
+  Promise.resolve().then(() => {
+    try {
+      return JSON.parse(localStorage.getItem('draft'));
+    } catch (e) {
+      return null;
+    }
+  }),
+])
+  .then(([fromIdb, fromLs]) => {
+    const d = fromIdb && fromLs ? ((fromLs.at || 0) > (fromIdb.at || 0) ? fromLs : fromIdb) : fromIdb || fromLs;
     restoreDraft(d);
+    // 落選的那一份清掉，免得下次又蓋回舊內容
+    if (d && d === fromIdb && fromLs) {
+      try {
+        localStorage.removeItem('draft');
+      } catch (e) {}
+    } else if (d && d === fromLs && fromIdb) idbDel('draft').catch(() => {});
   })
+  .catch(() => {})
   .finally(() => {
     draftReady = true;
     resetHistory();
@@ -3236,6 +3303,20 @@ syncTitle();
 applyPageStyle();
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) saveDraft();
+  else if (pgStale) {
+    pgStale = false;
+    paginateSoon();
+  }
+});
+// 關分頁／當掉前也存一次：visibilitychange 不保證會觸發，這裡再同步補一份小的到 localStorage
+// （IndexedDB 的非同步寫入不一定能在關頁前完成）
+addEventListener('pagehide', () => {
+  clearTimeout(saveT);
+  saveDraft();
+  try {
+    const html = editor.innerHTML;
+    if (html.length < 1000000) writeDraft(html);
+  } catch (e) {}
 });
 $('#newBtn').onclick = () => {
   if (!confirm('清除目前內容並開新文件？未匯出的內容將遺失。')) return;
@@ -3342,11 +3423,15 @@ async function openDocx(file) {
           $('#findList').innerHTML = '';
           $('#findRes').classList.remove('show');
           resetHistory();
+          // 匯入的照片是原始解析度：先縮一次，後面每一個動作（每次復原快照、草稿寫入、搜尋）都跟著變便宜
+          const saved = await shrinkEditorImages();
+          resetHistory();
           saveDraft();
           msg(
-            r.warnings && r.warnings.length
+            (r.warnings && r.warnings.length
               ? '已用保版面模式匯入；' + r.warnings.join('；')
-              : '已用保版面模式匯入（紙張、頁首頁尾、分頁、字型都帶進來了）',
+              : '已用保版面模式匯入（紙張、頁首頁尾、分頁、字型都帶進來了）') +
+              (saved > 0 ? '；圖片已自動縮圖，省下 ' + Math.round(saved / 1024) + 'KB' : ''),
             !!(r.warnings && r.warnings.length),
           );
           return;
@@ -3403,9 +3488,13 @@ async function openDocx(file) {
     $('#findList').innerHTML = '';
     $('#findRes').classList.remove('show');
     resetHistory();
+    // 匯入的照片是原始解析度：先縮一次，後面每一個動作（復原快照、草稿寫入、搜尋）都跟著變便宜
+    const saved = await shrinkEditorImages();
+    resetHistory();
     saveDraft();
     msg(
-      result.messages.length ? '載入完成；複雜格式可能無法完整保留' : '載入完成，可開始編輯',
+      (result.messages.length ? '載入完成；複雜格式可能無法完整保留' : '載入完成，可開始編輯') +
+        (saved > 0 ? '；圖片已自動縮圖，省下 ' + Math.round(saved / 1024) + 'KB' : ''),
       !!result.messages.length,
     );
   } catch (err) {
@@ -3429,11 +3518,13 @@ $('#saveBtn').onclick = () => {
 // ================= 匯出 Word（.docx）：自帶 ZIP 寫入器 ＋ OOXML，零外部依賴 =================
 const DOCX_PAGE = { a4: [11906, 16838], letter: [12240, 15840], legal: [12240, 20160] };
 const DOCX_FONT = 'Microsoft JhengHei';
+// XML 1.0 不接受的控制字元（NUL、BEL…）：貼上的文字裡可能有，寫進 document.xml 會讓
+// 檔案變成非 well-formed，Word 開起來會說檔案損毀。匯出前一律清掉（換行另有 <w:br/> 處理）
+const XML_BAD = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g;
 function xmlEsc(v) {
-  return String(v == null ? '' : v).replace(
-    /[&<>"']/g,
-    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c],
-  );
+  return String(v == null ? '' : v)
+    .replace(XML_BAD, '')
+    .replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c]);
 }
 const CRC_TBL = (() => {
   const t = new Uint32Array(256);
@@ -3602,9 +3693,15 @@ function runsXml(runs) {
         r.shade ? '<w:shd w:val="clear" w:color="auto" w:fill="' + r.shade + '"/>' : '',
         r.half ? '<w:sz w:val="' + r.half + '"/><w:szCs w:val="' + r.half + '"/>' : '',
       ].join('');
+      // 換行（<br> 收成 \n）與貼上 Word／Excel 帶進來的軟換行 U+000B、分頁 U+000C 都變 <w:br/>；
+      // 這樣文字不會消失，也不會把控制字元直接寫進 XML 讓檔案壞掉。空片段不用產生空的 <w:t>
       const body = String(r.text)
-        .split('\n')
-        .map((seg, i) => (i ? '<w:br/>' : '') + '<w:t xml:space="preserve">' + xmlEsc(seg) + '</w:t>')
+        .split(/[\n\u000B\u000C]/)
+        .map(
+          (seg, i) =>
+            (i ? '<w:br/>' : '') +
+            (seg ? '<w:t xml:space="preserve">' + xmlEsc(seg) + '</w:t>' : ''),
+        )
         .join('');
       return '<w:r>' + (rPr ? '<w:rPr>' + rPr + '</w:rPr>' : '') + body + '</w:r>';
     })
@@ -4442,10 +4539,17 @@ $('#pdfBtn').onclick = async () => {
 // 加大它的上邊界，把它推到下一頁的內容起點；紙張與頁間空隙用編輯區背景畫出來。
 // 段落在行與行之間切開（含寡行／孤行控制），表格在列與列之間切開；比一頁還高的單一列或圖片會被頁間空隙遮住。
 const pagedQ = matchMedia('(max-width: 640px), (pointer: coarse) and (max-height: 500px)');
-let pgT;
-function paginateSoon() {
+let pgT, pgStale = false;
+function paginateSoon(structural) {
   clearTimeout(pgT);
-  pgT = setTimeout(paginate, 250);
+  // 背景分頁沒必要重排，回到前景時再補一次
+  if (document.hidden) {
+    pgStale = true;
+    return;
+  }
+  // 打字只是文字節點變動，不必每次停頓都重排：paginate 要重建整張頁面樣式表並逐一量高度
+  // （實測 1.9MB 的文件一次 30ms 以上），改成閒置久一點再做；插入圖片／表格這種結構改動才用原本的節奏
+  pgT = setTimeout(paginate, structural === false ? 900 : 250);
 }
 function paginate() {
   const sheet = $('#pgSheet');
@@ -4708,7 +4812,11 @@ function drawHeads(list, z) {
   }
 }
 // 編輯區自己的 style（縮放）是我們設的，不算內容變動，否則會一直重排
-new MutationObserver(ms => ms.some(m => !(m.target === editor && m.type === 'attributes')) && paginateSoon()).observe(editor, { childList: true, subtree: true, characterData: true, attributes: true });
+new MutationObserver(ms => {
+  if (!ms.some(m => !(m.target === editor && m.type === 'attributes'))) return;
+  const structural = ms.some(m => m.type === 'childList' && m.addedNodes.length + m.removedNodes.length > 0);
+  paginateSoon(structural);
+}).observe(editor, { childList: true, subtree: true, characterData: true, attributes: true });
 editor.addEventListener('load', paginateSoon, true); // 圖片載入後高度才確定
 addEventListener('resize', paginateSoon);
 pagedQ.addEventListener('change', paginateSoon);
@@ -5043,7 +5151,8 @@ function showLog(entries, title) {
         ul = document.createElement('ul');
       h.textContent = e.version;
       ul.append(
-        ...e.notes.map(n => {
+        // 更新紀錄是外部檔案，格式不對時不該讓整個「已更新」提示掛掉（原本會丟 TypeError 且被吞掉）
+        ...(Array.isArray(e.notes) ? e.notes : []).map(n => {
           const li = document.createElement('li');
           li.textContent = n;
           return li;

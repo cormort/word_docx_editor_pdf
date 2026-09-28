@@ -116,6 +116,7 @@
           text: val(tag(l, 'lvlText'), 'val') || '',
           left: num(val(ind, 'left'), 720 * (i + 1)),
           hanging: num(val(ind, 'hanging'), 360),
+          start: num(val(tag(l, 'start'), 'val'), 1),   // 「從 5 開始編號」這種清單要看 w:start，不然會從 1 重編
         };
       }
       abs.set(val(a, 'abstractNumId'), lv);
@@ -166,34 +167,50 @@
   }
 
   // ---------- 執行（run）→ HTML ----------
+  // rPr 可能有好幾層（run 自己 → 段落標記 → 段落樣式 → docDefaults）。Word 的規則是越具體的蓋過越一般的，
+  // 所以每個屬性都要取「第一個有定義它的那一層」；只挑一層來用會掉掉其他層的設定
+  // （例如手動加粗的 run 只剩粗體、失去文件預設的 11pt，在畫面上變成 16px）
   function runStyle(rPr, ctx) {
     const st = { css: [], b: false, i: false, u: false };
-    if (!rPr) return st;
-    if (tag(rPr, 'b') && val(tag(rPr, 'b'), 'val') !== '0' && val(tag(rPr, 'b'), 'val') !== 'false') st.b = true;
-    if (tag(rPr, 'i') && val(tag(rPr, 'i'), 'val') !== '0' && val(tag(rPr, 'i'), 'val') !== 'false') st.i = true;
-    if (tag(rPr, 'u') && (val(tag(rPr, 'u'), 'val') || 'single') !== 'none') st.u = true;
-    const color = val(tag(rPr, 'color'), 'val');
+    const layers = (Array.isArray(rPr) ? rPr : [rPr]).filter(Boolean);
+    if (!layers.length) return st;
+    const pick = (name) => {
+      for (const l of layers) { const el = tag(l, name); if (el) return el; }
+      return null;
+    };
+    const on = (name) => {
+      const el = pick(name);
+      if (!el) return false;
+      const v = val(el, 'val');
+      return v !== '0' && v !== 'false';
+    };
+    if (on('b')) st.b = true;
+    if (on('i')) st.i = true;
+    const u = pick('u');
+    if (u && ((val(u, 'val') || 'single') !== 'none')) st.u = true;
+    const color = val(pick('color'), 'val');
     if (color && /^[0-9a-f]{6}$/i.test(color) && color.toLowerCase() !== '000000' && color.toLowerCase() !== 'auto') st.css.push('color:#' + color);
-    const hl = val(tag(rPr, 'highlight'), 'val');
+    const hl = val(pick('highlight'), 'val');
     const HL = { yellow: '#ffff00', green: '#00ff00', cyan: '#00ffff', magenta: '#ff00ff', blue: '#0000ff', red: '#ff0000', darkBlue: '#000080', darkCyan: '#008080', darkGreen: '#008000', darkMagenta: '#800080', darkRed: '#800000', darkGray: '#808080', lightGray: '#c0c0c0', black: '#000000' };
-    const shd = tag(rPr, 'shd');
+    const shd = pick('shd');
     const fill = shd ? val(shd, 'fill') : null;
     if (hl && HL[hl]) st.css.push('background-color:' + HL[hl]);
     else if (fill && /^[0-9a-f]{6}$/i.test(fill) && fill.toLowerCase() !== 'auto' && fill.toUpperCase() !== 'FFFFFF') st.css.push('background-color:#' + fill);
-    const fonts = tag(rPr, 'rFonts');
+    const fonts = pick('rFonts');
     if (fonts) {
       const ea = val(fonts, 'eastAsia'), as = val(fonts, 'ascii') || val(fonts, 'hAnsi');
       const fam = [ea, as].filter(Boolean);
       // 字型名稱用單引號：這段 CSS 會放進 style="…"，雙引號會提早結束屬性
       if (fam.length) st.css.push('font-family:' + fam.map((f) => "'" + f.replace(/['";<>&]/g, '') + "'").join(','));
     }
-    const sz = num(val(tag(rPr, 'sz'), 'val'), 0);
+    const sz = num(val(pick('sz'), 'val'), 0);
     if (sz) st.css.push('font-size:' + (sz / 2) + 'pt');
-    const va = val(tag(rPr, 'vertAlign'), 'val');
+    const va = val(pick('vertAlign'), 'val');
     if (va === 'superscript') st.css.push('vertical-align:super;font-size:.75em');
     if (va === 'subscript') st.css.push('vertical-align:sub;font-size:.75em');
-    if (tag(rPr, 'rStyle')) {
-      const s = ctx.styles.map.get(val(tag(rPr, 'rStyle'), 'styleId'));
+    const rStyle = pick('rStyle');
+    if (rStyle) {
+      const s = ctx.styles.map.get(val(rStyle, 'styleId'));
       if (s) {
         const nm = (s.name || '').toLowerCase();
         if (nm === 'strong') st.b = true;
@@ -302,7 +319,7 @@
     const walk = (node, rPr) => {
       for (const ch of node.children) {
         if (ch.localName === 'r') {
-          const st = runStyle(tag(ch, 'rPr') || rPr || (style ? style.rPr : null) || ctx.styles.defR, ctx);
+          const st = runStyle([tag(ch, 'rPr'), rPr, style ? style.rPr : null, ctx.styles.defR], ctx);
           if (base.b) st.b = true;
           if (base.i) st.i = true;
           if (base.u) st.u = true;
@@ -311,18 +328,24 @@
             else if (c.localName === 'tab') emit('<span style="display:inline-block;width:2em"></span>');
             else if (c.localName === 'br') {
               const type = val(c, 'type');
-              if (type === 'page') ctx.pageBreaks.push(parts.length);
-              emit(type === 'page' ? '</p><div class="pagebreak" contenteditable="false"></div><p>' : '<br>');
+              // 分頁符號要「收掉目前的區塊、插入分頁、再開一個同樣的區塊」。以前寫死 </p>…<p>，
+              // 標題（h1）裡按 Ctrl+Enter 就會產生 </p>…<p> 對不上 </h1> 的壞 HTML
+              if (type === 'page') {
+                ctx.pageBreaks.push(parts.length);
+                emit('</' + htmlTag + '><div class="pagebreak" contenteditable="false"></div><' + htmlTag + '>');
+              } else emit('<br>');
             } else if (c.localName === 'drawing' || c.localName === 'pict' || c.localName === 'AlternateContent') emit(docxObject(c, ctx));
             else if (c.localName === 'sym') { const code = parseInt(val(c, 'char'), 16); if (code > 0) emit(esc(String.fromCharCode(code))); }  // w:char 是十六進位
-            else if (c.localName === 'fldSimple' || c.localName === 'instrText') emit(esc(c.textContent));
+            // 欄位指令（PAGE、MERGEFIELD、TOC…）與欄位控制碼不是內文：Word 會把上次算出的結果放在後面的 run，
+            // 照舊輸出會讓使用者看到 " PAGE \* MERGEFORMAT " 這種字串，還會被存回 .docx
+            else if (c.localName === 'instrText' || c.localName === 'fldChar') { /* 不輸出 */ }
           }
         } else if (ch.localName === 'hyperlink') {
           const rel = ctx.rels.get(rval(ch, 'id'));
           const inner2 = [];
           const sub = { children: ch.children };
           const collect = (n) => { for (const c of n.children) { if (c.localName === 'r') {
-              const st = runStyle(tag(c, 'rPr') || (style ? style.rPr : null) || ctx.styles.defR, ctx);
+              const st = runStyle([tag(c, 'rPr'), style ? style.rPr : null, ctx.styles.defR], ctx);
               for (const cc of c.children) if (cc.localName === 't') inner2.push(wrapRun(cc.textContent, st));
             } else if (c.localName === 'hyperlink' || c.localName === 'smartTag') collect(c); } };
           collect(ch);
@@ -351,8 +374,12 @@
     ctx.floats = outer;
     inner = parts.join('');
     // 段落裡有分頁符號：浮動物件屬於分頁前那一頁，群組放在分頁符號之前
-    const pb = inner.indexOf('</p><div class="pagebreak"');
-    if (after && pb >= 0) { inner = inner.slice(0, pb + 4) + after + inner.slice(pb + 4); after = ''; }
+    const pbm = inner.match(/<\/[a-z0-9]+>(?=<div class="pagebreak")/i);
+    if (after && pbm) {
+      const at = pbm.index + pbm[0].length;
+      inner = inner.slice(0, at) + after + inner.slice(at);
+      after = '';
+    }
     if (!inner.trim()) inner = '';
     // 以行設定的段落間距記在 data 屬性（編輯器的段落選單用行顯示、匯出寫回 beforeLines／afterLines）
     const lineData = styles.filter((x) => x.startsWith('--lines-')).map((x) => ' data-' + x.slice(2).replace(':', '="') + '"').join('')
@@ -451,7 +478,9 @@
     if (!rel) return '';
     const path = 'word/' + rel.target.replace(/^\/?word\//, '').replace(/^\.\//, '');
     const ext = (path.split('.').pop() || 'png').toLowerCase().replace(/^emz$/, 'emf').replace(/^wmz$/, 'wmf');
-    const bytes = ctx.media.get(path) || ctx.media.get(rel.target) || ctx.media.get('word/' + rel.target);
+    // 壓縮檔裡的檔名大小寫不一定跟 rels 的 target 一致（LibreOffice／Google 匯出的檔案很常見），
+    // 所以 media 索引與查詢都轉小寫，不然圖片會安靜地不見
+    const bytes = ctx.media.get(path.toLowerCase()) || ctx.media.get(rel.target.toLowerCase()) || ctx.media.get(('word/' + rel.target).toLowerCase());
     let dataUrl = '';
     if (ext === 'emf' && bytes) {
       try { dataUrl = emfToPng(bytes); } catch (e) { dataUrl = ''; }
@@ -463,7 +492,7 @@
       ctx.vectorImages = (ctx.vectorImages || 0) + 1;
       return '<span class="docx-noimg">〔' + ext.toUpperCase() + ' 向量圖：無法轉換，請在 Word 另存成 PNG 後重新插入〕</span>';
     }
-    if (!bytes) return '';
+    if (!bytes) { ctx.imgMissing = (ctx.imgMissing || 0) + 1; return ''; }
     if (!dataUrl) {
       const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'gif' ? 'image/gif' : ext === 'webp' ? 'image/webp' : 'image/png';
       let b64 = '';
@@ -966,9 +995,12 @@
       const { html, after } = docxParagraph(p, ctx);
       out += html + after;
     }
-    return /[^\s]/.test(out.replace(/<[^>]+>/g, '')) ? out : null;
+    // 「只有一張圖」的頁首（公司 logo 這種）沒有文字，但絕對不算空的頁首
+    return /[^\s]/.test(out.replace(/<[^>]+>/g, '')) || /<(img|table|svg|div)\b/i.test(out) ? out : null;
   }
 
+  // 只是「包裝」用的元素：真正的 w:p／w:tbl 在更裡面，要遞迴進去才拿得到內容
+  const BLOCK_WRAP = new Set(['sdt', 'sdtContent', 'customXml', 'ins', 'moveTo', 'smartTag', 'AlternateContent', 'Choice', 'Fallback']);
   // 一串 w:p／w:tbl → HTML：連續的編號段落組成 <ul>／<ol>（本文、文字方塊、表格儲存格共用）
   function blocksHtml(nodes, ctx) {
     const html = [];
@@ -982,7 +1014,8 @@
       const style = 'list-style-type:' + listStyleOf(lv) + (lv ? ';padding-left:' + Math.max(6, (lv.left * TWIP_MM)).toFixed(1) + 'mm' : '');
       // Word 同一個編號定義整份文件接續編號（分在不同文字方塊、中間隔著其他段落也一樣）
       const key = numId + '|' + ilvl, done = (ctx.numCount || (ctx.numCount = new Map())).get(key) || 0;
-      html.push('<' + tagName + (tagName === 'ol' && done ? ' start="' + (done + 1) + '"' : '') + ' style="' + style + '">');
+      const start = (lv && lv.start) || 1;                       // 第一個項目真正的起始號碼
+      html.push('<' + tagName + (tagName === 'ol' ? ' start="' + (start + done) + '"' : '') + ' style="' + style + '">');
       listCtx = { numId, ilvl, tag: tagName, parent: listCtx };
       ctx.listCount = (ctx.listCount || 0) + 1;
     };
@@ -999,7 +1032,14 @@
             .replace(/(style="[^"]*)"/, (m, st) => st.replace(/(^|;|")\s*(margin-left|text-indent):[^;"]*/g, '$1') + '"');
           const ck = r.numId + '|' + ilvl;
           ctx.numCount.set(ck, (ctx.numCount.get(ck) || 0) + 1);
-          html.push('<li' + attrs + '>' + r.html.replace(/^<[^>]+>|<\/[^>]+>$/g, '') + r.after + '</li>');
+          const inner = r.html.replace(/^<[^>]+>|<\/[^>]+>$/g, '') + r.after;
+          if (/<div class="pagebreak"/.test(inner)) {
+            // 分頁符號落在清單項目裡面：<li> 沒辦法合法地收掉再重開段落，退回一般段落（內容與分頁都保住）
+            closeList(0);
+            html.push(r.html + r.after);
+          } else {
+            html.push('<li' + attrs + '>' + inner + '</li>');
+          }
         } else {
           closeList(0);
           html.push((r.html || '<p><br></p>') + r.after);
@@ -1009,6 +1049,10 @@
         html.push(docxTable(node, ctx));
       } else if (node.localName === 'sectPr') {
         ctx.sectPr = node;
+      } else if (BLOCK_WRAP.has(node.localName)) {
+        // 內容控制項（w:sdt）／自訂 XML／追蹤修訂的插入：段落藏在子層，要遞迴進去，否則整段內容憑空消失
+        closeList(0);
+        html.push(blocksHtml([...node.children], ctx));
       }
     }
     closeList(0);
@@ -1035,7 +1079,7 @@
       if (/\.(emz|wmz)$/i.test(name)) {
         try { b = new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer()); } catch (e) { continue; }
       }
-      ctx.media.set(name, b);
+      ctx.media.set(name.toLowerCase(), b);
     }
     const doc = xml(documentXml);
     const mar0 = [...doc.getElementsByTagName('*')].find((e) => e.localName === 'pgMar');
@@ -1062,19 +1106,32 @@
           left: mar ? +(num(val(mar, 'left'), 1134) * TWIP_MM).toFixed(1) : 20,
         };
       }
+      // 頁首／頁尾可能有 default／first／even 三種，各自指向不同的 part。空白的 part（Word 會留著）不能
+      // 蓋掉有內容的那一種，也不能因為 default 是空的就把 first 的內容印到每一頁
+      const hdr = {}, ftr = {};
       for (const ref of [...sect.children]) {
-        const type = val(ref, 'type');
+        const type = val(ref, 'type') || 'default';
         if (ref.localName !== 'headerReference' && ref.localName !== 'footerReference') continue;
         const rel = ctx.rels.get(rval(ref, 'id'));
         if (!rel) continue;
         const part = 'word/' + rel.target.replace(/^\/?word\//, '');
         const text = await entryText(zip, part);
-        if (ref.localName === 'headerReference' && (type === 'default' || !header)) header = await convertEdge(text, ctx);
-        if (ref.localName === 'footerReference' && (type === 'default' || !footer)) footer = await convertEdge(text, ctx);
+        if (!text) continue;
+        // 頁首／頁尾裡的圖片要用「它自己那一份 rels」（word/_rels/header1.xml.rels），不是本文的
+        const ownRels = await entryText(zip, part.replace(/([^/]+)$/, '_rels/$1.rels'));
+        const ectx = ownRels ? Object.assign({}, ctx, { rels: parseRels(ownRels), floats: [] }) : ctx;
+        const out = await convertEdge(text, ectx);
+        if (out == null) continue;                                  // 空白的頁首／頁尾不算數
+        if (ref.localName === 'headerReference') hdr[type] = out;
+        else ftr[type] = out;
       }
-      if (ctx.vectorImages) ctx.warnings.push(ctx.vectorImages + ' 張 EMF/WMF 向量圖無法轉換，已用文字標示位置');
-      if (header && /\bPAGE\b/.test(header)) ctx.warnings.push('頁尾的頁碼欄位會顯示 Word 上次存檔的數字');
+      header = hdr.default || hdr.first || hdr.even || null;
+      footer = ftr.default || ftr.first || ftr.even || null;
     }
+    // 這些提醒跟文件有沒有 sectPr 無關，要放在 if (sect) 外面，不然沒有 sectPr 的文件會安靜地漏東西
+    if (ctx.vectorImages) ctx.warnings.push(ctx.vectorImages + ' 張 EMF/WMF 向量圖無法轉換，已用文字標示位置');
+    if (ctx.imgMissing) ctx.warnings.push(ctx.imgMissing + ' 張圖片在檔案裡找不到，已略過');
+    if (header && /\bPAGE\b/.test(header)) ctx.warnings.push('頁碼欄位會顯示 Word 上次存檔的數字');
     return { html: html.join('\n'), page, header, footer, warnings: ctx.warnings, lists: listCount, breaks: (html.join('').match(/class="pagebreak"/g) || []).length };
   }
 
