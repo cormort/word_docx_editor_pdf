@@ -16,7 +16,7 @@
   // ---------- 分頁 ----------
   // 從表格尾端一列一列往下一頁搬，直到這頁放得下；<thead> 的列（或第一列全是 th）當標題列，每頁重複。
   // 回傳下一頁要接著放的表格，連一列都放不下就回傳 null。
-  function splitTable(table, fits) {
+  function splitTable(table, fits, limit) {
     const rows = [...table.querySelectorAll(':scope > tr, :scope > * > tr')];
     const home = new Map(rows.map(r => [r, r.parentNode])); // 搬不動時放回原本的 thead／tbody
     const head = table.tHead
@@ -24,9 +24,14 @@
       : rows.length && [...rows[0].cells].every(c => c.tagName === 'TH')
         ? 1
         : 0;
-    if (rows.length - head < 2) return null;
+    if (rows.length - head < 1) return null;
     let kept = rows.length;
     while (kept > head && !fits()) rows[--kept].remove();
+    // 下一列試著在頁尾切開：放得下的部分留在這頁，其餘變成下一頁表格的第一列
+    if (kept < rows.length) {
+      const cont = splitRow(rows[kept], home, fits, limit);
+      if (cont) rows.splice(++kept, 0, cont);
+    }
     if (kept === head) {
       for (const row of rows.slice(head)) home.get(row).appendChild(row);
       return null;
@@ -64,6 +69,42 @@
     for (const row of rows.slice(kept)) body.appendChild(row);
     return rest;
   }
+  // 單一列跨頁：每格各自在頁尾切開（段落逐行、圖片切開、多段落的格子逐段），回傳接到下一頁的那一列。
+  // 有跨列合併的格子、切了這頁卻一點都沒留、或切完仍放不下：還原，整列搬到下一頁（回傳 null）
+  function splitRow(row, home, fits, limit) {
+    if ([...row.cells].some(c => c.rowSpan > 1)) return null;
+    home.get(row).appendChild(row);
+    const rests = [...row.cells].map(c => splitCell(c, limit - (parseFloat(getComputedStyle(c).paddingBottom) || 0) - 2));
+    const left = row.textContent.trim() !== '' || !!row.querySelector('img,table');
+    if (!rests.some(Boolean) || !left || !fits()) {
+      rests.forEach((r, i) => r && row.cells[i].append(...r.childNodes));
+      row.remove();
+      return null;
+    }
+    const cont = row.cloneNode(false);
+    [...row.cells].forEach((c, i) => {
+      let nc = rests[i];
+      if (!nc) {
+        nc = c.cloneNode(false); // 這格已經全部放完：下一頁留空格
+        nc.innerHTML = '';
+      }
+      cont.appendChild(nc);
+    });
+    return cont;
+  }
+  function splitCell(td, limit) {
+    if (!td.querySelector(INNER)) return splitPara(td, limit); // 格子裡直接是文字
+    const kids = [...td.children],
+      idx = kids.findIndex(k => k.getBoundingClientRect().bottom > limit + 0.5);
+    if (idx < 0) return null;
+    const k = kids[idx];
+    const part = TEXTBLK.test(k.tagName) && !k.querySelector(INNER) ? splitPara(k, limit) : soleImg(k) ? splitImg(k, limit) : null;
+    const moved = part ? [part, ...kids.slice(idx + 1)] : kids.slice(idx);
+    if (!moved.length) return null;
+    const rest = td.cloneNode(false);
+    rest.append(...moved);
+    return rest;
+  }
   // 清單同理，一個項目一個項目搬；編號清單在下一頁接著編號
   function splitList(list, fits) {
     const items = [...list.children].filter(li => li.tagName === 'LI');
@@ -84,7 +125,7 @@
   const TEXTBLK = /^(P|H[1-6]|PRE|BLOCKQUOTE)$/,
     INNER = 'p,div,table,ul,ol,li,h1,h2,h3,h4,h5,h6,blockquote,pre';
   function splitPara(block, limit) {
-    if (!TEXTBLK.test(block.tagName) || block.querySelector(INNER)) return null;
+    if ((!TEXTBLK.test(block.tagName) && !/^T[DH]$/.test(block.tagName)) || block.querySelector(INNER)) return null;
     const rg = document.createRange();
     rg.selectNodeContents(block);
     const lines = [];
@@ -222,7 +263,7 @@
       if (fits()) continue;
       const rest =
         block.tagName === 'TABLE'
-          ? splitTable(block, fits)
+          ? splitTable(block, fits, body.getBoundingClientRect().top + contentH)
           : /^(UL|OL)$/.test(block.tagName)
             ? splitList(block, fits)
             : /^(DIV|BLOCKQUOTE|SECTION)$/.test(block.tagName) && !soleImg(block) && block.children.length
