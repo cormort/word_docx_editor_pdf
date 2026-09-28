@@ -3356,7 +3356,7 @@ function readFormat() {
     f = inlineFmt(node),
     defColor = toHex(base.color),
     // text-align 會繼承，直接看游標所在元素就對（用 closest 找段落會跳過 Chrome 置中時包的 <div>）
-    align = String(getComputedStyle(node).textAlign).replace(/^-webkit-/, '');
+    align = jcOf(node);
   return Object.assign(f, {
     color: f.color !== defColor ? f.color : '', // 預設色不寫死，免得把文字鎖成某個顏色
     defColor, // 來源是預設色時，把目標刷成預設色（等於「清掉顏色」）
@@ -3375,7 +3375,11 @@ function applyFormat(f) {
   const sel = getSelection();
   if (!f || !sel.rangeCount || sel.isCollapsed || !editor.contains(sel.anchorNode)) return false;
   editor.focus();
-  const has = test => rangeSome(sel.getRangeAt(0), test);
+  const has = test => rangeSome(sel.getRangeAt(0), test),
+    inRange = (q, fn) => {
+      const r = sel.getRangeAt(0);
+      editor.querySelectorAll(q).forEach(el => r.intersectsNode(el) && fn(el));
+    };
   // 要開：還沒全開就按一次。要關：只要有一部分開著（混合選取時 queryCommandState 是 false），
   // 先按成全開再按一次關掉
   const set = (cmd, on, any) => {
@@ -3398,17 +3402,34 @@ function applyFormat(f) {
       // 顏色與螢光只在目標真的不一樣時才動，免得每刷一次就多包一層 <font>／<span>
       // 文字顏色不能用 'inherit'：execCommand 會把它原樣寫成 <font color="rgba(0, 0, 0, 0)"> 這種無效值
       const color = f.color || f.defColor || '000000';
-      if (has(x => x.color !== color)) document.execCommand('foreColor', false, '#' + color);
+      if (has(x => x.color !== color)) {
+        document.execCommand('foreColor', false, '#' + color);
+        // 來源是預設色：把剛寫進去的預設色拿掉，讓文字回到「自動」色（不然匯出會寫死成 w:color）。
+        // 外層本來就是別的顏色（例如連結）時才需要保留，否則會跟著外層變色
+        if (!f.color)
+          inRange('font[color], [style*="color"]', el => {
+            if (!el.parentElement || toHex(getComputedStyle(el.parentElement).color) !== color) return;
+            if (toHex(el.getAttribute('color') || '') === color) el.removeAttribute('color');
+            if (toHex(el.style.color) === color) el.style.color = '';
+            if (!el.getAttribute('style')) el.removeAttribute('style');
+            if (/^(FONT|SPAN)$/.test(el.tagName) && !el.attributes.length) el.replaceWith(...el.childNodes);
+          });
+      }
       if (has(x => x.shade !== f.shade)) document.execCommand('hiliteColor', false, f.shade ? '#' + f.shade : 'transparent');
-      // 字級：對得上工具列的 HTML font size（2–5）才套用；來源是預設字級就刷回 3（＝12pt 預設）
+      // 字級：來源是預設字級就刷回 3（＝12pt 預設）；對得上工具列的 HTML font size（2–5）就用它，
+      // 對不上（例如匯入的 14pt）就先套 size=7 當記號，再換成精確的 pt，免得被捨入成最接近的工具列字級
       const half = Math.round(f.px * 0.75 * 2),
-        size = Math.abs(f.px - f.defPx) <= 1 ? '3' : Object.keys(FONT_SIZE_HALF).find(k => Math.abs(FONT_SIZE_HALF[k] - half) <= 1);
-      if (size && has(x => Math.abs(x.px - f.px) > 1)) document.execCommand('fontSize', false, size);
-      const a = f.align;
-      if (a === 'center') document.execCommand('justifyCenter');
-      else if (a === 'right' || a === 'end') document.execCommand('justifyRight');
-      else if (a === 'justify') document.execCommand('justifyFull');
-      else if (a === 'left' || a === 'start') document.execCommand('justifyLeft');
+        size = Math.abs(f.px - f.defPx) <= 1 ? '3' : Object.keys(FONT_SIZE_HALF).find(k => FONT_SIZE_HALF[k] === half) || '7';
+      if (has(x => Math.abs(x.px - f.px) > 0.5)) {
+        document.execCommand('fontSize', false, size);
+        if (size === '7')
+          inRange('font[size="7"]', el => {
+            el.removeAttribute('size');
+            el.style.fontSize = half / 2 + 'pt';
+          });
+      }
+      const a = f.align; // jcOf 的值：center／right／both，靠左是 ''
+      document.execCommand(a === 'center' ? 'justifyCenter' : a === 'right' ? 'justifyRight' : a === 'both' ? 'justifyFull' : 'justifyLeft');
     } catch (e) {
       ok = false;
     }
@@ -4090,7 +4111,7 @@ function jcOf(el) {
     v = (el.style && el.style.textAlign) || '';
     if (!v && el.nodeType === 1) v = getComputedStyle(el).textAlign || '';
   } catch (e) {}
-  v = String(v).toLowerCase();
+  v = String(v).toLowerCase().replace(/^-webkit-/, ''); // <p align=center> 算出來是 -webkit-center
   if (v === 'center') return 'center';
   if (v === 'right' || v === 'end') return 'right';
   if (v === 'justify') return 'both';
@@ -4121,7 +4142,9 @@ function nodeStyle(node, inherited) {
     // 行內樣式也要認：從網頁／Google 文件貼上來的內容是這種形式（只認標籤的話格式會在匯出時整批消失）
     const fw = cs && cs.fontWeight ? String(cs.fontWeight) : '';
     if (fw && (/^(bold|bolder)$/i.test(fw) || +fw >= 600)) st.b = true;
+    else if (fw && (/^(normal|lighter)$/i.test(fw) || +fw < 600)) st.b = false; // 在標題裡取消粗體：要蓋掉樣式的 w:b
     if (cs && cs.fontStyle === 'italic') st.i = true;
+    else if (cs && cs.fontStyle === 'normal') st.i = false; // 在引文裡取消斜體
     const deco = cs ? cs.textDecorationLine || cs.textDecoration || '' : '';
     if (/underline/.test(deco)) st.u = true;
     if (/line-through/.test(deco)) st.strike = true;
@@ -4161,8 +4184,8 @@ function runsXml(runs) {
   return runs
     .map(r => {
       const rPr = [
-        r.b ? '<w:b/>' : '',
-        r.i ? '<w:i/>' : '',
+        r.b ? '<w:b/>' : r.b === false ? '<w:b w:val="0"/>' : '',
+        r.i ? '<w:i/>' : r.i === false ? '<w:i w:val="0"/>' : '',
         r.strike ? '<w:strike/>' : '',
         r.u ? '<w:u w:val="single"/>' : '',
         r.mono ? '<w:rFonts w:ascii="Consolas" w:hAnsi="Consolas" w:eastAsia="Consolas"/>' : '',
