@@ -296,8 +296,9 @@ input {
   opacity: 0.65;
   pointer-events: none;
 }
-/* 平板與電腦：編輯區滿版（閱讀模式、列印仍照紙張尺寸） */
+/* 平板與電腦：頂部工具列與編輯區滿版（閱讀模式、列印仍照紙張尺寸） */
 @media screen and (min-width: 641px) {
+  body:not(.desk) .topin,
   body:not(.desk) .wrap,
   body:not(.desk) .meta {
     max-width: none;
