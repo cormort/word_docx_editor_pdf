@@ -383,6 +383,18 @@ input {
   pointer-events: none;
   transform-origin: 0 0;
 }
+/* 儲存格底色：色盤藏在「底色」按鈕後面 */
+.cellbg {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.cellbg input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
 /* 滑鼠移到工具按鈕上立即顯示說明（瀏覽器原生 title 要等約一秒，觸控裝置也不顯示） */
 .tip {
   position: fixed;
@@ -1238,6 +1250,9 @@ body:not(.intable) .tblgrp + .grp {
       <button class="tool" data-valign="middle" title="儲存格內容垂直置中">垂直置中</button>
       <button class="tool" data-valign="bottom" title="儲存格內容靠下">靠下</button>
       <span class="tsep"></span>
+      <label class="tool cellbg" title="儲存格底色">底色<input type="color" class="cellColor" value="#fff2cc" aria-label="儲存格底色"></label>
+      <button class="tool" data-cellbg="none" title="清除儲存格底色">清除底色</button>
+      <span class="tsep"></span>
       <button class="tool danger" data-top="delTable" title="刪除整個表格">刪除表格</button>
       </div>
       <div class="grp" role="group" aria-label="段落">
@@ -1304,6 +1319,9 @@ body:not(.intable) .tblgrp + .grp {
           <button class="tool mi" data-halign="left" role="menuitem">儲存格靠左</button>
           <button class="tool mi" data-halign="center" role="menuitem">儲存格水平置中</button>
           <button class="tool mi" data-halign="right" role="menuitem">儲存格靠右</button>
+          <hr class="msep" role="separator">
+          <button class="tool mi" data-cellbg="pick" role="menuitem">儲存格底色…</button>
+          <button class="tool mi" data-cellbg="none" role="menuitem">清除儲存格底色</button>
           <hr class="msep" role="separator">
           <button class="tool mi" data-valign="top" role="menuitem">儲存格靠上</button>
           <button class="tool mi" data-valign="middle" role="menuitem">儲存格垂直置中</button>
@@ -2077,6 +2095,31 @@ document.querySelectorAll('[data-valign]').forEach(b =>
     const v = b.dataset.valign;
     recordEdit(() => cells.forEach(c => (c.style.verticalAlign = v === 'top' ? '' : v)));
     msg('已設定儲存格' + { top: '靠上', middle: '垂直置中', bottom: '靠下' }[v]);
+  }),
+);
+// 儲存格底色：開色盤會讓編輯區失去選取，所以先記住要套用的格子
+let bgCells = null;
+const cellColor = document.querySelector('.cellColor');
+const grabCells = () => (bgCells = selCells());
+cellColor.closest('label').addEventListener('pointerdown', grabCells);
+cellColor.addEventListener('input', () => bgCells && bgCells.forEach(c => (c.style.backgroundColor = cellColor.value)));
+cellColor.addEventListener('change', () => {
+  if (!bgCells) return msg('請先把游標放在表格內。', true);
+  const cells = bgCells;
+  cells.forEach(c => (c.style.backgroundColor = '')); // 預覽的顏色先拿掉，才能記成一筆可復原的動作
+  recordEdit(() => cells.forEach(c => (c.style.backgroundColor = cellColor.value)));
+  msg('已設定儲存格底色');
+});
+document.querySelectorAll('[data-cellbg]').forEach(b =>
+  b.addEventListener('click', () => {
+    if (b.dataset.cellbg === 'pick') {
+      if (!grabCells()) return msg('請先把游標放在表格內。', true);
+      return cellColor.click();
+    }
+    const cells = selCells();
+    if (!cells) return msg('請先把游標放在表格內。', true);
+    recordEdit(() => cells.forEach(c => (c.style.backgroundColor = '')));
+    msg('已清除儲存格底色');
   }),
 );
 // 水平對齊在 Word 是段落的屬性：格子本身與格子裡的每個段落都設（段落自己的對齊會蓋過格子）
@@ -3230,6 +3273,14 @@ function paragraphXml(el, ctx, style, prefix) {
     '</w:p>'
   );
 }
+// 儲存格底色 → w:shd（rgb(…) 或 #rrggbb 都接受）
+function cellShd(td) {
+  const c = td.style.backgroundColor;
+  const m = /^rgb\((\d+),\s*(\d+),\s*(\d+)/.exec(c) || /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(c);
+  if (!m) return '';
+  const hex = m[0][0] === '#' ? m.slice(1).join('') : m.slice(1).map(v => (+v).toString(16).padStart(2, '0')).join('');
+  return '<w:shd w:val="clear" w:color="auto" w:fill="' + hex.toUpperCase() + '"/>';
+}
 function cellXml(td, ctx, colW, span, vmerge) {
   const blocks = [...td.childNodes].filter(
     n => n.nodeType === 1 && /^(p|div|h[1-6]|ul|ol|table|pre|blockquote)$/i.test(n.tagName),
@@ -3242,6 +3293,7 @@ function cellXml(td, ctx, colW, span, vmerge) {
     '" w:type="dxa"/>' +
     (span > 1 ? '<w:gridSpan w:val="' + span + '"/>' : '') +
     (vmerge === 'restart' ? '<w:vMerge w:val="restart"/>' : vmerge === 'cont' ? '<w:vMerge/>' : '') +
+    cellShd(td) +
     ({ middle: '<w:vAlign w:val="center"/>', bottom: '<w:vAlign w:val="bottom"/>' }[td.style.verticalAlign] || '');
   return '<w:tc><w:tcPr>' + pr + '</w:tcPr>' + inner + '</w:tc>';
 }

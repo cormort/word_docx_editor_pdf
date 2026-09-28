@@ -843,7 +843,11 @@
         if (!inner) inner = '<p><br></p>';
         // 儲存格垂直對齊：Word 預設靠上（CSS 已預設），置中／靠下才另外標
         const va = { center: 'middle', bottom: 'bottom' }[val(tag(tcPr, 'vAlign'), 'val')];
-        cells += '<td' + attrs + (va ? ' style="vertical-align:' + va + '"' : '') + '>' + inner + '</td>';
+        // 儲存格底色：w:shd 的 fill
+        const fill = val(tag(tcPr, 'shd'), 'fill'),
+          bg = fill && /^[0-9a-f]{6}$/i.test(fill) && fill.toUpperCase() !== 'FFFFFF' ? 'background-color:#' + fill : '';
+        const tdCss = [va ? 'vertical-align:' + va : '', bg].filter(Boolean).join(';');
+        cells += '<td' + attrs + (tdCss ? ' style="' + tdCss + '"' : '') + '>' + inner + '</td>';
       }
       // 列高：Word 的 trHeight（twips；exact／atLeast 都當最小高度）
       const trH = num(val(tag(tag(tr, 'trPr'), 'trHeight'), 'val'), 0);
