@@ -620,14 +620,14 @@ input {
     min-height: 60vh;
     box-shadow: 0 4px 14px #0f172a20;
   }
-  /* 閱讀模式是電腦版 A4 版面（分頁要跟電腦版一致），不套手機的字級與表格捲動 */
-  body:not(.desk) .paper h1 {
+  /* 分頁時是電腦版的頁面（分頁位置要跟電腦版一致），不套手機的字級與表格捲動 */
+  body:not(.paged) .paper h1 {
     font-size: 24px;
   }
-  body:not(.desk) .paper h2 {
+  body:not(.paged) .paper h2 {
     font-size: 20px;
   }
-  body:not(.desk) .paper table {
+  body:not(.paged) .paper table {
     display: block;
     overflow-x: auto;
   }
@@ -5057,7 +5057,8 @@ $('#pdfBtn').onclick = async () => {
 // 不動文件 DOM（存檔、復原、匯出都不受影響）：量出每頁放不下的第一個區塊，用產生的樣式表
 // 加大它的上邊界，把它推到下一頁的內容起點；紙張與頁間空隙用編輯區背景畫出來。
 // 段落在行與行之間切開（含寡行／孤行控制），表格在列與列之間切開；比一頁還高的單一列或圖片會被頁間空隙遮住。
-const pagedQ = matchMedia('(max-width: 640px), (pointer: coarse) and (max-height: 500px)');
+// 手機版面（直向窄螢幕，或觸控裝置橫向）：一樣分頁，但縮放規則不同（見 fit）
+const phoneQ = matchMedia('(max-width: 640px), (pointer: coarse) and (max-height: 500px)');
 let pgT, pgStale = false;
 function paginateSoon(structural) {
   clearTimeout(pgT);
@@ -5072,14 +5073,7 @@ function paginateSoon(structural) {
 }
 function paginate() {
   const sheet = $('#pgSheet');
-  const on = !pagedQ.matches || document.body.classList.contains('desk'); // 手機只有閱讀模式分頁，編輯時照螢幕寬重排
-  document.body.classList.toggle('paged', on);
-  if (!on) {
-    sheet.textContent = '';
-    drawHeads([], 1);
-    fit();
-    return;
-  }
+  document.body.classList.add('paged'); // 手機編輯時也是電腦版的頁面，縮小顯示
   const pg = pdfPage(),
     MM = 96 / 25.4,
     GAP = 16;
@@ -5338,7 +5332,7 @@ new MutationObserver(ms => {
 }).observe(editor, { childList: true, subtree: true, characterData: true, attributes: true });
 editor.addEventListener('load', paginateSoon, true); // 圖片載入後高度才確定
 addEventListener('resize', paginateSoon);
-pagedQ.addEventListener('change', paginateSoon);
+phoneQ.addEventListener('change', paginateSoon);
 if (document.fonts) document.fonts.ready.then(paginateSoon);
 paginateSoon();
 const portraitQ = matchMedia('(orientation: portrait)');
@@ -5348,11 +5342,11 @@ function fit() {
     const w = editor.parentElement,
       c = getComputedStyle(w);
     let z = (w.clientWidth - parseFloat(c.paddingLeft) - parseFloat(c.paddingRight)) / editor.offsetWidth; // 頁寬
-    if (document.body.classList.contains('desk') && pagedQ.matches) {
-      // 手機閱讀模式：橫向縮放到頁寬（可以放大）；直向整頁完整顯示（頁寬、頁高都不超出螢幕，
+    if (phoneQ.matches) {
+      // 手機：編輯與閱讀模式都縮放到頁寬（橫向可以放大）；只有閱讀模式直向改成整頁完整顯示（頁寬、頁高都不超出螢幕，
       // 扣掉固定在上方的頁首與上下各一段頁間空隙）。螢幕高度用 clientHeight：上面剛把縮放拿掉，
       // A4 頁面比手機寬，手機瀏覽器會把整頁縮小，這時 innerHeight 會變成放大後的高度
-      if (portraitQ.matches) {
+      if (document.body.classList.contains('desk') && portraitQ.matches) {
         const top = getComputedStyle($('.top')).position === 'static' ? 0 : $('.top').offsetHeight;
         z = Math.min(z, (document.documentElement.clientHeight - top - 32) / ((pdfPage().pageH * 96) / 25.4));
       }
@@ -5366,7 +5360,7 @@ function setDesk(on) {
   try {
     localStorage.setItem('desk', on ? '1' : '');
   } catch (e) {}
-  paginate(); // 手機進出閱讀模式要切換分頁檢視；paginate 最後會 fit()
+  paginate(); // 手機直向進出閱讀模式縮放比例不同，重新分頁並 fit()
 }
 $('#deskToggle').onclick = () => setDesk(true);
 $('#readFind').onclick = () => $('#findToggle').click();
