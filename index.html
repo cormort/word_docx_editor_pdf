@@ -3733,7 +3733,8 @@ function paginate() {
   const rules = [],
     heads = [],
     pieces = [];
-  let acc = 0, // 前面推移累積的位移：一次量完再算，免得每推一次就重排整份文件
+  let hdrPad = 0, // 在跨頁的表格列裡：下一頁頂端要多留給重複標題列的高度
+    acc = 0, // 前面推移累積的位移：一次量完再算，免得每推一次就重排整份文件
     end = T;
   const TEXTBLK = /^(P|H[1-6]|LI|PRE|BLOCKQUOTE)$/,
     INNER = 'p,div,table,ul,ol,li,h1,h2,h3,h4,h5,h6,blockquote,pre';
@@ -3775,7 +3776,7 @@ function paginate() {
       if (at === L.length - 1 && at >= 2) at--; // 避免下一頁只剩一行（寡行）
       if (at <= 1 && !bands.length) return false; // 這頁只剩一行（孤行）或一行都放不下：整段推
       const tt = L[at].t + acc + sh,
-        d = (Math.floor(tt / step) + 1) * step + T - tt;
+        d = (Math.floor(tt / step) + 1) * step + T + hdrPad - tt;
       bands.push({ y: L[at].t - L[0].t + sh, h: d });
       sh += d;
       n = at;
@@ -3806,7 +3807,7 @@ function paginate() {
       k = Math.floor(top / step),
       a = k * step + H - B - top;
     if (a < 40 || h <= a) return false; // 這頁剩不到 40px：整張推到下一頁
-    const d = step - room, // 這頁內容底端 → 下一頁內容頂端
+    const d = step - room + hdrPad, // 這頁內容底端 → 下一頁內容頂端
       cuts = [];
     for (let e = a; e < h; e += room) cuts.push([e, Math.min(h, e + room)]);
     rules.push(s + (el === img ? '' : ' img') + '{clip-path:inset(0 0 ' + (h - a).toFixed(1) + 'px 0)}');
@@ -3850,22 +3851,57 @@ function paginate() {
           if (r0 && (r0.bottom - er.top) / z + acc > k * step + H - B + 0.5) pushRule(s, el, cs, prev, (k + 1) * step + T - top);
           walk(el, s); // 清單、表格：進去逐項／逐列換頁
         } else if (!first && tag === 'TR') {
-          // 表格列：推不動 tr 的邊界，改把這列每格的上內距加大；有標題列就多留它的高度，再疊一份複本上去
-          const c = el.cells[0],
-            pt = c ? parseFloat(getComputedStyle(c).paddingTop) || 0 : 0,
-            th = el.closest('table').tHead,
+          const table = el.closest('table'),
+            th = table.tHead,
             hh = th && el.parentElement !== th ? th.getBoundingClientRect().height / z : 0,
-            d = (k + 1) * step + T - top + hh;
-          if (hh) heads.push({ table: el.closest('table'), y: (k + 1) * step + T });
-          rules.push(s + '>td,' + s + '>th{padding-top:' + (pt + d).toFixed(1) + 'px!important}');
-          acc += d;
+            limit = k * step + H - B;
+          // 有任何一格的第一行放得下：這列在頁尾切開（像 Word 的「允許列跨頁」），每格各自逐段／逐行換頁
+          const firstLine = c => {
+            const rg = document.createRange();
+            rg.selectNodeContents(c);
+            const rs = [...rg.getClientRects()].filter(r => r.height > 0);
+            return rs.length ? (Math.min(...rs.map(r => r.bottom)) - er.top) / z + acc : null;
+          };
+          if ([...el.cells].some(c => { const b = firstLine(c); return b != null && b <= limit; })) {
+            const base = acc,
+              pads = [];
+            let most = 0;
+            [...el.cells].forEach((c, ci) => {
+              acc = base;
+              hdrPad = hh;
+              const cs2 = getComputedStyle(c),
+                cSel = s + '>:nth-child(' + (ci + 1) + ')';
+              if (c.querySelector(INNER)) walk(c, cSel);
+              else if (!splitPara(cSel, c, cs2, null)) {
+                // 格子裡是單純文字而且太短不能切（孤行）：整格內容推到下一頁
+                {
+                  const d = (k + 1) * step + T + hh - ((c.getBoundingClientRect().top - er.top) / z + base) - (parseFloat(cs2.paddingTop) || 0);
+                  pads.push(cSel + '{padding-top:' + ((parseFloat(cs2.paddingTop) || 0) + d).toFixed(1) + 'px!important}');
+                  acc = base + d;
+                }
+              }
+              most = Math.max(most, acc - base);
+            });
+            rules.push(...pads);
+            hdrPad = 0;
+            acc = base + most;
+            if (hh && most) heads.push({ table, y: (k + 1) * step + T });
+          } else {
+            // 整列都放不下：推不動 tr 的邊界，改把這列每格的上內距加大；有標題列就多留它的高度，再疊一份複本上去
+            const c = el.cells[0],
+              pt = c ? parseFloat(getComputedStyle(c).paddingTop) || 0 : 0,
+              d = (k + 1) * step + T - top + hh;
+            if (hh) heads.push({ table, y: (k + 1) * step + T });
+            rules.push(s + '>td,' + s + '>th{padding-top:' + (pt + d).toFixed(1) + 'px!important}');
+            acc += d;
+          }
         } else if (!first && /^(DIV|SECTION)$/.test(tag) && el.children.length && !soleImg(el)) {
           walk(el, s); // 文字方塊等容器：進去逐段換頁（段落逐行、圖片在頁尾切開）
         } else if (!first && soleImg(el) && splitImg(s, el, soleImg(el), cs)) {
           // 圖片已在頁尾切開
         } else if (!first && TEXTBLK.test(tag) && !el.querySelector(INNER) && splitPara(s, el, cs, prev)) {
           // 段落已在行與行之間切開
-        } else if (h <= room || first) pushRule(s, el, cs, prev, (k + 1) * step + T - top);
+        } else if (h <= room || first) pushRule(s, el, cs, prev, (k + 1) * step + T + hdrPad - top);
       }
       breakTop = -1;
       prev = el;
