@@ -430,6 +430,10 @@ input {
   font-size: 12px;
   color: #64748b;
 }
+/* 斜線表頭的文字：可拖曳調整位置 */
+.paper td[data-diag] p {
+  cursor: move;
+}
 /* 滑鼠移到工具按鈕上立即顯示說明（瀏覽器原生 title 要等約一秒，觸控裝置也不顯示） */
 .tip {
   position: fixed;
@@ -2375,6 +2379,47 @@ $('#diagHeadBtn').onclick = () => {
   });
   msg('已設定斜線表頭');
 };
+// 斜線表頭的文字可以直接拖：左右改段落的左／右邊界（靠右的字改右邊界）、上下改上邊界；
+// 按下沒移動就照常放游標編輯，移動超過 5px 才進入拖曳
+editor.addEventListener('pointerdown', e => {
+  const p = e.target.closest && e.target.closest('td[data-diag] p');
+  if (!p || !editor.isContentEditable || e.button !== 0) return;
+  const td = p.closest('td'),
+    z = editor.getBoundingClientRect().width / editor.offsetWidth || 1,
+    cs = getComputedStyle(p),
+    right = cs.textAlign === 'right' || cs.textAlign === 'end';
+  const sx = e.clientX,
+    sy = e.clientY,
+    m0 = { l: parseFloat(cs.marginLeft) || 0, r: parseFloat(cs.marginRight) || 0, t: parseFloat(cs.marginTop) || 0 };
+  let drag = false;
+  const move = ev => {
+    const dx = (ev.clientX - sx) / z,
+      dy = (ev.clientY - sy) / z;
+    if (!drag) {
+      if (Math.hypot(dx, dy) < 5) return;
+      drag = true;
+      snap();
+      getSelection().removeAllRanges();
+    }
+    ev.preventDefault();
+    const maxX = Math.max(0, td.clientWidth - 12),
+      maxY = Math.max(0, td.clientHeight);
+    if (right) p.style.marginRight = Math.round(Math.min(maxX, Math.max(0, m0.r - dx))) + 'px';
+    else p.style.marginLeft = Math.round(Math.min(maxX, Math.max(0, m0.l + dx))) + 'px';
+    p.style.marginTop = Math.round(Math.min(maxY, Math.max(0, m0.t + dy))) + 'px';
+  };
+  const up = () => {
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+    if (drag) {
+      snap();
+      saveDraft();
+      msg('已調整斜線表頭文字位置');
+    }
+  };
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+});
 document.querySelectorAll('[data-bd]').forEach(b =>
   b.addEventListener('click', () => {
     const cells = (b.closest('.bdmenu') && bdCells && bdCells[0].isConnected ? bdCells : null) || selCells();
@@ -3567,11 +3612,36 @@ function paragraphXml(el, ctx, style, prefix) {
   if (!inner && !hasImg) inner = '<w:r><w:t xml:space="preserve"></w:t></w:r>';
   const pStyle = style ? '<w:pStyle w:val="' + style + '"/>' : '';
   const jcXml = jcOf(el) ? '<w:jc w:val="' + jcOf(el) + '"/>' : '';
+  // 段落自己設的間距、縮排、行距（段落工具、斜線表頭拖曳、匯入的 Word 格式）→ w:spacing／w:ind
+  const st = el.style || {},
+    cs = el.nodeType === 1 ? getComputedStyle(el) : null,
+    tw = v => Math.round((parseFloat(v) || 0) * 15); // px → twips
+  const sp = {};
   // 圖片單獨一段時不要行距，避免每張圖後面拖一大段空白
-  const spacing = hasImg && !prefix ? '<w:spacing w:after="0" w:line="240" w:lineRule="auto"/>' : '';
+  if (hasImg && !prefix) Object.assign(sp, { after: 0, line: 240, lineRule: 'auto' });
+  if (cs && st.marginTop && st.marginTop !== 'auto') sp.before = tw(cs.marginTop);
+  if (cs && st.marginBottom && st.marginBottom !== 'auto') sp.after = tw(cs.marginBottom);
+  if (cs && st.lineHeight && st.lineHeight !== 'normal') {
+    if (/^[\d.]+$/.test(st.lineHeight)) Object.assign(sp, { line: Math.round(parseFloat(st.lineHeight) * 240), lineRule: 'auto' });
+    else Object.assign(sp, { line: tw(cs.lineHeight), lineRule: 'exact' });
+  }
+  const spacing = Object.keys(sp).length
+    ? '<w:spacing' + ['before', 'after', 'line', 'lineRule'].filter(k => k in sp).map(k => ' w:' + k + '="' + sp[k] + '"').join('') + '/>'
+    : '';
+  const ind = {};
+  if (cs && st.marginLeft && st.marginLeft !== 'auto') ind.left = tw(cs.marginLeft);
+  if (cs && st.marginRight && st.marginRight !== 'auto') ind.right = tw(cs.marginRight);
+  if (cs && st.textIndent) {
+    const t = tw(cs.textIndent);
+    if (t > 0) ind.firstLine = t;
+    else if (t < 0) ind.hanging = -t;
+  }
+  const indXml = Object.keys(ind).length
+    ? '<w:ind' + Object.entries(ind).map(([k, v]) => ' w:' + k + '="' + v + '"').join('') + '/>'
+    : '';
   return (
     '<w:p>' +
-    (pStyle || jcXml || spacing ? '<w:pPr>' + pStyle + jcXml + spacing + '</w:pPr>' : '') +
+    (pStyle || jcXml || spacing || indXml ? '<w:pPr>' + pStyle + spacing + indXml + jcXml + '</w:pPr>' : '') +
     inner +
     '</w:p>'
   );
