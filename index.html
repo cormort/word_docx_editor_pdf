@@ -743,6 +743,17 @@ body.desk .readbar {
   border-color: #93c5fd;
   color: #1d4ed8;
 }
+/* 複製格式（格式刷）已複製時：游標變十字，選取範圍也染色，提示「接下來是刷的動作」 */
+#paintBtn.on {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+body.painting #editor {
+  cursor: crosshair;
+}
+body.painting #editor::selection {
+  background: #bfdbfe;
+}
 body.dragging .paper {
   outline: 3px dashed var(--blue);
   outline-offset: 4px;
@@ -1486,6 +1497,7 @@ body.intable #fontSize {
         </div>
       </details>
       <button class="tool" data-cmd="removeFormat" title="清除格式（只留文字）" aria-label="清除格式"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h8M8 5v9M5.5 14h5M15 14.5l5 5M20 14.5l-5 5"/></svg></button>
+      <button class="tool" id="paintBtn" title="複製格式：先複製游標處的字元格式與段落對齊，再選取要套用的文字（連按兩下可連續套用；Esc 取消）" aria-label="複製格式" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="12" height="6" rx="1.5"/><path d="M15 7h3a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-7v3"/><rect x="9" y="16" width="4" height="5" rx="1"/></svg></button>
       </div>
       <div class="grp grp-align" role="group" aria-label="對齊與清單">
       <button class="tool" data-cmd="justifyLeft" title="靠左" aria-label="靠左" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 10h10M4 14h16M4 18h10"/></svg></button>
@@ -3281,6 +3293,153 @@ document.querySelectorAll('[data-hl]').forEach(b =>
 // 一開始的色塊要跟 input 的預設值一致（不然會顯示成別的颜色）
 if (fontColorInput) setSwatch(fontColorInput, fontColorInput.value);
 if (hlColorInput) setSwatch(hlColorInput, hlColorInput.value);
+
+// ---- 複製格式（格式刷）：複製游標處的字元格式＋段落對齊，再刷到之後選取的文字上 ----
+// 套用走 execCommand（跟工具列按鈕同一條路），所以跨段落選取時每個段落都會被處理
+let paintFmt = null,
+  paintKeep = false,
+  paintBusy = false,
+  paintPicked = '',
+  paintT = null;
+function paintSync() {
+  const b = $('#paintBtn');
+  if (!b) return;
+  b.classList.toggle('on', !!paintFmt);
+  b.setAttribute('aria-pressed', paintFmt ? 'true' : 'false');
+  document.body.classList.toggle('painting', !!paintFmt);
+}
+function paintCancel(quiet) {
+  clearTimeout(paintT);
+  paintFmt = null;
+  paintKeep = false;
+  paintBusy = false;
+  paintSync();
+  if (!quiet) msg('已取消複製格式');
+}
+function readFormat() {
+  const sel = getSelection();
+  if (!sel.rangeCount || !editor.contains(sel.anchorNode)) return null;
+  const node = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
+  if (!node || !editor.contains(node)) return null;
+  const cs = getComputedStyle(node),
+    base = getComputedStyle(editor),
+    deco = cs.textDecorationLine || cs.textDecoration || '';
+  const hex = v => {
+    try {
+      return toHex(v);
+    } catch (e) {
+      return '';
+    }
+  };
+  const color = hex(cs.color),
+    bg = cs.backgroundColor || '',
+    block = node.closest('p,li,h1,h2,h3,h4,h5,h6,blockquote,pre,td,th');
+  return {
+    b: (+cs.fontWeight || 400) >= 600,
+    i: cs.fontStyle === 'italic',
+    u: /underline/.test(deco),
+    strike: /line-through/.test(deco),
+    vert: /super/.test(cs.verticalAlign) ? 'superscript' : /sub/.test(cs.verticalAlign) ? 'subscript' : '',
+    color: color && color !== hex(base.color) ? color : '', // 預設色不寫死，免得把文字鎖成某個顏色
+    defColor: hex(base.color), // 來源是預設色時，把目標刷成預設色（等於「清掉顏色」）
+    shade: /rgba\(0, 0, 0, 0\)|transparent/.test(bg) ? '' : hex(bg),
+    px: parseFloat(cs.fontSize) || 16,
+    defPx: parseFloat(base.fontSize) || 16,
+    align: block ? getComputedStyle(block).textAlign : '',
+  };
+}
+const cmdOn = c => {
+  try {
+    return document.queryCommandState(c);
+  } catch (e) {
+    return false;
+  }
+};
+function applyFormat(f) {
+  const sel = getSelection();
+  if (!f || !sel.rangeCount || sel.isCollapsed || !editor.contains(sel.anchorNode)) return false;
+  editor.focus();
+  recordEdit(() => {
+    if (cmdOn('bold') !== f.b) document.execCommand('bold');
+    if (cmdOn('italic') !== f.i) document.execCommand('italic');
+    if (cmdOn('underline') !== f.u) document.execCommand('underline');
+    if (cmdOn('strikeThrough') !== f.strike) document.execCommand('strikeThrough');
+    if (f.vert === 'superscript' && !cmdOn('superscript')) document.execCommand('superscript');
+    else if (f.vert === 'subscript' && !cmdOn('subscript')) document.execCommand('subscript');
+    else if (!f.vert) {
+      if (cmdOn('superscript')) document.execCommand('superscript');
+      if (cmdOn('subscript')) document.execCommand('subscript');
+    }
+    // 文字顏色：來源是預設色就刷成預設色（等於清掉顏色）。不能用 'inherit'，
+    // execCommand 會把它原樣寫成 <font color="rgba(0, 0, 0, 0)"> 這種無效值
+    document.execCommand('foreColor', false, '#' + (f.color || f.defColor || '000000'));
+    document.execCommand('hiliteColor', false, f.shade ? '#' + f.shade : 'transparent');
+    // 字級：來源與編輯區預設不同、而且對得上工具列的 HTML font size（2–5）才套用
+    const half = Math.round(f.px * 0.75 * 2),
+      hit = Math.abs(f.px - f.defPx) > 1 ? Object.keys(FONT_SIZE_HALF).find(k => Math.abs(FONT_SIZE_HALF[k] - half) <= 1) : null;
+    if (hit) document.execCommand('fontSize', false, hit);
+    const a = f.align;
+    if (a === 'center') document.execCommand('justifyCenter');
+    else if (a === 'right' || a === 'end') document.execCommand('justifyRight');
+    else if (a === 'justify') document.execCommand('justifyFull');
+    else if (a === 'left' || a === 'start') document.execCommand('justifyLeft');
+  });
+  saveDraft();
+  syncToolbar();
+  return true;
+}
+const paintApply = () => {
+  if (!paintFmt || paintBusy) return;
+  const sel = getSelection();
+  if (!sel.rangeCount || sel.isCollapsed || !editor.contains(sel.anchorNode)) return;
+  const picked = sel.toString();
+  if (!applyFormat(paintFmt)) return;
+  // 套用本身會再觸發一次 selectionchange；記下這次選取的文字，等使用者換了選取範圍才解除鎖
+  paintBusy = true;
+  paintPicked = picked;
+  if (paintKeep) msg('已套用格式（連續模式：繼續選取，或按 Esc／再按一次按鈕結束）');
+  else {
+    paintFmt = null;
+    paintSync();
+    msg('已套用格式');
+  }
+};
+$('#paintBtn').addEventListener('click', () => {
+  if (paintFmt) return paintCancel();
+  const f = readFormat();
+  if (!f) return msg('請先把游標放在要複製格式的文字上。', true);
+  paintFmt = f;
+  paintKeep = false;
+  paintBusy = false;
+  paintSync();
+  closeMenus();
+  msg('已複製格式：選取要套用的文字（Esc 取消；連按兩下可連續套用）');
+});
+$('#paintBtn').addEventListener('dblclick', () => {
+  if (!paintFmt) return;
+  paintKeep = true;
+  msg('連續套用模式：可重複選取文字（Esc 取消）');
+});
+// 選取停下來就套用：滑鼠拖曳與手機長按選取都適用（等 350ms 沒有再變動才動手）
+document.addEventListener('selectionchange', () => {
+  if (!paintFmt) return;
+  // 剛套用完那次造成的 selectionchange 不算（同一個選取範圍）；換了範圍才解除鎖
+  if (paintBusy && getSelection().toString() === paintPicked) return;
+  paintBusy = false;
+  clearTimeout(paintT);
+  paintT = setTimeout(paintApply, 350);
+});
+// 下一次點擊／打字就解除「剛套用完」的鎖
+document.addEventListener('pointerdown', () => (paintBusy = false), true);
+editor.addEventListener('keydown', () => (paintBusy = false), true);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && paintFmt) paintCancel();
+});
+// 點到編輯區與工具列以外的地方就取消（維持「格式刷」的直覺）
+document.addEventListener('mousedown', e => {
+  if (paintFmt && !e.target.closest('#editor') && !e.target.closest('.toolbar')) paintCancel();
+});
+paintSync();
 $('#fontSize').onchange = e => {
   editor.focus();
   document.execCommand('fontSize', false, e.target.value);
