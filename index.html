@@ -435,10 +435,7 @@ input {
   cursor: move;
 }
 /* Word 常見的中文編號（匯入時對應到這些 list-style-type） */
-@counter-style tw-han-dun {
-  system: extends trad-chinese-informal;
-  suffix: '、';
-}
+/* 舊版匯入用過的名稱（草稿裡可能還有）；其餘格式由 script 產生 tw-<格式>-<前後綴> */
 @counter-style tw-han-paren {
   system: extends trad-chinese-informal;
   prefix: '（';
@@ -3944,14 +3941,48 @@ function tableXml(tbl, ctx) {
     '<w:p><w:r><w:t xml:space="preserve"></w:t></w:r></w:p>'
   );
 }
+// ---- 編號格式：每種 Word 編號格式 × 前後綴（、 . (1) （1） 無）產生一個 @counter-style ----
+// 名稱 tw-<格式>-<前後綴>，匯入（docx-fidelity）與匯出（listNumId）都靠這張表對應
+const NUM_BASES = {
+  han: ['extends trad-chinese-informal', 'taiwaneseCountingThousand'],
+  legal: ['extends trad-chinese-formal', 'ideographLegalTraditional'],
+  digit: ['extends cjk-decimal', 'taiwaneseDigital'],
+  stem: ["fixed; symbols: '甲' '乙' '丙' '丁' '戊' '己' '庚' '辛' '壬' '癸'", 'ideographTraditional'],
+  branch: ["fixed; symbols: '子' '丑' '寅' '卯' '辰' '巳' '午' '未' '申' '酉' '戌' '亥'", 'ideographZodiac'],
+  dec: ['extends decimal', 'decimal'],
+  decfw: ["numeric; symbols: '０' '１' '２' '３' '４' '５' '６' '７' '８' '９'", 'decimalFullWidth'],
+  dec0: ['extends decimal-leading-zero', 'decimalZero'],
+  circ: ["fixed; symbols: '①' '②' '③' '④' '⑤' '⑥' '⑦' '⑧' '⑨' '⑩' '⑪' '⑫' '⑬' '⑭' '⑮' '⑯' '⑰' '⑱' '⑲' '⑳'", 'decimalEnclosedCircle'],
+  paren: ["fixed; symbols: '⑴' '⑵' '⑶' '⑷' '⑸' '⑹' '⑺' '⑻' '⑼' '⑽' '⑾' '⑿' '⒀' '⒁' '⒂' '⒃' '⒄' '⒅' '⒆' '⒇'", 'decimalEnclosedParen'],
+  stop: ["fixed; symbols: '⒈' '⒉' '⒊' '⒋' '⒌' '⒍' '⒎' '⒏' '⒐' '⒑' '⒒' '⒓' '⒔' '⒕' '⒖' '⒗' '⒘' '⒙' '⒚' '⒛'", 'decimalEnclosedFullstop'],
+  hancirc: ["fixed; symbols: '㈠' '㈡' '㈢' '㈣' '㈤' '㈥' '㈦' '㈧' '㈨' '㈩'", 'ideographEnclosedCircle'],
+  lalpha: ['extends lower-alpha', 'lowerLetter'],
+  ualpha: ['extends upper-alpha', 'upperLetter'],
+  lroman: ['extends lower-roman', 'lowerRoman'],
+  uroman: ['extends upper-roman', 'upperRoman'],
+};
+const NUM_AFFIX = { dun: ['', '、', '%1、'], hp: ['(', ') ', '(%1)'], fp: ['（', '）', '（%1）'], dot: ['', '. ', '%1.'], none: ['', ' ', '%1'] };
+(() => {
+  const css = [];
+  for (const [b, [sys]] of Object.entries(NUM_BASES))
+    for (const [a, [pre, suf]] of Object.entries(NUM_AFFIX))
+      css.push('@counter-style tw-' + b + '-' + a + '{system:' + sys + ";prefix:'" + pre + "';suffix:'" + suf + "'}");
+  const st = document.createElement('style');
+  st.id = 'numStyles';
+  st.textContent = css.join('\n');
+  document.head.appendChild(st);
+})();
 // 清單的 list-style-type → Word 的編號定義（中文編號、圈號、自訂符號各自一組，匯出時才產生）
 const LIST_DEFS = new Map();
 function listNumId(el, tag) {
   const t = (el.style.listStyleType || '').trim();
   const m = /^["'](.+?)\s*["']$/.exec(t); // 自訂符號，例如 '➢ '
+  const tw = /^tw-([a-z0-9]+)-([a-z]+)$/.exec(t);
   const def = m
     ? { fmt: 'bullet', text: m[1] }
-    : { 'tw-han-dun': { fmt: 'taiwaneseCountingThousand', text: '%1、' }, 'trad-chinese-informal': { fmt: 'taiwaneseCountingThousand', text: '%1、' },
+    : tw && NUM_BASES[tw[1]] && NUM_AFFIX[tw[2]]
+      ? { fmt: NUM_BASES[tw[1]][1], text: NUM_AFFIX[tw[2]][2] }
+      : { 'tw-han-dun': { fmt: 'taiwaneseCountingThousand', text: '%1、' }, 'trad-chinese-informal': { fmt: 'taiwaneseCountingThousand', text: '%1、' },
         'tw-han-paren': { fmt: 'taiwaneseCountingThousand', text: '（%1）' }, 'tw-dec-paren': { fmt: 'decimal', text: '(%1)' },
         'tw-circled': { fmt: 'decimalEnclosedCircle', text: '%1' }, 'lower-alpha': { fmt: 'lowerLetter', text: '%1.' },
         'upper-alpha': { fmt: 'upperLetter', text: '%1.' }, 'lower-roman': { fmt: 'lowerRoman', text: '%1.' }, 'upper-roman': { fmt: 'upperRoman', text: '%1.' } }[t];

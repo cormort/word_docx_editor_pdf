@@ -137,12 +137,20 @@
       return "'" + ch + " '";
     }
     if (lv.fmt === 'none') return 'none';
-    if (/^(taiwaneseCounting|taiwaneseCountingThousand|ideographTraditional|chineseCounting|chineseCountingThousand|ideographLegalTraditional|chineseLegalSimplified)$/.test(lv.fmt))
-      return /[（(]%\d[）)]/.test(t) ? 'tw-han-paren' : 'tw-han-dun';
-    if (/^decimalEnclosedCircle/.test(lv.fmt)) return 'tw-circled';
-    if (/^decimal/.test(lv.fmt)) return /[（(]%\d[）)]/.test(t) ? 'tw-dec-paren' : 'decimal';
-    return LIST_STYLE[lv.fmt] || 'decimal';
+    // 編號格式 → index.html 產生的 @counter-style「tw-<格式>-<前後綴>」
+    const base = FMT_BASE[lv.fmt] || 'dec';
+    const x = t.replace(/%\d/, 'X');
+    const affix = /^X、$/.test(x) ? 'dun' : /^\(X\)$/.test(x) ? 'hp' : /^（X）$/.test(x) ? 'fp' : /^X[.．]$/.test(x) ? 'dot' : 'none';
+    return 'tw-' + base + '-' + (/^(paren|stop|circ|hancirc)$/.test(base) ? 'none' : affix); // 本身就帶括號／圈的符號不再加
   }
+  const FMT_BASE = {
+    taiwaneseCounting: 'han', taiwaneseCountingThousand: 'han', chineseCounting: 'han', chineseCountingThousand: 'han',
+    ideographLegalTraditional: 'legal', chineseLegalSimplified: 'legal', taiwaneseDigital: 'digit', ideographDigital: 'digit',
+    ideographTraditional: 'stem', ideographZodiac: 'branch', decimal: 'dec', decimalFullWidth: 'decfw', decimalFullWidth2: 'decfw',
+    decimalHalfWidth: 'dec', decimalZero: 'dec0', decimalEnclosedCircle: 'circ', decimalEnclosedCircleChinese: 'circ',
+    decimalEnclosedParen: 'paren', decimalEnclosedFullstop: 'stop', ideographEnclosedCircle: 'hancirc',
+    lowerLetter: 'lalpha', upperLetter: 'ualpha', lowerRoman: 'lroman', upperRoman: 'uroman',
+  };
   const LIST_STYLE = { bullet: 'disc', decimal: 'decimal', lowerLetter: 'lower-alpha', upperLetter: 'upper-alpha', lowerRoman: 'lower-roman', upperRoman: 'upper-roman', none: 'none' };
 
   // ---------- rels ----------
