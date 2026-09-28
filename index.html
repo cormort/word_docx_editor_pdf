@@ -296,6 +296,17 @@ input {
   opacity: 0.65;
   pointer-events: none;
 }
+/* 平板與電腦：編輯區滿版（閱讀模式、列印仍照紙張尺寸） */
+@media screen and (min-width: 641px) {
+  body:not(.desk) .wrap,
+  body:not(.desk) .meta {
+    max-width: none;
+  }
+  body:not(.desk) .paper,
+  body:not(.desk) .paper.landscape {
+    width: 100% !important;
+  }
+}
 @media (max-width: 900px) {
   .topin {
     align-items: flex-start;
