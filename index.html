@@ -1762,6 +1762,36 @@ editor.addEventListener('input', () => {
   clearTimeout(histT);
   histT = setTimeout(snap, 600);
 });
+// 換段與換行（跟 Word 一樣）：Enter＝新段落（<p>，不是瀏覽器預設的 <div>），Shift+Enter＝段落內換行（<br>，匯出成 Word 的換行）
+try {
+  document.execCommand('defaultParagraphSeparator', false, 'p');
+} catch (e) {}
+editor.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.shiftKey) {
+    e.preventDefault();
+    document.execCommand('insertLineBreak');
+    return;
+  }
+  // 儲存格裡直接是文字（沒有段落）時瀏覽器只會插 <br>：先把內容包成段落，再照常分段
+  const sel = getSelection();
+  if (!sel.rangeCount) return;
+  const n = sel.anchorNode,
+    el = n && (n.nodeType === 1 ? n : n.parentElement),
+    blk = el && el.closest('p,li,h1,h2,h3,h4,h5,h6,blockquote,pre,div,td,th');
+  if (!blk || !/^T[DH]$/.test(blk.tagName) || !editor.contains(blk)) return;
+  e.preventDefault();
+  const off = sel.anchorOffset,
+    p = document.createElement('p');
+  while (blk.firstChild) p.appendChild(blk.firstChild);
+  blk.appendChild(p);
+  const r = document.createRange();
+  r.setStart(n === blk ? p : n, off);
+  r.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(r);
+  document.execCommand('insertParagraph');
+});
 editor.addEventListener('keydown', e => {
   if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
   const k = e.key.toLowerCase();
