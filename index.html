@@ -3731,7 +3731,8 @@ function paginate() {
   const er = editor.getBoundingClientRect(),
     z = er.width / editor.offsetWidth || 1;
   const rules = [],
-    heads = [];
+    heads = [],
+    pieces = [];
   let acc = 0, // 前面推移累積的位移：一次量完再算，免得每推一次就重排整份文件
     end = T;
   const TEXTBLK = /^(P|H[1-6]|LI|PRE|BLOCKQUOTE)$/,
@@ -3793,6 +3794,27 @@ function paginate() {
     acc += sh;
     return true;
   };
+  // 只放一張圖的區塊（<img> 或只含一張圖的段落）
+  const soleImg = el =>
+    el.tagName === 'IMG' ? el : el.querySelectorAll('img').length === 1 && !el.textContent.trim() ? el.querySelector('img') : null;
+  // 圖片跨頁：原圖只露出這頁放得下的上半截（clip-path），其餘各截用複本疊在後面幾頁（drawPieces），
+  // 後面的內容往下推「頁邊界＋空隙」的距離。
+  const splitImg = (s, el, img, cs) => {
+    const ir = img.getBoundingClientRect(),
+      top = (ir.top - er.top) / z + acc,
+      h = ir.height / z,
+      k = Math.floor(top / step),
+      a = k * step + H - B - top;
+    if (a < 40 || h <= a) return false; // 這頁剩不到 40px：整張推到下一頁
+    const d = step - room, // 這頁內容底端 → 下一頁內容頂端
+      cuts = [];
+    for (let e = a; e < h; e += room) cuts.push([e, Math.min(h, e + room)]);
+    rules.push(s + (el === img ? '' : ' img') + '{clip-path:inset(0 0 ' + (h - a).toFixed(1) + 'px 0)}');
+    rules.push(s + '{margin-bottom:' + ((parseFloat(cs.marginBottom) || 0) + cuts.length * d).toFixed(1) + 'px!important}');
+    pieces.push({ img, y: top, h, cuts: cuts.map((c, i) => ({ dy: (i + 1) * d, from: c[0], to: c[1] })) });
+    acc += cuts.length * d;
+    return true;
+  };
   const walk = (box, sel) => {
     let prev = null,
       breakTop = -1,
@@ -3839,6 +3861,8 @@ function paginate() {
           acc += d;
         } else if (!first && h > room && tag === 'DIV' && el.children.length) {
           walk(el, s); // 比一頁還高的文字方塊：進去逐段換頁
+        } else if (!first && soleImg(el) && splitImg(s, el, soleImg(el), cs)) {
+          // 圖片已在頁尾切開
         } else if (!first && TEXTBLK.test(tag) && !el.querySelector(INNER) && splitPara(s, el, cs, prev)) {
           // 段落已在行與行之間切開
         } else if (h <= room || first) pushRule(s, el, cs, prev, (k + 1) * step + T - top);
@@ -3852,6 +3876,23 @@ function paginate() {
   const pages = Math.floor((end + B - 1) / step) + 1;
   sheet.textContent = '@media screen{' + base(pages * step - GAP) + mask + rules.join('') + '}';
   drawHeads(heads, z);
+  drawPieces(pieces, z);
+}
+// 跨頁圖片後半截的複本：同一張圖往下移，只露出該截
+function drawPieces(list, z) {
+  const et = editor.getBoundingClientRect().top + scrollY;
+  for (const { img, y, h, cuts } of list) {
+    const r = img.getBoundingClientRect();
+    for (const c of cuts) {
+      const im = img.cloneNode(false);
+      im.removeAttribute('id');
+      im.style.cssText =
+        'position:absolute;margin:0;max-width:none;float:none;pointer-events:none;z-index:6;transform-origin:0 0;left:' +
+        (r.left + scrollX) + 'px;top:' + (et + (y + c.dy) * z) + 'px;width:' + img.offsetWidth + 'px;height:' + img.offsetHeight +
+        'px;transform:scale(' + z + ');clip-path:inset(' + c.from.toFixed(1) + 'px 0 ' + (h - c.to).toFixed(1) + 'px 0)';
+      pgHeads.append(im);
+    }
+  }
 }
 // 跨頁表格的標題列複本：疊在每個續頁的表格頂端（唯讀、不屬於文件內容）
 const pgHeads = document.createElement('div');
