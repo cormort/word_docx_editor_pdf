@@ -409,6 +409,27 @@ input {
   border: 1px solid var(--line);
   border-radius: 6px;
 }
+/* 內距選單 */
+.padopts {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 6px 10px;
+  padding: 4px 6px 8px;
+  align-items: center;
+}
+.padopts label {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  font-size: 13px;
+}
+.padopts input {
+  width: 64px;
+}
+.padunit {
+  font-size: 12px;
+  color: #64748b;
+}
 /* 滑鼠移到工具按鈕上立即顯示說明（瀏覽器原生 title 要等約一秒，觸控裝置也不顯示） */
 .tip {
   position: fixed;
@@ -1285,6 +1306,21 @@ body:not(.intable) .tblgrp + .grp {
           <button class="tool mi" data-bd="right" role="menuitem">右框線</button>
         </div>
       </details>
+      <details class="menu padmenu">
+        <summary class="tool" title="儲存格內距（文字與框線的距離）">內距<span class="caret">▾</span></summary>
+        <div class="panel" role="menu">
+          <div class="padopts">
+            <label>上<input type="number" class="num" data-pad="Top" min="0" max="72" step="0.5"></label>
+            <label>下<input type="number" class="num" data-pad="Bottom" min="0" max="72" step="0.5"></label>
+            <label>左<input type="number" class="num" data-pad="Left" min="0" max="72" step="0.5"></label>
+            <label>右<input type="number" class="num" data-pad="Right" min="0" max="72" step="0.5"></label>
+            <span class="padunit">pt</span>
+          </div>
+          <button class="tool mi" data-padapply="cells" role="menuitem">套用到選取的格子</button>
+          <button class="tool mi" data-padapply="table" role="menuitem">套用到整個表格</button>
+          <button class="tool mi" data-padapply="reset" role="menuitem">還原預設內距（選取的格子）</button>
+        </div>
+      </details>
       <span class="tsep"></span>
       <button class="tool danger" data-top="delTable" title="刪除整個表格">刪除表格</button>
       </div>
@@ -1357,6 +1393,7 @@ body:not(.intable) .tblgrp + .grp {
           <button class="tool mi" data-bd="outer" role="menuitem">儲存格外框線</button>
           <button class="tool mi" data-bd="none" role="menuitem">儲存格無框線</button>
           <hr class="msep" role="separator">
+          <button class="tool mi" id="padMenuBtn" role="menuitem">儲存格內距…</button>
           <button class="tool mi" data-cellbg="pick" role="menuitem">儲存格底色…</button>
           <button class="tool mi" data-cellbg="none" role="menuitem">清除儲存格底色</button>
           <hr class="msep" role="separator">
@@ -2265,6 +2302,39 @@ document.querySelectorAll('[data-bd]').forEach(b =>
     if (!cells) return msg('請先把游標放在表格內。', true);
     recordEdit(() => applyBorders(b.dataset.bd, cells));
     msg('已設定框線：' + b.textContent.replace('儲存格', ''));
+  }),
+);
+// 儲存格內距：打開選單時記住格子、把目前這格的內距填進欄位（pt）
+let padCells = null;
+const padMenu = document.querySelector('.padmenu');
+function fillPad() {
+  padCells = selCells();
+  if (!padCells) return;
+  const cs = getComputedStyle(padCells[0]);
+  padMenu.querySelectorAll('[data-pad]').forEach(i => (i.value = +(parseFloat(cs['padding' + i.dataset.pad]) * 0.75).toFixed(1)));
+}
+padMenu.querySelector('summary').addEventListener('pointerdown', fillPad);
+$('#padMenuBtn').onclick = () => {
+  if (!selCells()) return msg('請先把游標放在表格內。', true);
+  fillPad();
+  // 表格工具列只在游標在表格內時出現；從表格選單叫出來時直接打開它的內距選單
+  setTimeout(() => padMenu.setAttribute('open', ''), 0);
+};
+padMenu.querySelectorAll('[data-padapply]').forEach(b =>
+  b.addEventListener('click', () => {
+    const cells = padCells && padCells[0].isConnected ? padCells : selCells();
+    if (!cells) return msg('請先把游標放在表格內。', true);
+    const k = b.dataset.padapply,
+      target = k === 'table' ? [...cells[0].closest('table').querySelectorAll('td,th')] : cells;
+    recordEdit(() =>
+      target.forEach(c =>
+        padMenu.querySelectorAll('[data-pad]').forEach(i => {
+          const v = parseFloat(i.value);
+          c.style['padding' + i.dataset.pad] = k === 'reset' || !isFinite(v) ? '' : Math.max(0, v) + 'pt';
+        }),
+      ),
+    );
+    msg(k === 'reset' ? '已還原預設內距' : '已設定儲存格內距');
   }),
 );
 // 水平對齊在 Word 是段落的屬性：格子本身與格子裡的每個段落都設（段落自己的對齊會蓋過格子）
@@ -3441,6 +3511,18 @@ function cellBorders(td) {
     .join('');
   return out ? '<w:tcBorders>' + out + '</w:tcBorders>' : '';
 }
+// 儲存格自己設的內距 → w:tcMar（dxa；pt×20、px×15）
+function cellMar(td) {
+  const out = ['Top', 'Left', 'Bottom', 'Right']
+    .map(S => {
+      const v = td.style['padding' + S];
+      if (!v) return '';
+      const dxa = Math.round(parseFloat(v) * (/px$/.test(v) ? 15 : 20));
+      return isFinite(dxa) ? '<w:' + S.toLowerCase() + ' w:w="' + dxa + '" w:type="dxa"/>' : '';
+    })
+    .join('');
+  return out ? '<w:tcMar>' + out + '</w:tcMar>' : '';
+}
 // 儲存格底色 → w:shd（rgb(…) 或 #rrggbb 都接受）
 function cellShd(td) {
   const hex = hexOf(td.style.backgroundColor);
@@ -3460,6 +3542,7 @@ function cellXml(td, ctx, colW, span, vmerge) {
     (vmerge === 'restart' ? '<w:vMerge w:val="restart"/>' : vmerge === 'cont' ? '<w:vMerge/>' : '') +
     cellBorders(td) +
     cellShd(td) +
+    cellMar(td) +
     ({ middle: '<w:vAlign w:val="center"/>', bottom: '<w:vAlign w:val="bottom"/>' }[td.style.verticalAlign] || '');
   return '<w:tc><w:tcPr>' + pr + '</w:tcPr>' + inner + '</w:tc>';
 }

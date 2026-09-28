@@ -790,7 +790,23 @@
   }
 
   // ---------- 表格 ----------
+  // 儲存格內距（dxa）：表格預設 tblCellMar，儲存格自己的 tcMar 覆蓋；回傳 CSS padding 或 ''
+  function cellMar(tblMar, tcMar) {
+    const side = (n) => {
+      const names = n === 'left' ? ['left', 'start'] : n === 'right' ? ['right', 'end'] : [n];
+      for (const m of [tcMar, tblMar]) {
+        const e = m && names.map((x) => tag(m, x)).find(Boolean);
+        if (e) return num(val(e, 'w'), 0) / 20;
+      }
+      return null;
+    };
+    const v = ['top', 'right', 'bottom', 'left'].map(side);
+    if (v.every((x) => x == null)) return '';
+    const dflt = { 0: 0, 1: 5.4, 2: 0, 3: 5.4 };           // Word 的預設：上下 0、左右 0.19cm
+    return 'padding:' + v.map((x, i) => (x == null ? dflt[i] : x).toFixed(1) + 'pt').join(' ');
+  }
   function docxTable(tbl, ctx) {
+    const tblMar = tag(tag(tbl, 'tblPr'), 'tblCellMar');
     const grid = tag(tbl, 'tblGrid');
     const cols = grid ? tags(grid, 'gridCol').map((c) => num(val(c, 'w'), 0)) : [];
     const totalW = cols.reduce((a, b) => a + b, 0) || 0;
@@ -857,7 +873,7 @@
           const col = val(e, 'color');
           bd.push('border-' + side + ':' + Math.max(0.25, num(val(e, 'sz'), 4) / 8) + 'pt ' + (BS[v] || 'solid') + ' ' + (col && /^[0-9a-f]{6}$/i.test(col) ? '#' + col : '#000'));
         }
-        const tdCss = [va ? 'vertical-align:' + va : '', bg, ...bd].filter(Boolean).join(';');
+        const tdCss = [va ? 'vertical-align:' + va : '', bg, ...bd, cellMar(tblMar, tag(tcPr, 'tcMar'))].filter(Boolean).join(';');
         cells += '<td' + attrs + (tdCss ? ' style="' + tdCss + '"' : '') + '>' + inner + '</td>';
       }
       // 列高：Word 的 trHeight（twips；exact／atLeast 都當最小高度）
