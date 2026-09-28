@@ -326,7 +326,7 @@
     const rel = ctx.rels.get(embed);
     if (!rel) return '';
     const path = 'word/' + rel.target.replace(/^\/?word\//, '').replace(/^\.\//, '');
-    const ext = (path.split('.').pop() || 'png').toLowerCase();
+    const ext = (path.split('.').pop() || 'png').toLowerCase().replace(/^emz$/, 'emf').replace(/^wmz$/, 'wmf');
     const bytes = ctx.media.get(path) || ctx.media.get(rel.target) || ctx.media.get('word/' + rel.target);
     let dataUrl = '';
     if (ext === 'emf' && bytes) {
@@ -756,7 +756,13 @@
       warnings: [],
     };
     for (const [name, entry] of zip) {
-      if (/^word\/media\//i.test(name) && !/\.(emz|wmz)$/i.test(name)) ctx.media.set(name, entry.method === 0 ? entry.raw : await entryBytes(zip, name));
+      if (!/^word\/media\//i.test(name)) continue;
+      let b = entry.method === 0 ? entry.raw : await entryBytes(zip, name);
+      // EMZ／WMZ 就是 gzip 過的 EMF／WMF：先解開，後面當一般向量圖處理
+      if (/\.(emz|wmz)$/i.test(name)) {
+        try { b = new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer()); } catch (e) { continue; }
+      }
+      ctx.media.set(name, b);
     }
     const doc = xml(documentXml);
     const body = [...doc.getElementsByTagName('*')].find((e) => e.localName === 'body');
