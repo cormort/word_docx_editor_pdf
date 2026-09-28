@@ -996,7 +996,9 @@
           const ilvl = r.ilvl;
           while (listCtx && listCtx.ilvl > ilvl) closeList(listCtx.ilvl);
           if (!listCtx || listCtx.numId !== r.numId || listCtx.ilvl < ilvl) openList(r.numId, ilvl);
-          html.push('<li' + (r.html.match(/style="([^"]*)"/) ? ' style="' + r.html.match(/style="([^"]*)"/)[1] + '"' : '') + '>' + r.html.replace(/^<[^>]+>|<\/[^>]+>$/g, '') + r.after + '</li>');
+          // 段落的屬性（style、以行設定間距的 data-*）整組搬到 <li>，class 不帶（標題樣式不適用在清單項目）
+          const attrs = (r.html.match(/^<[a-z0-9]+([^>]*)>/i) || ['', ''])[1].replace(/\sclass="[^"]*"/, '');
+          html.push('<li' + attrs + '>' + r.html.replace(/^<[^>]+>|<\/[^>]+>$/g, '') + r.after + '</li>');
         } else {
           closeList(0);
           html.push((r.html || '<p><br></p>') + r.after);

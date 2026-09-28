@@ -3709,6 +3709,28 @@ function drawingXml(im) {
     '</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>'
   );
 }
+// 段落自己設的段前段後（pt 或行）與行距 → w:spacing；imgOnly：圖片單獨一段時不要行距
+function spacingXml(el, imgOnly) {
+  const st = el.style || {},
+    cs = el.nodeType === 1 ? getComputedStyle(el) : null,
+    tw = v => Math.round((parseFloat(v) || 0) * 15); // px → twips
+  const sp = {};
+  // 圖片單獨一段時不要行距，避免每張圖後面拖一大段空白
+  if (imgOnly) Object.assign(sp, { after: 0, line: 240, lineRule: 'auto' });
+  if (cs && st.marginTop && st.marginTop !== 'auto') sp.before = tw(cs.marginTop);
+  if (cs && st.marginBottom && st.marginBottom !== 'auto') sp.after = tw(cs.marginBottom);
+  // 以行設定的間距：Word 的 beforeLines／afterLines（百分之一行）
+  if (el.dataset && el.dataset.beforeLines != null) sp.beforeLines = Math.round(parseFloat(el.dataset.beforeLines) * 100);
+  if (el.dataset && el.dataset.afterLines != null) sp.afterLines = Math.round(parseFloat(el.dataset.afterLines) * 100);
+  if (cs && st.lineHeight && st.lineHeight !== 'normal') {
+    if (/^[\d.]+$/.test(st.lineHeight)) Object.assign(sp, { line: Math.round(parseFloat(st.lineHeight) * 240), lineRule: 'auto' });
+    else Object.assign(sp, { line: tw(cs.lineHeight), lineRule: 'exact' });
+  }
+  const spacing = Object.keys(sp).length
+    ? '<w:spacing' + ['before', 'beforeLines', 'after', 'afterLines', 'line', 'lineRule'].filter(k => k in sp).map(k => ' w:' + k + '="' + sp[k] + '"').join('') + '/>'
+    : '';
+  return spacing;
+}
 function paragraphXml(el, ctx, style, prefix) {
   const items = [];
   inlineXml(el, ctx, items);
@@ -3732,21 +3754,7 @@ function paragraphXml(el, ctx, style, prefix) {
   const st = el.style || {},
     cs = el.nodeType === 1 ? getComputedStyle(el) : null,
     tw = v => Math.round((parseFloat(v) || 0) * 15); // px → twips
-  const sp = {};
-  // 圖片單獨一段時不要行距，避免每張圖後面拖一大段空白
-  if (hasImg && !prefix) Object.assign(sp, { after: 0, line: 240, lineRule: 'auto' });
-  if (cs && st.marginTop && st.marginTop !== 'auto') sp.before = tw(cs.marginTop);
-  if (cs && st.marginBottom && st.marginBottom !== 'auto') sp.after = tw(cs.marginBottom);
-  // 以行設定的間距：Word 的 beforeLines／afterLines（百分之一行）
-  if (el.dataset && el.dataset.beforeLines != null) sp.beforeLines = Math.round(parseFloat(el.dataset.beforeLines) * 100);
-  if (el.dataset && el.dataset.afterLines != null) sp.afterLines = Math.round(parseFloat(el.dataset.afterLines) * 100);
-  if (cs && st.lineHeight && st.lineHeight !== 'normal') {
-    if (/^[\d.]+$/.test(st.lineHeight)) Object.assign(sp, { line: Math.round(parseFloat(st.lineHeight) * 240), lineRule: 'auto' });
-    else Object.assign(sp, { line: tw(cs.lineHeight), lineRule: 'exact' });
-  }
-  const spacing = Object.keys(sp).length
-    ? '<w:spacing' + ['before', 'beforeLines', 'after', 'afterLines', 'line', 'lineRule'].filter(k => k in sp).map(k => ' w:' + k + '="' + sp[k] + '"').join('') + '/>'
-    : '';
+  const spacing = spacingXml(el, hasImg && !prefix);
   const ind = {},
     chars = v => (/em$/.test(v) ? Math.round(parseFloat(v) * 100) : null); // 以字元設定的縮排 → Word 的 *Chars（百分之一字元）
   if (cs && st.marginLeft && st.marginLeft !== 'auto') {
@@ -3953,6 +3961,7 @@ function blockXml(el, ctx) {
           '"/><w:numId w:val="' +
           numId +
           '"/></w:numPr>' +
+          spacingXml(li, false) + // 清單項目的段前段後（含以行設定的）
           '<w:ind w:left="' +
           indent +
           '" w:hanging="220"/></w:pPr>' +
