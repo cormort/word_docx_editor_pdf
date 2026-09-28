@@ -846,7 +846,18 @@
         // 儲存格底色：w:shd 的 fill
         const fill = val(tag(tcPr, 'shd'), 'fill'),
           bg = fill && /^[0-9a-f]{6}$/i.test(fill) && fill.toUpperCase() !== 'FFFFFF' ? 'background-color:#' + fill : '';
-        const tdCss = [va ? 'vertical-align:' + va : '', bg].filter(Boolean).join(';');
+        // 儲存格自己的框線（tcBorders）：nil／none → hidden（蓋過鄰格），其餘照樣式、粗細（1/8 pt）、顏色
+        const tb = tag(tcPr, 'tcBorders'), bd = [];
+        const BS = { single: 'solid', dashed: 'dashed', dotted: 'dotted', double: 'double', thick: 'solid' };
+        for (const [side, names] of [['top', ['top']], ['right', ['right', 'end']], ['bottom', ['bottom']], ['left', ['left', 'start']]]) {
+          const e = names.map((n) => tag(tb, n)).find(Boolean);
+          if (!e) continue;
+          const v = val(e, 'val');
+          if (v === 'nil' || v === 'none') { bd.push('border-' + side + ':hidden'); continue; }
+          const col = val(e, 'color');
+          bd.push('border-' + side + ':' + Math.max(0.25, num(val(e, 'sz'), 4) / 8) + 'pt ' + (BS[v] || 'solid') + ' ' + (col && /^[0-9a-f]{6}$/i.test(col) ? '#' + col : '#000'));
+        }
+        const tdCss = [va ? 'vertical-align:' + va : '', bg, ...bd].filter(Boolean).join(';');
         cells += '<td' + attrs + (tdCss ? ' style="' + tdCss + '"' : '') + '>' + inner + '</td>';
       }
       // 列高：Word 的 trHeight（twips；exact／atLeast 都當最小高度）

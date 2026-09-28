@@ -395,6 +395,20 @@ input {
   opacity: 0;
   cursor: pointer;
 }
+/* 框線選單上方的樣式／粗細／顏色 */
+.bdopts {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 6px 8px;
+}
+.bdopts input[type='color'] {
+  width: 34px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
 /* 滑鼠移到工具按鈕上立即顯示說明（瀏覽器原生 title 要等約一秒，觸控裝置也不顯示） */
 .tip {
   position: fixed;
@@ -1252,6 +1266,25 @@ body:not(.intable) .tblgrp + .grp {
       <span class="tsep"></span>
       <label class="tool cellbg" title="儲存格底色">底色<input type="color" class="cellColor" value="#fff2cc" aria-label="儲存格底色"></label>
       <button class="tool" data-cellbg="none" title="清除儲存格底色">清除底色</button>
+      <details class="menu bdmenu">
+        <summary class="tool" title="儲存格框線（套用到選取的格子）">框線<span class="caret">▾</span></summary>
+        <div class="panel" role="menu">
+          <div class="bdopts">
+            <select id="bdStyle" aria-label="框線樣式"><option value="solid">實線</option><option value="dashed">虛線</option><option value="dotted">點線</option><option value="double">雙線</option></select>
+            <select id="bdWidth" aria-label="框線粗細"><option value="0.5">0.5pt</option><option value="1" selected>1pt</option><option value="1.5">1.5pt</option><option value="2.25">2.25pt</option><option value="3">3pt</option></select>
+            <input type="color" id="bdColor" value="#000000" aria-label="框線顏色">
+          </div>
+          <button class="tool mi" data-bd="all" role="menuitem">所有框線</button>
+          <button class="tool mi" data-bd="outer" role="menuitem">外框線</button>
+          <button class="tool mi" data-bd="inside" role="menuitem">內框線</button>
+          <button class="tool mi" data-bd="none" role="menuitem">無框線</button>
+          <hr class="msep" role="separator">
+          <button class="tool mi" data-bd="top" role="menuitem">上框線</button>
+          <button class="tool mi" data-bd="bottom" role="menuitem">下框線</button>
+          <button class="tool mi" data-bd="left" role="menuitem">左框線</button>
+          <button class="tool mi" data-bd="right" role="menuitem">右框線</button>
+        </div>
+      </details>
       <span class="tsep"></span>
       <button class="tool danger" data-top="delTable" title="刪除整個表格">刪除表格</button>
       </div>
@@ -1319,6 +1352,10 @@ body:not(.intable) .tblgrp + .grp {
           <button class="tool mi" data-halign="left" role="menuitem">儲存格靠左</button>
           <button class="tool mi" data-halign="center" role="menuitem">儲存格水平置中</button>
           <button class="tool mi" data-halign="right" role="menuitem">儲存格靠右</button>
+          <hr class="msep" role="separator">
+          <button class="tool mi" data-bd="all" role="menuitem">儲存格所有框線</button>
+          <button class="tool mi" data-bd="outer" role="menuitem">儲存格外框線</button>
+          <button class="tool mi" data-bd="none" role="menuitem">儲存格無框線</button>
           <hr class="msep" role="separator">
           <button class="tool mi" data-cellbg="pick" role="menuitem">儲存格底色…</button>
           <button class="tool mi" data-cellbg="none" role="menuitem">清除儲存格底色</button>
@@ -2120,6 +2157,59 @@ document.querySelectorAll('[data-cellbg]').forEach(b =>
     if (!cells) return msg('請先把游標放在表格內。', true);
     recordEdit(() => cells.forEach(c => (c.style.backgroundColor = '')));
     msg('已清除儲存格底色');
+  }),
+);
+// 儲存格框線：以選取範圍的格線矩形判斷外框／內框；共用的框線兩邊的格子一起設（表格框線合併時兩邊都算數），
+// 「無框線」用 hidden 才蓋得過鄰格的框線。框線選單裡的下拉會搶走選取，所以打開選單時先記住格子。
+let bdCells = null;
+document.querySelector('.bdmenu summary').addEventListener('pointerdown', () => (bdCells = selCells()));
+const SIDES = ['Top', 'Right', 'Bottom', 'Left'];
+function applyBorders(kind, cells) {
+  const table = cells[0].closest('table'),
+    { grid } = tableGrid(table),
+    box = new Map();
+  grid.forEach((row, r) =>
+    row.forEach((td, c) => {
+      const b = box.get(td) || { r0: r, c0: c, r1: r, c1: c };
+      Object.assign(b, { r0: Math.min(b.r0, r), c0: Math.min(b.c0, c), r1: Math.max(b.r1, r), c1: Math.max(b.c1, c) });
+      box.set(td, b);
+    }),
+  );
+  const sel = cells.map(c => box.get(c)).filter(Boolean);
+  if (!sel.length) return;
+  const R0 = Math.min(...sel.map(b => b.r0)), R1 = Math.max(...sel.map(b => b.r1)),
+    C0 = Math.min(...sel.map(b => b.c0)), C1 = Math.max(...sel.map(b => b.c1));
+  const style = $('#bdStyle').value,
+    w = Math.max(parseFloat($('#bdWidth').value), style === 'double' ? 2.25 : 0); // 雙線太細畫不出來
+  const spec = kind === 'none' ? 'hidden' : w + 'pt ' + style + ' ' + $('#bdColor').value;
+  const set = (td, side) => {
+    const b = box.get(td);
+    td.style['border' + side] = spec;
+    // 對面那格的同一條框線
+    const ns = [];
+    if (side === 'Top') for (let c = b.c0; c <= b.c1; c++) ns.push(grid[b.r0 - 1] && grid[b.r0 - 1][c]);
+    if (side === 'Bottom') for (let c = b.c0; c <= b.c1; c++) ns.push(grid[b.r1 + 1] && grid[b.r1 + 1][c]);
+    if (side === 'Left') for (let r = b.r0; r <= b.r1; r++) ns.push(grid[r][b.c0 - 1]);
+    if (side === 'Right') for (let r = b.r0; r <= b.r1; r++) ns.push(grid[r][b.c1 + 1]);
+    const opp = { Top: 'Bottom', Bottom: 'Top', Left: 'Right', Right: 'Left' }[side];
+    new Set(ns.filter(n => n && n !== td)).forEach(n => (n.style['border' + opp] = spec));
+  };
+  for (const td of cells) {
+    const b = box.get(td);
+    const edge = { Top: b.r0 === R0, Bottom: b.r1 === R1, Left: b.c0 === C0, Right: b.c1 === C1 };
+    for (const side of SIDES) {
+      const on =
+        kind === 'all' || kind === 'none' ? true : kind === 'outer' ? edge[side] : kind === 'inside' ? !edge[side] : side.toLowerCase() === kind && edge[side];
+      if (on) set(td, side);
+    }
+  }
+}
+document.querySelectorAll('[data-bd]').forEach(b =>
+  b.addEventListener('click', () => {
+    const cells = (b.closest('.bdmenu') && bdCells && bdCells[0].isConnected ? bdCells : null) || selCells();
+    if (!cells) return msg('請先把游標放在表格內。', true);
+    recordEdit(() => applyBorders(b.dataset.bd, cells));
+    msg('已設定框線：' + b.textContent.replace('儲存格', ''));
   }),
 );
 // 水平對齊在 Word 是段落的屬性：格子本身與格子裡的每個段落都設（段落自己的對齊會蓋過格子）
@@ -3273,13 +3363,33 @@ function paragraphXml(el, ctx, style, prefix) {
     '</w:p>'
   );
 }
-// 儲存格底色 → w:shd（rgb(…) 或 #rrggbb 都接受）
-function cellShd(td) {
-  const c = td.style.backgroundColor;
+// 顏色字串（rgb(…) 或 #rrggbb）→ RRGGBB
+function hexOf(c) {
   const m = /^rgb\((\d+),\s*(\d+),\s*(\d+)/.exec(c) || /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(c);
   if (!m) return '';
-  const hex = m[0][0] === '#' ? m.slice(1).join('') : m.slice(1).map(v => (+v).toString(16).padStart(2, '0')).join('');
-  return '<w:shd w:val="clear" w:color="auto" w:fill="' + hex.toUpperCase() + '"/>';
+  return (m[0][0] === '#' ? m.slice(1).join('') : m.slice(1).map(v => (+v).toString(16).padStart(2, '0')).join('')).toUpperCase();
+}
+// 儲存格自己設的框線 → w:tcBorders（沒設的邊沿用表格框線）
+function cellBorders(td) {
+  const V = { solid: 'single', dashed: 'dashed', dotted: 'dotted', double: 'double' };
+  const out = ['Top', 'Left', 'Bottom', 'Right']
+    .map(S => {
+      const st = td.style['border' + S + 'Style'];
+      if (!st) return '';
+      const tagn = S.toLowerCase();
+      if (st === 'hidden' || st === 'none') return '<w:' + tagn + ' w:val="nil"/>';
+      const wv = td.style['border' + S + 'Width'],
+        pt = parseFloat(wv) * (/px$/.test(wv) ? 0.75 : 1) || 0.5;
+      return '<w:' + tagn + ' w:val="' + (V[st] || 'single') + '" w:sz="' + Math.max(2, Math.min(96, Math.round(pt * 8))) +
+        '" w:space="0" w:color="' + (hexOf(td.style['border' + S + 'Color']) || '000000') + '"/>';
+    })
+    .join('');
+  return out ? '<w:tcBorders>' + out + '</w:tcBorders>' : '';
+}
+// 儲存格底色 → w:shd（rgb(…) 或 #rrggbb 都接受）
+function cellShd(td) {
+  const hex = hexOf(td.style.backgroundColor);
+  return hex ? '<w:shd w:val="clear" w:color="auto" w:fill="' + hex + '"/>' : '';
 }
 function cellXml(td, ctx, colW, span, vmerge) {
   const blocks = [...td.childNodes].filter(
@@ -3293,6 +3403,7 @@ function cellXml(td, ctx, colW, span, vmerge) {
     '" w:type="dxa"/>' +
     (span > 1 ? '<w:gridSpan w:val="' + span + '"/>' : '') +
     (vmerge === 'restart' ? '<w:vMerge w:val="restart"/>' : vmerge === 'cont' ? '<w:vMerge/>' : '') +
+    cellBorders(td) +
     cellShd(td) +
     ({ middle: '<w:vAlign w:val="center"/>', bottom: '<w:vAlign w:val="bottom"/>' }[td.style.verticalAlign] || '');
   return '<w:tc><w:tcPr>' + pr + '</w:tcPr>' + inner + '</w:tc>';
