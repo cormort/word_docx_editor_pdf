@@ -3308,7 +3308,7 @@ $('#pdfBtn').onclick = async () => {
 // ---- 分頁檢視：像 Word 一樣一頁一張紙，最後一頁也補滿整張 ----
 // 不動文件 DOM（存檔、復原、匯出都不受影響）：量出每頁放不下的第一個區塊，用產生的樣式表
 // 加大它的上邊界，把它推到下一頁的內容起點；紙張與頁間空隙用編輯區背景畫出來。
-// ponytail: 以區塊為單位換頁，比一頁還高的段落／表格不會從行中間切開（會跨過頁間空隙）。
+// 段落在行與行之間切開（含寡行／孤行控制），表格在列與列之間切開；比一頁還高的單一列或圖片會被頁間空隙遮住。
 const pagedQ = matchMedia('(max-width: 640px), (pointer: coarse) and (max-height: 500px)');
 let pgT;
 function paginateSoon() {
@@ -3337,13 +3337,76 @@ function paginate() {
     pg.margins.map(v => v + 'mm').join(' ') +
     '!important;box-shadow:none!important;filter:drop-shadow(0 2px 5px #0f172a26);background:repeating-linear-gradient(to bottom,#fff 0,#fff ' +
     H + 'px,transparent ' + H + 'px,transparent ' + step + 'px)!important}';
-  sheet.textContent = '@media screen{' + base(H) + '}';
+  // 頁與頁之間的空隙蓋在內容上面：跨頁的表格框線、超過一頁的圖都會像分開的紙一樣被切開
+  const mask =
+    'body.paged #editor{position:relative}body.paged #editor::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:5;background:repeating-linear-gradient(to bottom,transparent 0,transparent ' +
+    H + 'px,var(--bg) ' + H + 'px,var(--bg) ' + step + 'px)}';
+  sheet.textContent = '@media screen{' + base(H) + mask + '}';
   fit();
   const er = editor.getBoundingClientRect(),
     z = er.width / editor.offsetWidth || 1;
   const rules = [];
   let acc = 0, // 前面推移累積的位移：一次量完再算，免得每推一次就重排整份文件
     end = T;
+  const TEXTBLK = /^(P|H[1-6]|LI|PRE|BLOCKQUOTE)$/,
+    INNER = 'p,div,table,ul,ol,li,h1,h2,h3,h4,h5,h6,blockquote,pre';
+  const pushRule = (s, el, cs, prev, d) => {
+    // 整塊推到下一頁：加大上邊界（考慮與上一塊下邊界的重疊）
+    const mt = parseFloat(cs.marginTop) || 0,
+      pmb = prev ? parseFloat(getComputedStyle(prev).marginBottom) || 0 : 0;
+    rules.push(s + '{margin-top:' + ((prev ? Math.max(mt, pmb) : mt) + d).toFixed(1) + 'px!important}');
+    acc += d;
+  };
+  // 段落的每一行（頁面座標）：用 Range 取各行的矩形，依高度分群
+  const linesOf = el => {
+    const rg = document.createRange();
+    rg.selectNodeContents(el);
+    const rs = [...rg.getClientRects()].filter(r => r.height > 0).sort((a, b) => a.top - b.top);
+    const out = [];
+    for (const r of rs) {
+      const t = (r.top - er.top) / z,
+        b = (r.bottom - er.top) / z,
+        l = out[out.length - 1];
+      if (l && t < l.b - 2) l.b = Math.max(l.b, b);
+      else out.push({ t, b });
+    }
+    return out;
+  };
+  // 段落從中間切開：::before 放一個滿寬浮動框，shape-outside 只在換頁處留一段空白，
+  // 那一行之後的文字就被推到下一頁；一段跨好幾頁就有好幾段空白（左緣用 0.5px 細條串起來）
+  const splitPara = (s, el, cs, prev) => {
+    const L = linesOf(el);
+    if (!L.length) return false;
+    const bands = [];
+    let sh = 0;
+    for (let n = 0; n < L.length; n++) {
+      const t = L[n].t + acc + sh,
+        b = L[n].b + acc + sh,
+        k = Math.floor(t / step);
+      if (b <= k * step + H - B + 0.5) continue;
+      let at = n;
+      if (at === L.length - 1 && at >= 2) at--; // 避免下一頁只剩一行（寡行）
+      if (at <= 1 && !bands.length) return false; // 這頁只剩一行（孤行）或一行都放不下：整段推
+      const tt = L[at].t + acc + sh,
+        d = (Math.floor(tt / step) + 1) * step + T - tt;
+      bands.push({ y: L[at].t - L[0].t + sh, h: d });
+      sh += d;
+      n = at;
+    }
+    if (!bands.length) return true;
+    const pts = [];
+    bands.forEach((q, i) => {
+      pts.push((i ? '0.5px ' : '0 ') + q.y + 'px', '100% ' + q.y + 'px', '100% ' + (q.y + q.h) + 'px');
+      pts.push((i < bands.length - 1 ? '0.5px ' : '0 ') + (q.y + q.h) + 'px');
+    });
+    const last = bands[bands.length - 1];
+    rules.push(
+      s + '::before{content:"";float:left;width:100%;height:' + (last.y + last.h).toFixed(1) +
+        'px;shape-outside:polygon(' + pts.join(',') + ');pointer-events:none}',
+    );
+    acc += sh;
+    return true;
+  };
   const walk = (box, sel) => {
     let prev = null,
       breakTop = -1,
@@ -3359,33 +3422,40 @@ function paginate() {
         continue;
       }
       const cs = getComputedStyle(el);
-      if (cs.position === 'absolute' || cs.float !== 'none') continue;
-      const k = Math.floor(top / step);
-      let target = -1;
-      if (breakTop >= 0) target = (Math.floor(breakTop / step) + 1) * step + T;
-      else if (top + h > k * step + H - B + 0.5) {
-        if (h > room && /^(DIV|UL|OL|BLOCKQUOTE|SECTION)$/.test(el.tagName) && el.children.length) {
-          walk(el, s); // 太高的容器（文字方塊、清單）：進去逐段換頁
-          prev = el;
-          end = Math.max(end, (r.bottom - er.top) / z + acc);
-          continue;
-        }
-        if (h <= room) target = (k + 1) * step + T;
+      if (cs.position === 'absolute' || cs.float !== 'none' || cs.display === 'none') continue;
+      const k = Math.floor(top / step),
+        tag = el.tagName;
+      if (breakTop >= 0) {
+        const d = (Math.floor(breakTop / step) + 1) * step + T - top;
+        if (d > 0.5) pushRule(s, el, cs, prev, d);
+      } else if (top > k * step + H - B - 0.5 || top + h > k * step + H - B + 0.5) {
+        const first = top >= k * step + H - B - 0.5; // 起點已經在頁尾邊界之後
+        if (!first && /^(UL|OL|TABLE|TBODY|THEAD|TFOOT)$/.test(tag) && el.children.length) {
+          // 表格第一列就放不下：先整個表格推到下一頁，再進去逐列換頁
+          const r0 = tag === 'TABLE' && el.rows[0] ? el.rows[0].getBoundingClientRect() : null;
+          if (r0 && (r0.bottom - er.top) / z + acc > k * step + H - B + 0.5) pushRule(s, el, cs, prev, (k + 1) * step + T - top);
+          walk(el, s); // 清單、表格：進去逐項／逐列換頁
+        } else if (!first && tag === 'TR') {
+          // 表格列：推不動 tr 的邊界，改把這列每格的上內距加大
+          const c = el.cells[0],
+            pt = c ? parseFloat(getComputedStyle(c).paddingTop) || 0 : 0,
+            d = (k + 1) * step + T - top;
+          rules.push(s + '>td,' + s + '>th{padding-top:' + (pt + d).toFixed(1) + 'px!important}');
+          acc += d;
+        } else if (!first && h > room && tag === 'DIV' && el.children.length) {
+          walk(el, s); // 比一頁還高的文字方塊：進去逐段換頁
+        } else if (!first && TEXTBLK.test(tag) && !el.querySelector(INNER) && splitPara(s, el, cs, prev)) {
+          // 段落已在行與行之間切開
+        } else if (h <= room || first) pushRule(s, el, cs, prev, (k + 1) * step + T - top);
       }
       breakTop = -1;
-      if (target > top + 0.5) {
-        const mt = parseFloat(cs.marginTop) || 0,
-          pmb = prev ? parseFloat(getComputedStyle(prev).marginBottom) || 0 : 0;
-        rules.push(s + '{margin-top:' + ((prev ? Math.max(mt, pmb) : mt) + target - top).toFixed(1) + 'px!important}');
-        acc += target - top;
-      }
       prev = el;
       end = Math.max(end, (r.bottom - er.top) / z + acc);
     }
   };
   walk(editor, '#editor');
   const pages = Math.floor((end + B - 1) / step) + 1;
-  sheet.textContent = '@media screen{' + base(pages * step - GAP) + rules.join('') + '}';
+  sheet.textContent = '@media screen{' + base(pages * step - GAP) + mask + rules.join('') + '}';
 }
 // 編輯區自己的 style（縮放）是我們設的，不算內容變動，否則會一直重排
 new MutationObserver(ms => ms.some(m => !(m.target === editor && m.type === 'attributes')) && paginateSoon()).observe(editor, { childList: true, subtree: true, characterData: true, attributes: true });
