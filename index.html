@@ -1308,6 +1308,7 @@ body:not(.intable) .tblgrp + .grp {
           <button class="tool mi" data-diag="tl2br" role="menuitem">斜線 ＼（左上到右下）</button>
           <button class="tool mi" data-diag="tr2bl" role="menuitem">斜線 ／（右上到左下）</button>
           <button class="tool mi" data-diag="" role="menuitem">清除斜線</button>
+          <button class="tool mi" id="diagHeadBtn" role="menuitem">斜線表頭（分隔兩邊文字）…</button>
         </div>
       </details>
       <details class="menu">
@@ -2350,6 +2351,30 @@ document.querySelectorAll('[data-diag]').forEach(b =>
     msg(k ? '已加上斜線' : '已清除斜線');
   }),
 );
+// 斜線表頭：兩段文字各靠斜線的一邊（＼：右上／左下；／：左上／右下），Word 也是這樣做，匯出不用特別處理
+$('#diagHeadBtn').onclick = () => {
+  const cells = (bdCells && bdCells[0].isConnected ? bdCells : null) || selCells();
+  if (!cells) return msg('請先把游標放在表格內。', true);
+  const c = cells[0];
+  if (!c.dataset.diag) {
+    bdCells = [c];
+    document.querySelector('[data-diag="tl2br"]').click(); // 還沒有斜線就先加 ＼
+  }
+  const back = (c.dataset.diag || '').includes('tl2br'); // ＼
+  const ps = [...c.querySelectorAll('p')].map(p => p.textContent.trim()).filter(Boolean);
+  const up = prompt(back ? '斜線右上方的文字（例如：年度）' : '斜線左上方的文字（例如：年度）', ps[0] || '');
+  if (up == null) return;
+  const low = prompt(back ? '斜線左下方的文字（例如：項目）' : '斜線右下方的文字（例如：項目）', ps[1] || '');
+  if (low == null) return;
+  const esc = t => t.replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]);
+  recordEdit(() => {
+    c.innerHTML =
+      '<p style="margin:0;text-align:' + (back ? 'right' : 'left') + '">' + (esc(up) || '<br>') + '</p>' +
+      '<p style="margin:0;text-align:' + (back ? 'left' : 'right') + '">' + (esc(low) || '<br>') + '</p>';
+    c.style.verticalAlign = '';
+  });
+  msg('已設定斜線表頭');
+};
 document.querySelectorAll('[data-bd]').forEach(b =>
   b.addEventListener('click', () => {
     const cells = (b.closest('.bdmenu') && bdCells && bdCells[0].isConnected ? bdCells : null) || selCells();
