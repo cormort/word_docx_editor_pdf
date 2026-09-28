@@ -1318,6 +1318,22 @@ body.intable #fontSize {
     -webkit-mask-image: none;
     mask-image: none;
   }
+  /* 工具列固定在底部、本身不捲動：在上面直向滑動會變成捲動整個頁面，所以只留橫向（表格工具那一列要橫向捲動）。
+     .tools 與表格工具列本身是捲動容器，瀏覽器算 touch-action 只看到最近的捲動容器為止，所以要各自設定 */
+  .toolbar,
+  .toolbar .tools,
+  .grp.tblgrp {
+    touch-action: pan-x;
+  }
+  /* 「更多」等選單面板與尋找結果清單要能直向捲動，捲到底也不要把捲動傳給後面的頁面 */
+  .toolbar .panel,
+  #findList {
+    touch-action: pan-x pan-y;
+    overscroll-behavior: contain;
+  }
+  .grp.tblgrp {
+    overscroll-behavior-x: contain;
+  }
 }
 @media (max-width: 640px) {
   .actions .menu > summary {
