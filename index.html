@@ -1367,14 +1367,17 @@ body:not(.intable) .tblgrp + .grp {
       <button class="tool" data-para="indent" title="增加縮排" aria-label="增加縮排"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 6h9M11 10h9M11 14h9M4 18h16M4 9l3 3-3 3"/></svg></button>
       <button class="tool" data-para="first" title="首行縮排兩字（再按一次取消）" aria-label="首行縮排">首行</button>
       <details class="menu indmenu">
-        <summary class="tool" title="以字元設定縮排（左、右、首行／凸排）">縮排<span class="caret">▾</span></summary>
+        <summary class="tool" title="縮排（字元）與段落間距（段前、段後）">段落<span class="caret">▾</span></summary>
         <div class="panel" role="menu">
           <div class="padopts">
             <label>左<input type="number" class="num" data-ind="left" min="0" max="40" step="0.5"></label>
             <label>右<input type="number" class="num" data-ind="right" min="0" max="40" step="0.5"></label>
             <label><select data-ind="special" aria-label="特殊縮排"><option value="">無</option><option value="first">首行</option><option value="hang">凸排</option></select></label>
             <label><input type="number" class="num" data-ind="by" min="0" max="40" step="0.5">字元</label>
+            <label>段前<input type="number" class="num" data-ind="before" min="0" max="200" step="1"></label>
+            <label>段後<input type="number" class="num" data-ind="after" min="0" max="200" step="1"></label>
           </div>
+          <div class="padunit" style="padding:0 6px 6px">縮排單位：字元；段落間距單位：pt</div>
           <button class="tool mi" id="indApply" role="menuitem">套用到選取的段落</button>
         </div>
       </details>
@@ -3008,6 +3011,8 @@ indMenu.querySelector('summary').addEventListener('pointerdown', () => {
   indF('right').value = ch(cs.marginRight);
   indF('special').value = ti > 0 ? 'first' : ti < 0 ? 'hang' : '';
   indF('by').value = Math.abs(ti) || '';
+  indF('before').value = Math.round((parseFloat(cs.marginTop) || 0) * 0.75 * 2) / 2;
+  indF('after').value = Math.round((parseFloat(cs.marginBottom) || 0) * 0.75 * 2) / 2;
 });
 $('#indApply').onclick = () => {
   const els = indBlocks && indBlocks.length && indBlocks[0].isConnected ? indBlocks : selBlocks();
@@ -3022,9 +3027,12 @@ $('#indApply').onclick = () => {
       el.style.marginLeft = left ? left + 'em' : '';
       el.style.marginRight = n('right') ? n('right') + 'em' : '';
       el.style.textIndent = sp && by ? (sp === 'hang' ? -by : by) + 'em' : '';
+      // 段落間距（pt）：欄位留空就不動
+      if (indF('before').value !== '') el.style.marginTop = n('before') + 'pt';
+      if (indF('after').value !== '') el.style.marginBottom = n('after') + 'pt';
     }),
   );
-  msg('已設定縮排');
+  msg('已設定段落縮排與間距');
 };
 $('#lineHeight').onchange = e => {
   const v = e.target.value;
