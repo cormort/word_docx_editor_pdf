@@ -841,7 +841,9 @@
         let inner = '';
         for (const p of tags(m.tc, 'p')) { const r = docxParagraph(p, ctx); inner += r.html + r.after; }
         if (!inner) inner = '<p><br></p>';
-        cells += '<td' + attrs + '>' + inner + '</td>';
+        // 儲存格垂直對齊：Word 預設靠上（CSS 已預設），置中／靠下才另外標
+        const va = { center: 'middle', bottom: 'bottom' }[val(tag(tcPr, 'vAlign'), 'val')];
+        cells += '<td' + attrs + (va ? ' style="vertical-align:' + va + '"' : '') + '>' + inner + '</td>';
       }
       // 列高：Word 的 trHeight（twips；exact／atLeast 都當最小高度）
       const trH = num(val(tag(tag(tr, 'trPr'), 'trHeight'), 'val'), 0);

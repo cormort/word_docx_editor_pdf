@@ -291,6 +291,7 @@ input {
 .paper td {
   border: 1px solid #94a3b8;
   padding: 6px;
+  vertical-align: top; /* 跟 Word 一樣預設靠上 */
 }
 .statusbusy {
   opacity: 0.65;
@@ -3190,7 +3191,8 @@ function cellXml(td, ctx, colW, span, vmerge) {
     colW * (span || 1) +
     '" w:type="dxa"/>' +
     (span > 1 ? '<w:gridSpan w:val="' + span + '"/>' : '') +
-    (vmerge === 'restart' ? '<w:vMerge w:val="restart"/>' : vmerge === 'cont' ? '<w:vMerge/>' : '');
+    (vmerge === 'restart' ? '<w:vMerge w:val="restart"/>' : vmerge === 'cont' ? '<w:vMerge/>' : '') +
+    ({ middle: '<w:vAlign w:val="center"/>', bottom: '<w:vAlign w:val="bottom"/>' }[td.style.verticalAlign] || '');
   return '<w:tc><w:tcPr>' + pr + '</w:tcPr>' + inner + '</w:tc>';
 }
 function tableXml(tbl, ctx) {
