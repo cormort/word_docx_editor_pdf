@@ -1230,8 +1230,12 @@ body:not(.intable) .tblgrp + .grp {
       <button class="tool" data-top="merge" title="合併拖曳選取的多個格子">合併選取</button>
       <button class="tool" data-top="split" title="分割合併的儲存格">分割</button>
       <span class="tsep"></span>
+      <button class="tool" data-halign="left" title="儲存格內容靠左">靠左</button>
+      <button class="tool" data-halign="center" title="儲存格內容水平置中">水平置中</button>
+      <button class="tool" data-halign="right" title="儲存格內容靠右">靠右</button>
+      <span class="tsep"></span>
       <button class="tool" data-valign="top" title="儲存格內容靠上">靠上</button>
-      <button class="tool" data-valign="middle" title="儲存格內容垂直置中">置中</button>
+      <button class="tool" data-valign="middle" title="儲存格內容垂直置中">垂直置中</button>
       <button class="tool" data-valign="bottom" title="儲存格內容靠下">靠下</button>
       <span class="tsep"></span>
       <button class="tool danger" data-top="delTable" title="刪除整個表格">刪除表格</button>
@@ -1296,6 +1300,10 @@ body:not(.intable) .tblgrp + .grp {
           <button class="tool mi" id="mergeRBtn" role="menuitem">與右邊合併</button>
           <button class="tool mi" id="mergeDBtn" role="menuitem">與下方合併</button>
           <button class="tool mi" id="splitBtn" role="menuitem">分割儲存格</button>
+          <hr class="msep" role="separator">
+          <button class="tool mi" data-halign="left" role="menuitem">儲存格靠左</button>
+          <button class="tool mi" data-halign="center" role="menuitem">儲存格水平置中</button>
+          <button class="tool mi" data-halign="right" role="menuitem">儲存格靠右</button>
           <hr class="msep" role="separator">
           <button class="tool mi" data-valign="top" role="menuitem">儲存格靠上</button>
           <button class="tool mi" data-valign="middle" role="menuitem">儲存格垂直置中</button>
@@ -2053,17 +2061,37 @@ $('#colDelBtn').onclick = () => tableOp('delCol');
 $('#tblDelBtn').onclick = () => tableOp('delTable');
 $('#splitBtn').onclick = () => tableOp('split');
 // 儲存格垂直對齊：套用到選取範圍涵蓋的所有格子（沒選取就是游標那一格）；靠上是預設，就清掉設定
+function selCells() {
+  const cell = cellOfCaret();
+  if (!cell) return null;
+  const sel = getSelection(),
+    cells = [...cell.closest('table').querySelectorAll('td,th')].filter(c =>
+      [...Array(sel.rangeCount).keys()].some(i => sel.getRangeAt(i).intersectsNode(c)),
+    );
+  return cells.length ? cells : [cell];
+}
 document.querySelectorAll('[data-valign]').forEach(b =>
   b.addEventListener('click', () => {
-    const cell = cellOfCaret();
-    if (!cell) return msg('請先把游標放在表格內。', true);
-    const sel = getSelection(),
-      cells = [...cell.closest('table').querySelectorAll('td,th')].filter(c =>
-        [...Array(sel.rangeCount).keys()].some(i => sel.getRangeAt(i).intersectsNode(c)),
-      );
+    const cells = selCells();
+    if (!cells) return msg('請先把游標放在表格內。', true);
     const v = b.dataset.valign;
-    recordEdit(() => (cells.length ? cells : [cell]).forEach(c => (c.style.verticalAlign = v === 'top' ? '' : v)));
+    recordEdit(() => cells.forEach(c => (c.style.verticalAlign = v === 'top' ? '' : v)));
     msg('已設定儲存格' + { top: '靠上', middle: '垂直置中', bottom: '靠下' }[v]);
+  }),
+);
+// 水平對齊在 Word 是段落的屬性：格子本身與格子裡的每個段落都設（段落自己的對齊會蓋過格子）
+document.querySelectorAll('[data-halign]').forEach(b =>
+  b.addEventListener('click', () => {
+    const cells = selCells();
+    if (!cells) return msg('請先把游標放在表格內。', true);
+    const v = b.dataset.halign;
+    recordEdit(() =>
+      cells.forEach(c => {
+        c.style.textAlign = v === 'left' ? '' : v;
+        c.querySelectorAll('p,h1,h2,h3,h4,li,blockquote,pre').forEach(p => (p.style.textAlign = v === 'left' ? '' : v));
+      }),
+    );
+    msg('已設定儲存格' + { left: '靠左', center: '水平置中', right: '靠右' }[v]);
   }),
 );
 // 標題列：第一列到游標所在列搬進 <thead>；游標已在標題列裡就取消（搬回 tbody 開頭）
