@@ -875,8 +875,21 @@
         }
         // 文字方向：tbRl（直書）→ vertical-rl，btLr（由下而上）→ sideways-lr
         const wm = { tbRl: 'vertical-rl', tbRlV: 'vertical-rl', btLr: 'sideways-lr' }[val(tag(tcPr, 'textDirection'), 'val')];
+        // 斜線：tcBorders 的 tl2br／tr2bl → data-diag＋漸層背景（跟編輯器的斜線工具同一種畫法）
+        const dg = ['tl2br', 'tr2bl'].map((k) => [k, tag(tb, k)]).filter(([, e]) => e && !/^(nil|none)$/.test(val(e, 'val') || ''));
+        let dAttr = '';
+        if (dg.length) {
+          const e0 = dg[0][1], col = val(e0, 'color'), pt = Math.max(0.25, num(val(e0, 'sz'), 4) / 8);
+          const c = col && /^[0-9a-f]{6}$/i.test(col) ? '#' + col : '#000000';
+          const ln = dg.map(([k]) => (k === 'tl2br' ? "<line x1='0' y1='0' x2='100' y2='100'/>" : "<line x1='100' y1='0' x2='0' y2='100'/>")).join('');
+          const svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><g stroke='" + c +
+            "' stroke-width='" + Math.max(0.75, pt / 0.75) + "' vector-effect='non-scaling-stroke'>" + ln + '</g></svg>';
+          // style 屬性用雙引號包，所以 url() 裡用單引號
+          bd.push("background-image:url('data:image/svg+xml," + encodeURIComponent(svg) + "')", 'background-size:100% 100%');
+          dAttr = ' data-diag="' + dg.map(([k]) => k).join(' ') + '" data-diag-color="' + c + '" data-diag-pt="' + pt + '"';
+        }
         const tdCss = [va ? 'vertical-align:' + va : '', bg, ...bd, cellMar(tblMar, tag(tcPr, 'tcMar')), wm ? 'writing-mode:' + wm : ''].filter(Boolean).join(';');
-        cells += '<td' + attrs + (tdCss ? ' style="' + tdCss + '"' : '') + '>' + inner + '</td>';
+        cells += '<td' + attrs + dAttr + (tdCss ? ' style="' + tdCss + '"' : '') + '>' + inner + '</td>';
       }
       // 列高：Word 的 trHeight（twips；exact／atLeast 都當最小高度）
       const trH = num(val(tag(tag(tr, 'trPr'), 'trHeight'), 'val'), 0);

@@ -1304,6 +1304,10 @@ body:not(.intable) .tblgrp + .grp {
           <button class="tool mi" data-bd="bottom" role="menuitem">下框線</button>
           <button class="tool mi" data-bd="left" role="menuitem">左框線</button>
           <button class="tool mi" data-bd="right" role="menuitem">右框線</button>
+          <hr class="msep" role="separator">
+          <button class="tool mi" data-diag="tl2br" role="menuitem">斜線 ＼（左上到右下）</button>
+          <button class="tool mi" data-diag="tr2bl" role="menuitem">斜線 ／（右上到左下）</button>
+          <button class="tool mi" data-diag="" role="menuitem">清除斜線</button>
         </div>
       </details>
       <details class="menu">
@@ -2308,6 +2312,44 @@ function applyBorders(kind, cells) {
     }
   }
 }
+// 斜線：背景放一張拉伸的 SVG（線寬不隨格子縮放，比漸層畫的斜線乾淨）；
+// data-diag 記「tl2br tr2bl」與顏色／粗細，匯出成 Word 的 tcBorders 斜線
+function diagCss(kinds, color, px) {
+  const ln = kinds
+    .map(k => (k === 'tl2br' ? "<line x1='0' y1='0' x2='100' y2='100'/>" : "<line x1='100' y1='0' x2='0' y2='100'/>"))
+    .join('');
+  const svg =
+    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><g stroke='" + color +
+    "' stroke-width='" + Math.max(0.75, px) + "' vector-effect='non-scaling-stroke'>" + ln + '</g></svg>';
+  return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
+}
+document.querySelectorAll('[data-diag]').forEach(b =>
+  b.addEventListener('click', () => {
+    const cells = (bdCells && bdCells[0].isConnected ? bdCells : null) || selCells();
+    if (!cells) return msg('請先把游標放在表格內。', true);
+    const k = b.dataset.diag,
+      color = $('#bdColor').value,
+      px = parseFloat($('#bdWidth').value) / 0.75;
+    recordEdit(() =>
+      cells.forEach(c => {
+        const kinds = k ? [...new Set([...(c.dataset.diag || '').split(' ').filter(Boolean), k])] : [];
+        if (kinds.length) {
+          c.dataset.diag = kinds.join(' ');
+          c.dataset.diagColor = color;
+          c.dataset.diagPt = $('#bdWidth').value;
+          c.style.backgroundImage = diagCss(kinds, color, px);
+          c.style.backgroundSize = '100% 100%';
+        } else {
+          delete c.dataset.diag;
+          delete c.dataset.diagColor;
+          delete c.dataset.diagPt;
+          c.style.backgroundImage = c.style.backgroundSize = '';
+        }
+      }),
+    );
+    msg(k ? '已加上斜線' : '已清除斜線');
+  }),
+);
 document.querySelectorAll('[data-bd]').forEach(b =>
   b.addEventListener('click', () => {
     const cells = (b.closest('.bdmenu') && bdCells && bdCells[0].isConnected ? bdCells : null) || selCells();
@@ -3530,7 +3572,17 @@ function cellBorders(td) {
         '" w:space="0" w:color="' + (hexOf(td.style['border' + S + 'Color']) || '000000') + '"/>';
     })
     .join('');
-  return out ? '<w:tcBorders>' + out + '</w:tcBorders>' : '';
+  // 斜線（tl2br／tr2bl 在 tcBorders 的最後）
+  const diag = (td.dataset.diag || '')
+    .split(' ')
+    .filter(k => k === 'tl2br' || k === 'tr2bl')
+    .sort()
+    .map(k =>
+      '<w:' + k + ' w:val="single" w:sz="' + Math.max(2, Math.round((parseFloat(td.dataset.diagPt) || 0.5) * 8)) +
+      '" w:space="0" w:color="' + (hexOf(td.dataset.diagColor || '') || '000000') + '"/>',
+    )
+    .join('');
+  return out + diag ? '<w:tcBorders>' + out + diag + '</w:tcBorders>' : '';
 }
 // 儲存格自己設的內距 → w:tcMar（dxa；pt×20、px×15）
 function cellMar(td) {
