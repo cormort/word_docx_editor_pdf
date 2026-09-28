@@ -296,16 +296,22 @@ input {
   opacity: 0.65;
   pointer-events: none;
 }
-/* 平板與電腦：頂部工具列與編輯區滿版（閱讀模式、列印仍照紙張尺寸） */
+/* 平板與電腦：頂部工具列與編輯區外框滿版；紙張本身照 Word 頁面大小分頁顯示 */
 @media screen and (min-width: 641px) {
   body:not(.desk) .topin,
   body:not(.desk) .wrap,
   body:not(.desk) .meta {
     max-width: none;
   }
-  body:not(.desk) .paper,
-  body:not(.desk) .paper.landscape {
-    width: 100% !important;
+}
+/* 分頁檢視（平板與電腦）：分頁符號不再畫虛線，由頁與頁之間的空隙表現 */
+@media screen {
+  body.paged .pagebreak {
+    border: 0;
+    margin: 0;
+  }
+  body.paged .pagebreak::after {
+    content: none;
   }
 }
 /* 滑鼠移到工具按鈕上立即顯示說明（瀏覽器原生 title 要等約一秒，觸控裝置也不顯示） */
@@ -1095,6 +1101,7 @@ body:not(.intable) .tblgrp + .grp {
 }
 </style>
 <style id="pageStyle"></style>
+<style id="pgSheet"></style>
 
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-GHGBM401HN"></script>
@@ -3241,6 +3248,7 @@ async function searchablePdf() {
 }
 $('#pdfBtn').onclick = async () => {
   document.body.classList.add('statusbusy');
+  $('#pgSheet').disabled = true; // 相容模式的 PDF 直接拍編輯區，不能帶著分頁留白
   msg('正在產生 PDF…');
   editor.style.zoom = '';
   try {
@@ -3292,13 +3300,103 @@ $('#pdfBtn').onclick = async () => {
   } catch (err) {
     msg('PDF 產生失敗：' + err.message + '；可改用「列印」後選擇另存為 PDF。', true);
   } finally {
+    $('#pgSheet').disabled = false;
     fit();
     document.body.classList.remove('statusbusy');
   }
 };
+// ---- 分頁檢視：像 Word 一樣一頁一張紙，最後一頁也補滿整張 ----
+// 不動文件 DOM（存檔、復原、匯出都不受影響）：量出每頁放不下的第一個區塊，用產生的樣式表
+// 加大它的上邊界，把它推到下一頁的內容起點；紙張與頁間空隙用編輯區背景畫出來。
+// ponytail: 以區塊為單位換頁，比一頁還高的段落／表格不會從行中間切開（會跨過頁間空隙）。
+const pagedQ = matchMedia('(max-width: 640px), (pointer: coarse) and (max-height: 500px)');
+let pgT;
+function paginateSoon() {
+  clearTimeout(pgT);
+  pgT = setTimeout(paginate, 250);
+}
+function paginate() {
+  const sheet = $('#pgSheet');
+  const on = !pagedQ.matches;
+  document.body.classList.toggle('paged', on);
+  if (!on) {
+    sheet.textContent = '';
+    fit();
+    return;
+  }
+  const pg = pdfPage(),
+    MM = 96 / 25.4,
+    GAP = 16;
+  const H = pg.pageH * MM,
+    T = pg.margins[0] * MM,
+    B = pg.margins[2] * MM,
+    step = H + GAP,
+    room = H - T - B;
+  const base = minH =>
+    'body.paged #editor{width:' + pg.pageW + 'mm!important;min-height:' + minH + 'px!important;padding:' +
+    pg.margins.map(v => v + 'mm').join(' ') +
+    '!important;box-shadow:none!important;filter:drop-shadow(0 2px 5px #0f172a26);background:repeating-linear-gradient(to bottom,#fff 0,#fff ' +
+    H + 'px,transparent ' + H + 'px,transparent ' + step + 'px)!important}';
+  sheet.textContent = '@media screen{' + base(H) + '}';
+  fit();
+  const er = editor.getBoundingClientRect(),
+    z = er.width / editor.offsetWidth || 1;
+  const rules = [];
+  let acc = 0, // 前面推移累積的位移：一次量完再算，免得每推一次就重排整份文件
+    end = T;
+  const walk = (box, sel) => {
+    let prev = null,
+      breakTop = -1,
+      i = 0;
+    for (const el of box.children) {
+      const s = sel + '>:nth-child(' + ++i + ')';
+      const r = el.getBoundingClientRect(),
+        top = (r.top - er.top) / z + acc,
+        h = r.height / z;
+      if (el.classList.contains('pagebreak')) {
+        breakTop = top;
+        prev = el;
+        continue;
+      }
+      const cs = getComputedStyle(el);
+      if (cs.position === 'absolute' || cs.float !== 'none') continue;
+      const k = Math.floor(top / step);
+      let target = -1;
+      if (breakTop >= 0) target = (Math.floor(breakTop / step) + 1) * step + T;
+      else if (top + h > k * step + H - B + 0.5) {
+        if (h > room && /^(DIV|UL|OL|BLOCKQUOTE|SECTION)$/.test(el.tagName) && el.children.length) {
+          walk(el, s); // 太高的容器（文字方塊、清單）：進去逐段換頁
+          prev = el;
+          end = Math.max(end, (r.bottom - er.top) / z + acc);
+          continue;
+        }
+        if (h <= room) target = (k + 1) * step + T;
+      }
+      breakTop = -1;
+      if (target > top + 0.5) {
+        const mt = parseFloat(cs.marginTop) || 0,
+          pmb = prev ? parseFloat(getComputedStyle(prev).marginBottom) || 0 : 0;
+        rules.push(s + '{margin-top:' + ((prev ? Math.max(mt, pmb) : mt) + target - top).toFixed(1) + 'px!important}');
+        acc += target - top;
+      }
+      prev = el;
+      end = Math.max(end, (r.bottom - er.top) / z + acc);
+    }
+  };
+  walk(editor, '#editor');
+  const pages = Math.floor((end + B - 1) / step) + 1;
+  sheet.textContent = '@media screen{' + base(pages * step - GAP) + rules.join('') + '}';
+}
+// 編輯區自己的 style（縮放）是我們設的，不算內容變動，否則會一直重排
+new MutationObserver(ms => ms.some(m => !(m.target === editor && m.type === 'attributes')) && paginateSoon()).observe(editor, { childList: true, subtree: true, characterData: true, attributes: true });
+editor.addEventListener('load', paginateSoon, true); // 圖片載入後高度才確定
+addEventListener('resize', paginateSoon);
+pagedQ.addEventListener('change', paginateSoon);
+if (document.fonts) document.fonts.ready.then(paginateSoon);
+paginateSoon();
 function fit() {
   editor.style.zoom = '';
-  if (document.body.classList.contains('desk')) {
+  if (document.body.classList.contains('desk') || document.body.classList.contains('paged')) {
     const w = editor.parentElement,
       c = getComputedStyle(w);
     editor.style.zoom = Math.min(
@@ -3325,6 +3423,7 @@ try {
 $('#pageSize').onchange = () => {
   clearDocumentPage();
   applyPageStyle();
+  paginateSoon();
 };
 $('#marginMm').oninput = () => {
   clearDocumentPage();
@@ -3333,12 +3432,14 @@ $('#marginMm').oninput = () => {
 $('#marginMm').onchange = () => {
   clearDocumentPage();
   applyPageStyle();
+  paginateSoon();
 };
 $('#orientation').onchange = e => {
   clearDocumentPage();
   editor.classList.toggle('landscape', e.target.value === 'landscape');
   applyPageStyle();
   fit();
+  paginateSoon();
 };
 $('#findToggle').onclick = () => {
   const open = $('#findbar').style.display !== 'flex';
