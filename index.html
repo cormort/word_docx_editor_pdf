@@ -1313,6 +1313,9 @@ body:not(.intable) .tblgrp + .grp {
           <button class="tool mi" data-diag="tr2bl" role="menuitem">斜線 ／（右上到左下）</button>
           <button class="tool mi" data-diag="" role="menuitem">清除斜線</button>
           <button class="tool mi" id="diagHeadBtn" role="menuitem">斜線表頭（分隔兩邊文字）…</button>
+          <label class="bdopts">表頭字級
+            <select id="diagSize" aria-label="斜線表頭字級"><option value="">—</option><option>8</option><option>9</option><option>10</option><option>10.5</option><option>11</option><option>12</option><option>14</option><option>16</option><option>18</option></select>pt
+          </label>
         </div>
       </details>
       <details class="menu">
@@ -2420,6 +2423,16 @@ editor.addEventListener('pointerdown', e => {
   document.addEventListener('pointermove', move);
   document.addEventListener('pointerup', up);
 });
+// 斜線表頭字級：套用到選取的斜線格裡的所有文字段落
+$('#diagSize').onchange = e => {
+  const v = e.target.value,
+    cells = ((bdCells && bdCells[0].isConnected ? bdCells : null) || selCells() || []).filter(c => c.dataset.diag);
+  e.target.value = '';
+  if (!v) return;
+  if (!cells.length) return msg('請先把游標放在有斜線的儲存格內。', true);
+  recordEdit(() => cells.forEach(c => c.querySelectorAll('p').forEach(p => (p.style.fontSize = v + 'pt'))));
+  msg('已設定斜線表頭字級 ' + v + 'pt');
+};
 document.querySelectorAll('[data-bd]').forEach(b =>
   b.addEventListener('click', () => {
     const cells = (b.closest('.bdmenu') && bdCells && bdCells[0].isConnected ? bdCells : null) || selCells();
@@ -3437,6 +3450,9 @@ function nodeStyle(node, inherited) {
     if (c && c !== '000000') st.color = c;
     const bg = cs && cs.backgroundColor ? toHex(cs.backgroundColor) : '';
     if (bg) st.shade = bg;
+    // 行內的字級（匯入的 Word 字級、斜線表頭字級）：pt 或 px → 半點
+    const fs = cs && cs.fontSize;
+    if (fs && /(pt|px)$/.test(fs)) st.half = Math.round(parseFloat(fs) * (/px$/.test(fs) ? 0.75 : 1) * 2) || st.half;
   } catch (e) {}
   return st;
 }
@@ -3482,10 +3498,13 @@ function runsXml(runs) {
 }
 // 一段段落內的內容（含連結與圖片）
 function inlineXml(el, ctx, out) {
+  // 段落本身的行內樣式（字級、顏色）也要傳給裡面的文字；段落底色不算（不然每段文字都變成網底）
+  const base = nodeStyle(el, {});
+  delete base.shade;
   for (const ch of el.childNodes) {
     if (ch.nodeType === 3) {
       const runs = [];
-      collectRuns(ch, {}, runs);
+      collectRuns(ch, base, runs);
       if (runs.some(r => r.text.trim())) out.push({ runs });
       continue;
     }
@@ -3503,14 +3522,14 @@ function inlineXml(el, ctx, out) {
     if (tag === 'a') {
       const href = ch.getAttribute('href') || '';
       const runs = [];
-      collectRuns(ch, {}, runs);
+      collectRuns(ch, base, runs);
       if (/^https?:\/\//i.test(href)) out.push({ runs, rid: ctx.rel('hyperlink', href, true) });
       else out.push({ runs });
       continue;
     }
     if (/^(span|font|b|strong|i|em|u|code|sub|sup|mark|small|time|label)$/.test(tag)) {
       const runs = [];
-      collectRuns(ch, {}, runs);
+      collectRuns(ch, base, runs);
       if (runs.length) out.push({ runs });
       continue;
     }
