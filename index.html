@@ -3949,6 +3949,12 @@ const NUM_BASES = {
   digit: ['extends cjk-decimal', 'taiwaneseDigital'],
   stem: ["fixed; symbols: '甲' '乙' '丙' '丁' '戊' '己' '庚' '辛' '壬' '癸'", 'ideographTraditional'],
   branch: ["fixed; symbols: '子' '丑' '寅' '卯' '辰' '巳' '午' '未' '申' '酉' '戌' '亥'", 'ideographZodiac'],
+  // 六十甲子：天干地支依序配對（甲子、乙丑……癸亥）
+  sexa: [
+    'fixed; symbols: ' +
+      Array.from({ length: 60 }, (_, i) => "'" + '甲乙丙丁戊己庚辛壬癸'[i % 10] + '子丑寅卯辰巳午未申酉戌亥'[i % 12] + "'").join(' '),
+    'ideographZodiacTraditional',
+  ],
   dec: ['extends decimal', 'decimal'],
   decfw: ["numeric; symbols: '０' '１' '２' '３' '４' '５' '６' '７' '８' '９'", 'decimalFullWidth'],
   dec0: ['extends decimal-leading-zero', 'decimalZero'],

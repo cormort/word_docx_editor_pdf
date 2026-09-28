@@ -146,7 +146,7 @@
   const FMT_BASE = {
     taiwaneseCounting: 'han', taiwaneseCountingThousand: 'han', chineseCounting: 'han', chineseCountingThousand: 'han',
     ideographLegalTraditional: 'legal', chineseLegalSimplified: 'legal', taiwaneseDigital: 'digit', ideographDigital: 'digit',
-    ideographTraditional: 'stem', ideographZodiac: 'branch', decimal: 'dec', decimalFullWidth: 'decfw', decimalFullWidth2: 'decfw',
+    ideographTraditional: 'stem', ideographZodiac: 'branch', ideographZodiacTraditional: 'sexa', decimal: 'dec', decimalFullWidth: 'decfw', decimalFullWidth2: 'decfw',
     decimalHalfWidth: 'dec', decimalZero: 'dec0', decimalEnclosedCircle: 'circ', decimalEnclosedCircleChinese: 'circ',
     decimalEnclosedParen: 'paren', decimalEnclosedFullstop: 'stop', ideographEnclosedCircle: 'hancirc',
     lowerLetter: 'lalpha', upperLetter: 'ualpha', lowerRoman: 'lroman', upperRoman: 'uroman',
