@@ -219,6 +219,10 @@
         if (nm === 'emphasis') st.i = true;
       }
     }
+    // 明確寫了 w:val="0"（例如標題裡取消粗體）：蓋過字元樣式，也要記下來輸出 font-weight:normal，
+    // 不然標題的 CSS 粗體會蓋回來
+    if (pick('b') && !on('b')) { st.b = false; st.offB = true; }
+    if (pick('i') && !on('i')) { st.i = false; st.offI = true; }
     return st;
   }
   function wrapRun(text, st) {
@@ -227,7 +231,8 @@
     if (st.u) out = '<u>' + out + '</u>';
     if (st.i) out = '<i>' + out + '</i>';
     if (st.b) out = '<b>' + out + '</b>';
-    if (st.css.length) out = '<span style="' + st.css.join(';') + '">' + out + '</span>';
+    const css = st.css.concat(st.offB ? ['font-weight:normal'] : [], st.offI ? ['font-style:normal'] : []);
+    if (css.length) out = '<span style="' + css.join(';') + '">' + out + '</span>';
     return out;
   }
 
@@ -315,15 +320,22 @@
     if (base.css.length) styles.push(...base.css);
     styles.push(...pbSize);
 
+    // 只有段落本身會顯示成粗體／斜體（標題的 CSS 粗體、段落樣式的粗斜體）時，w:val="0" 才需要寫成 CSS，
+    // 其他地方省掉多餘的 span
+    const keepOff = (st) => {
+      if (!base.b && !/^h\d$/.test(htmlTag)) st.offB = false;
+      if (!base.i) st.offI = false;
+      return st;
+    };
     let inner = '';
     const parts = [];
     const emit = (html) => { if (html) parts.push(html); };
     const walk = (node, rPr) => {
       for (const ch of node.children) {
         if (ch.localName === 'r') {
-          const st = runStyle([tag(ch, 'rPr'), rPr, style ? style.rPr : null, ctx.styles.defR], ctx);
-          if (base.b) st.b = true;
-          if (base.i) st.i = true;
+          const st = keepOff(runStyle([tag(ch, 'rPr'), rPr, style ? style.rPr : null, ctx.styles.defR], ctx));
+          if (base.b && !st.offB) st.b = true;
+          if (base.i && !st.offI) st.i = true;
           if (base.u) st.u = true;
           for (const c of ch.children) {
             if (c.localName === 't') emit(wrapRun(c.textContent, st));
@@ -347,7 +359,7 @@
           const inner2 = [];
           const sub = { children: ch.children };
           const collect = (n) => { for (const c of n.children) { if (c.localName === 'r') {
-              const st = runStyle([tag(c, 'rPr'), style ? style.rPr : null, ctx.styles.defR], ctx);
+              const st = keepOff(runStyle([tag(c, 'rPr'), style ? style.rPr : null, ctx.styles.defR], ctx));
               for (const cc of c.children) if (cc.localName === 't') inner2.push(wrapRun(cc.textContent, st));
             } else if (c.localName === 'hyperlink' || c.localName === 'smartTag') collect(c); } };
           collect(ch);
