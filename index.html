@@ -744,15 +744,12 @@ body.desk .readbar {
   color: #1d4ed8;
 }
 /* 複製格式（格式刷）已複製時：游標變十字，選取範圍也染色，提示「接下來是刷的動作」 */
-#paintBtn.on {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
 body.painting #editor {
   cursor: crosshair;
 }
-body.painting #editor::selection {
-  background: #bfdbfe;
+body.painting #editor::selection,
+body.painting #editor ::selection {
+  background: rgba(99, 102, 241, 0.3);
 }
 body.dragging .paper {
   outline: 3px dashed var(--blue);
@@ -3298,9 +3295,11 @@ if (hlColorInput) setSwatch(hlColorInput, hlColorInput.value);
 // 套用走 execCommand（跟工具列按鈕同一條路），所以跨段落選取時每個段落都會被處理
 let paintFmt = null,
   paintKeep = false,
-  paintBusy = false,
-  paintPicked = '',
-  paintT = null;
+  paintT = null,
+  paintDown = false, // 滑鼠／手指還按著：拖曳選取還沒結束，不能套用
+  paintFromEditor = false, // 這次按下是在編輯區裡（點工具列按鈕放開時不能把格式刷到原本的選取上）
+  paintTouch = false,
+  paintAt = 0; // 上次套用的時間：套用本身觸發的 selectionchange 不算數
 function paintSync() {
   const b = $('#paintBtn');
   if (!b) return;
@@ -3312,41 +3311,58 @@ function paintCancel(quiet) {
   clearTimeout(paintT);
   paintFmt = null;
   paintKeep = false;
-  paintBusy = false;
   paintSync();
   if (!quiet) msg('已取消複製格式');
+}
+// 底線、刪除線、上下標、底色這些 CSS 不會繼承到子元素的 computed style，
+// 所以要沿著行內祖先一路往上看（<u><b>字</b></u> 只看 <b> 會以為沒有底線）
+function inlineFmt(el) {
+  const cs = getComputedStyle(el),
+    f = {
+      b: (+cs.fontWeight || 400) >= 600,
+      i: cs.fontStyle === 'italic',
+      u: false,
+      strike: false,
+      vert: '',
+      shade: '',
+      color: toHex(cs.color),
+      px: parseFloat(cs.fontSize) || 16,
+    };
+  for (let n = el; n && n !== editor && editor.contains(n); n = n.parentElement) {
+    const s = n === el ? cs : getComputedStyle(n);
+    if (!/^inline/.test(s.display)) break; // 到段落／儲存格就停：儲存格網底不是文字螢光
+    const deco = s.textDecorationLine || s.textDecoration || '';
+    if (/underline/.test(deco)) f.u = true;
+    if (/line-through/.test(deco)) f.strike = true;
+    if (!f.vert && /super|sub/.test(s.verticalAlign)) f.vert = /super/.test(s.verticalAlign) ? 'superscript' : 'subscript';
+    if (!f.shade && !/rgba\(0, 0, 0, 0\)|transparent/.test(s.backgroundColor || 'transparent')) f.shade = toHex(s.backgroundColor);
+  }
+  return f;
+}
+// 選取範圍內只要有一段文字符合 test 就回傳 true（混合選取時 queryCommandState 只會回 false）
+function rangeSome(range, test) {
+  const root = range.commonAncestorContainer,
+    w = document.createTreeWalker(root.nodeType === 1 ? root : root.parentNode, NodeFilter.SHOW_TEXT);
+  for (let t = w.currentNode.nodeType === 3 ? w.currentNode : w.nextNode(); t; t = w.nextNode())
+    if (t.nodeValue.trim() && range.intersectsNode(t) && t.parentElement && test(inlineFmt(t.parentElement))) return true;
+  return false;
 }
 function readFormat() {
   const sel = getSelection();
   if (!sel.rangeCount || !editor.contains(sel.anchorNode)) return null;
   const node = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
   if (!node || !editor.contains(node)) return null;
-  const cs = getComputedStyle(node),
-    base = getComputedStyle(editor),
-    deco = cs.textDecorationLine || cs.textDecoration || '';
-  const hex = v => {
-    try {
-      return toHex(v);
-    } catch (e) {
-      return '';
-    }
-  };
-  const color = hex(cs.color),
-    bg = cs.backgroundColor || '',
-    block = node.closest('p,li,h1,h2,h3,h4,h5,h6,blockquote,pre,td,th');
-  return {
-    b: (+cs.fontWeight || 400) >= 600,
-    i: cs.fontStyle === 'italic',
-    u: /underline/.test(deco),
-    strike: /line-through/.test(deco),
-    vert: /super/.test(cs.verticalAlign) ? 'superscript' : /sub/.test(cs.verticalAlign) ? 'subscript' : '',
-    color: color && color !== hex(base.color) ? color : '', // 預設色不寫死，免得把文字鎖成某個顏色
-    defColor: hex(base.color), // 來源是預設色時，把目標刷成預設色（等於「清掉顏色」）
-    shade: /rgba\(0, 0, 0, 0\)|transparent/.test(bg) ? '' : hex(bg),
-    px: parseFloat(cs.fontSize) || 16,
+  const base = getComputedStyle(editor),
+    f = inlineFmt(node),
+    defColor = toHex(base.color),
+    // text-align 會繼承，直接看游標所在元素就對（用 closest 找段落會跳過 Chrome 置中時包的 <div>）
+    align = String(getComputedStyle(node).textAlign).replace(/^-webkit-/, '');
+  return Object.assign(f, {
+    color: f.color !== defColor ? f.color : '', // 預設色不寫死，免得把文字鎖成某個顏色
+    defColor, // 來源是預設色時，把目標刷成預設色（等於「清掉顏色」）
     defPx: parseFloat(base.fontSize) || 16,
-    align: block ? getComputedStyle(block).textAlign : '',
-  };
+    align,
+  });
 }
 const cmdOn = c => {
   try {
@@ -3359,44 +3375,55 @@ function applyFormat(f) {
   const sel = getSelection();
   if (!f || !sel.rangeCount || sel.isCollapsed || !editor.contains(sel.anchorNode)) return false;
   editor.focus();
-  recordEdit(() => {
-    if (cmdOn('bold') !== f.b) document.execCommand('bold');
-    if (cmdOn('italic') !== f.i) document.execCommand('italic');
-    if (cmdOn('underline') !== f.u) document.execCommand('underline');
-    if (cmdOn('strikeThrough') !== f.strike) document.execCommand('strikeThrough');
-    if (f.vert === 'superscript' && !cmdOn('superscript')) document.execCommand('superscript');
-    else if (f.vert === 'subscript' && !cmdOn('subscript')) document.execCommand('subscript');
-    else if (!f.vert) {
-      if (cmdOn('superscript')) document.execCommand('superscript');
-      if (cmdOn('subscript')) document.execCommand('subscript');
+  const has = test => rangeSome(sel.getRangeAt(0), test);
+  // 要開：還沒全開就按一次。要關：只要有一部分開著（混合選取時 queryCommandState 是 false），
+  // 先按成全開再按一次關掉
+  const set = (cmd, on, any) => {
+    if (on) {
+      if (!cmdOn(cmd)) document.execCommand(cmd);
+    } else if (any) {
+      if (!cmdOn(cmd)) document.execCommand(cmd);
+      document.execCommand(cmd);
     }
-    // 文字顏色：來源是預設色就刷成預設色（等於清掉顏色）。不能用 'inherit'，
-    // execCommand 會把它原樣寫成 <font color="rgba(0, 0, 0, 0)"> 這種無效值
-    document.execCommand('foreColor', false, '#' + (f.color || f.defColor || '000000'));
-    document.execCommand('hiliteColor', false, f.shade ? '#' + f.shade : 'transparent');
-    // 字級：來源與編輯區預設不同、而且對得上工具列的 HTML font size（2–5）才套用
-    const half = Math.round(f.px * 0.75 * 2),
-      hit = Math.abs(f.px - f.defPx) > 1 ? Object.keys(FONT_SIZE_HALF).find(k => Math.abs(FONT_SIZE_HALF[k] - half) <= 1) : null;
-    if (hit) document.execCommand('fontSize', false, hit);
-    const a = f.align;
-    if (a === 'center') document.execCommand('justifyCenter');
-    else if (a === 'right' || a === 'end') document.execCommand('justifyRight');
-    else if (a === 'justify') document.execCommand('justifyFull');
-    else if (a === 'left' || a === 'start') document.execCommand('justifyLeft');
+  };
+  let ok = true;
+  recordEdit(() => {
+    try {
+      set('bold', f.b, !f.b && has(x => x.b));
+      set('italic', f.i, !f.i && has(x => x.i));
+      set('underline', f.u, !f.u && has(x => x.u));
+      set('strikeThrough', f.strike, !f.strike && has(x => x.strike));
+      set('superscript', f.vert === 'superscript', f.vert !== 'superscript' && has(x => x.vert === 'superscript'));
+      set('subscript', f.vert === 'subscript', f.vert !== 'subscript' && has(x => x.vert === 'subscript'));
+      // 顏色與螢光只在目標真的不一樣時才動，免得每刷一次就多包一層 <font>／<span>
+      // 文字顏色不能用 'inherit'：execCommand 會把它原樣寫成 <font color="rgba(0, 0, 0, 0)"> 這種無效值
+      const color = f.color || f.defColor || '000000';
+      if (has(x => x.color !== color)) document.execCommand('foreColor', false, '#' + color);
+      if (has(x => x.shade !== f.shade)) document.execCommand('hiliteColor', false, f.shade ? '#' + f.shade : 'transparent');
+      // 字級：對得上工具列的 HTML font size（2–5）才套用；來源是預設字級就刷回 3（＝12pt 預設）
+      const half = Math.round(f.px * 0.75 * 2),
+        size = Math.abs(f.px - f.defPx) <= 1 ? '3' : Object.keys(FONT_SIZE_HALF).find(k => Math.abs(FONT_SIZE_HALF[k] - half) <= 1);
+      if (size && has(x => Math.abs(x.px - f.px) > 1)) document.execCommand('fontSize', false, size);
+      const a = f.align;
+      if (a === 'center') document.execCommand('justifyCenter');
+      else if (a === 'right' || a === 'end') document.execCommand('justifyRight');
+      else if (a === 'justify') document.execCommand('justifyFull');
+      else if (a === 'left' || a === 'start') document.execCommand('justifyLeft');
+    } catch (e) {
+      ok = false;
+    }
   });
-  saveDraft();
   syncToolbar();
-  return true;
+  if (!ok) {
+    paintCancel(true);
+    msg('這個瀏覽器不支援套用該格式。', true);
+  }
+  return ok;
 }
 const paintApply = () => {
-  if (!paintFmt || paintBusy) return;
-  const sel = getSelection();
-  if (!sel.rangeCount || sel.isCollapsed || !editor.contains(sel.anchorNode)) return;
-  const picked = sel.toString();
+  if (!paintFmt || paintDown) return;
   if (!applyFormat(paintFmt)) return;
-  // 套用本身會再觸發一次 selectionchange；記下這次選取的文字，等使用者換了選取範圍才解除鎖
-  paintBusy = true;
-  paintPicked = picked;
+  paintAt = Date.now();
   if (paintKeep) msg('已套用格式（連續模式：繼續選取，或按 Esc／再按一次按鈕結束）');
   else {
     paintFmt = null;
@@ -3404,13 +3431,17 @@ const paintApply = () => {
     msg('已套用格式');
   }
 };
-$('#paintBtn').addEventListener('click', () => {
+const paintLater = ms => {
+  clearTimeout(paintT);
+  paintT = setTimeout(paintApply, ms);
+};
+$('#paintBtn').addEventListener('click', e => {
+  if (e.detail >= 2) return; // 連按兩下的第二下交給 dblclick（不然會先把格式刷取消掉）
   if (paintFmt) return paintCancel();
   const f = readFormat();
   if (!f) return msg('請先把游標放在要複製格式的文字上。', true);
   paintFmt = f;
   paintKeep = false;
-  paintBusy = false;
   paintSync();
   closeMenus();
   msg('已複製格式：選取要套用的文字（Esc 取消；連按兩下可連續套用）');
@@ -3420,18 +3451,35 @@ $('#paintBtn').addEventListener('dblclick', () => {
   paintKeep = true;
   msg('連續套用模式：可重複選取文字（Esc 取消）');
 });
-// 選取停下來就套用：滑鼠拖曳與手機長按選取都適用（等 350ms 沒有再變動才動手）
-document.addEventListener('selectionchange', () => {
-  if (!paintFmt) return;
-  // 剛套用完那次造成的 selectionchange 不算（同一個選取範圍）；換了範圍才解除鎖
-  if (paintBusy && getSelection().toString() === paintPicked) return;
-  paintBusy = false;
-  clearTimeout(paintT);
-  paintT = setTimeout(paintApply, 350);
+// 放開滑鼠／手指才套用（拖曳途中停頓不會只刷到一半）；稍等一下，讓連點兩下、三下選字有時間完成
+document.addEventListener(
+  'pointerdown',
+  e => {
+    paintDown = true;
+    paintTouch = e.pointerType === 'touch';
+    paintFromEditor = !!e.target.closest('#editor');
+    clearTimeout(paintT);
+  },
+  true,
+);
+document.addEventListener(
+  'pointerup',
+  () => {
+    paintDown = false;
+    if (paintFmt && paintFromEditor) paintLater(paintTouch ? 800 : 250);
+  },
+  true,
+);
+document.addEventListener('pointercancel', () => (paintDown = false), true);
+// 鍵盤選取（Shift＋方向鍵）：放開 Shift 才套用
+editor.addEventListener('keyup', e => {
+  if (paintFmt && e.key === 'Shift') paintLater(0);
 });
-// 下一次點擊／打字就解除「剛套用完」的鎖
-document.addEventListener('pointerdown', () => (paintBusy = false), true);
-editor.addEventListener('keydown', () => (paintBusy = false), true);
+// 手機拖曳選取把手不會送 pointer 事件給網頁，只能等選取停下來再套用
+document.addEventListener('selectionchange', () => {
+  if (!paintFmt || !paintTouch || paintDown || document.activeElement !== editor || Date.now() - paintAt < 300) return;
+  paintLater(800);
+});
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && paintFmt) paintCancel();
 });
