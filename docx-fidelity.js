@@ -73,7 +73,7 @@
       if (st.localName !== 'style') continue;
       const id = val(st, 'styleId');
       if (!id) continue;
-      map.set(id, { name: val(tag(st, 'name'), 'val') || '', rPr: tag(st, 'rPr'), pPr: tag(st, 'pPr'), type: val(st, 'type') });
+      map.set(id, { name: val(tag(st, 'name'), 'val') || '', basedOn: val(tag(st, 'basedOn'), 'val'), rPr: tag(st, 'rPr'), pPr: tag(st, 'pPr'), type: val(st, 'type') });
     }
     const dd = [...doc.getElementsByTagName('*')].find((e) => e.localName === 'docDefaults');
     return {
@@ -187,18 +187,42 @@
   }
 
   // ---------- 段落 ----------
+  // 段落屬性要沿著樣式鏈找（docDefaults → basedOn … → 樣式 → 段落本身），後者蓋前者
+  function pLayers(pPr, styleId, ctx) {
+    const out = [];
+    for (let id = styleId, n = 0; id && n < 10; n++) { const s = ctx.styles.map.get(id); if (!s) break; if (s.pPr) out.unshift(s.pPr); id = s.basedOn; }
+    if (ctx.styles.defP) out.unshift(ctx.styles.defP);
+    if (pPr) out.push(pPr);
+    return out;
+  }
+  function pAttr(layers, name, attr) {
+    for (let i = layers.length - 1; i >= 0; i--) { const v = val(tag(layers[i], name), attr); if (v != null && v !== '') return v; }
+    return null;
+  }
+  function paraBox(layers) {
+    const css = [];
+    const tw = (v) => (v / 20).toFixed(1) + 'pt';
+    const left = num(pAttr(layers, 'ind', 'left'), num(pAttr(layers, 'ind', 'start'), 0));
+    const right = num(pAttr(layers, 'ind', 'right'), num(pAttr(layers, 'ind', 'end'), 0));
+    // firstLine 與 hanging 互斥：取最上層有設定的那一個
+    const indL = layers.slice().reverse().find((l) => { const i = tag(l, 'ind'); return i && (val(i, 'firstLine') != null || val(i, 'hanging') != null); });
+    const first = indL ? num(val(tag(indL, 'ind'), 'firstLine'), 0) : 0, hang = indL ? num(val(tag(indL, 'ind'), 'hanging'), 0) : 0;
+    if (left) css.push('margin-left:' + tw(left));
+    if (right) css.push('margin-right:' + tw(right));
+    if (hang) css.push('text-indent:-' + tw(hang));
+    else if (first) css.push('text-indent:' + tw(first));
+    const before = pAttr(layers, 'spacing', 'before'), after = pAttr(layers, 'spacing', 'after');
+    css.push('margin-top:' + tw(num(before, 0)), 'margin-bottom:' + tw(num(after, 0)));
+    const line = num(pAttr(layers, 'spacing', 'line'), 0), rule = pAttr(layers, 'spacing', 'lineRule') || 'auto';
+    if (line) css.push('line-height:' + (rule === 'auto' ? (line / 240 * 1.3).toFixed(2) : tw(line)));  // ponytail: auto 行距 ×1.3 近似 Word 的單行高度
+    return css;
+  }
   function paraAlign(pPr) {
     const jc = val(tag(pPr, 'jc'), 'val');
     if (jc === 'center') return 'center';
     if (jc === 'right' || jc === 'end') return 'right';
     if (jc === 'both' || jc === 'distribute') return 'justify';
     return '';
-  }
-  function paraIndent(pPr) {
-    const ind = pPr ? tag(pPr, 'ind') : null;
-    if (!ind) return '';
-    const left = num(val(ind, 'left'), 0) || num(val(ind, 'start'), 0);
-    return left > 0 ? 'margin-left:' + (left * TWIP_MM).toFixed(1) + 'mm' : '';
   }
   function docxParagraph(p, ctx) {
     const pPr = tag(p, 'pPr');
@@ -212,10 +236,10 @@
     const htmlTag = mapped ? mapped[0] : 'p';
     const cls = mapped && mapped[1] ? ' class="' + mapped[1] + '"' : '';
     const styles = [];
-    const align = paraAlign(pPr);
+    const layers = pLayers(pPr, styleId, ctx);
+    const align = paraAlign(layers.slice().reverse().find((l) => tag(l, 'jc')));
     if (align) styles.push('text-align:' + align);
-    const indent = paraIndent(pPr);
-    if (indent) styles.push(indent);
+    styles.push(...paraBox(layers));
     const shd = pPr ? tag(pPr, 'shd') : null;
     const fill = shd ? val(shd, 'fill') : null;
     if (fill && /^[0-9a-f]{6}$/i.test(fill) && fill.toUpperCase() !== 'FFFFFF') styles.push('background-color:#' + fill);
@@ -238,7 +262,7 @@
               const type = val(c, 'type');
               if (type === 'page') ctx.pageBreaks.push(parts.length);
               emit(type === 'page' ? '</p><div class="pagebreak" contenteditable="false"></div><p>' : '<br>');
-            } else if (c.localName === 'drawing' || c.localName === 'pict') emit(docxImage(c, ctx));
+            } else if (c.localName === 'drawing' || c.localName === 'pict' || c.localName === 'AlternateContent') emit(docxObject(c, ctx));
             else if (c.localName === 'sym') { const code = parseInt(val(c, 'char'), 16); if (code > 0) emit(esc(String.fromCharCode(code))); }  // w:char 是十六進位
             else if (c.localName === 'fldSimple' || c.localName === 'instrText') emit(esc(c.textContent));
           }
@@ -271,23 +295,50 @@
       empty: !inner.trim() };
   }
 
-  // ---------- 圖片 ----------
-  function docxImage(node, ctx) {
-    const blip = [...node.getElementsByTagName('*')].find((e) => e.localName === 'blip');
-    const embed = blip ? (blip.getAttributeNS(R, 'embed') || blip.getAttribute('r:embed')) : null;
+  // ---------- 圖片／文字方塊 ----------
+  // 浮動定位做不到：文字方塊內容改成段落間的區塊，圖片照原寬度放在原處
+  function docxObject(node, ctx) {
+    if (node.localName === 'AlternateContent') {
+      // Choice（DrawingML）與 Fallback（VML）是同一物件的兩種寫法，只取一個
+      const branch = tag(node, 'Choice') || tag(node, 'Fallback');
+      return branch ? [...branch.children].map((c) => docxObject(c, ctx)).join('') : '';
+    }
+    const all = [...node.getElementsByTagName('*')];
+    const inTxbx = (e) => { for (let x = e.parentNode; x && x !== node; x = x.parentNode) if (x.localName === 'txbxContent') return true; return false; };
+    let out = '';
+    for (const e of all) {
+      if ((e.localName === 'blip' || e.localName === 'imagedata') && !inTxbx(e)) out += docxImage(e, node, ctx);
+    }
+    const boxes = all.filter((e) => e.localName === 'txbxContent' && !inTxbx(e));
+    if (boxes.length) {
+      let inner = '';
+      for (const b of boxes) for (const ch of b.children) {
+        if (ch.localName === 'p') inner += docxParagraph(ch, ctx).html;
+        else if (ch.localName === 'tbl') inner += docxTable(ch, ctx);
+      }
+      if (inner.replace(/<[^>]+>/g, '').trim()) out += '</p><div class="docx-txbx">' + inner + '</div><p>';
+    }
+    return out;
+  }
+  function docxImage(blip, node, ctx) {
+    const embed = blip.getAttributeNS(R, 'embed') || blip.getAttribute('r:embed') || blip.getAttributeNS(R, 'id') || blip.getAttribute('r:id');
     if (!embed) return '';
     const rel = ctx.rels.get(embed);
     if (!rel) return '';
     const path = 'word/' + rel.target.replace(/^\/?word\//, '').replace(/^\.\//, '');
+    const ext = (path.split('.').pop() || 'png').toLowerCase();
+    if (/^(emf|wmf|emz|wmz)$/.test(ext)) {
+      ctx.vectorImages = (ctx.vectorImages || 0) + 1;
+      return '<span class="docx-noimg">〔' + ext.toUpperCase() + ' 向量圖：瀏覽器無法顯示，請在 Word 另存成 PNG 後重新插入〕</span>';
+    }
     const bytes = ctx.media.get(path) || ctx.media.get(rel.target) || ctx.media.get('word/' + rel.target);
     if (!bytes) return '';
-    const ext = (path.split('.').pop() || 'png').toLowerCase();
     const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'gif' ? 'image/gif' : ext === 'webp' ? 'image/webp' : 'image/png';
     let b64 = '';
     const chunk = 0x8000;
     for (let i = 0; i < bytes.length; i += chunk) b64 += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
     const dataUrl = 'data:' + mime + ';base64,' + btoa(b64);
-    const ext2 = [...node.getElementsByTagName('*')].find((e) => e.localName === 'extent');
+    const ext2 = node.localName === 'extent' ? node : [...node.getElementsByTagName('*')].find((e) => e.localName === 'extent');
     let style = 'max-width:100%';
     if (ext2) {
       const cx = num(ext2.getAttribute('cx'), 0);
@@ -385,7 +436,7 @@
       warnings: [],
     };
     for (const [name, entry] of zip) {
-      if (/^word\/media\//i.test(name)) ctx.media.set(name, entry.method === 0 ? entry.raw : await entryBytes(zip, name));
+      if (/^word\/media\//i.test(name) && !/\.(emf|wmf|emz|wmz)$/i.test(name)) ctx.media.set(name, entry.method === 0 ? entry.raw : await entryBytes(zip, name));
     }
     const doc = xml(documentXml);
     const body = [...doc.getElementsByTagName('*')].find((e) => e.localName === 'body');
@@ -453,6 +504,7 @@
         if (ref.localName === 'headerReference' && (type === 'default' || !header)) header = await convertEdge(text, ctx);
         if (ref.localName === 'footerReference' && (type === 'default' || !footer)) footer = await convertEdge(text, ctx);
       }
+      if (ctx.vectorImages) ctx.warnings.push(ctx.vectorImages + ' 張 EMF/WMF 向量圖瀏覽器無法顯示，已用文字標示位置');
       if (header && /\bPAGE\b/.test(header)) ctx.warnings.push('頁尾的頁碼欄位會顯示 Word 上次存檔的數字');
     }
     return { html: html.join('\n'), page, header, footer, warnings: ctx.warnings, lists: listCount, breaks: (html.join('').match(/class="pagebreak"/g) || []).length };
