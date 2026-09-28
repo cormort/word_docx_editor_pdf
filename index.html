@@ -2003,6 +2003,9 @@ function tableOp(kind) {
       const [r1, c1, r2, c2] = box,
         tl = grid[r1][c1],
         seen = new Set([tl]);
+      // 合併後的外框：右邊沿用右上格的右框線、下邊沿用左下格的下框線（左、上本來就是左上格的）
+      const edgeR = grid[r1][c2] && grid[r1][c2].style.borderRight,
+        edgeB = grid[r2][c1] && grid[r2][c1].style.borderBottom;
       // 其他格的內容依閱讀順序接到左上格後面（空格略過），再把那些格子移除
       for (let i = r1; i <= r2; i++)
         for (let j = c1; j <= c2; j++) {
@@ -2018,17 +2021,29 @@ function tableOp(kind) {
         }
       tl.rowSpan = r2 - r1 + 1;
       tl.colSpan = c2 - c1 + 1;
+      tl.style.borderRight = edgeR || '';
+      tl.style.borderBottom = edgeB || '';
       msg('已合併成 1 格（' + tl.rowSpan + '×' + tl.colSpan + '）');
     } else if (kind === 'split') {
       const rs = cell.rowSpan,
         cs = cell.colSpan;
       if (rs < 2 && cs < 2) return msg('這一格沒有合併，不需要分割。', true);
-      // 內容留在左上格，其餘位置補空白格（依拆開前的格線決定插入位置）
+      // 內容留在左上格，其餘位置補空白格（依拆開前的格線決定插入位置）；外框線分給外圈的格子，內部用表格預設框線
+      const bd = { Top: cell.style.borderTop, Right: cell.style.borderRight, Bottom: cell.style.borderBottom, Left: cell.style.borderLeft };
+      const edge = (td, i, j) => {
+        td.style.borderTop = i === 0 ? bd.Top : '';
+        td.style.borderBottom = i === rs - 1 ? bd.Bottom : '';
+        td.style.borderLeft = j === 0 ? bd.Left : '';
+        td.style.borderRight = j === cs - 1 ? bd.Right : '';
+      };
       cell.rowSpan = cell.colSpan = 1;
+      edge(cell, 0, 0);
       for (let i = 0; i < rs && r + i < rows.length; i++)
         for (let j = cs - 1; j >= 0; j--) {
           if (!i && !j) continue;
-          placeCell(rows[r + i], grid, r + i, c + j, newCell(cell));
+          const nd = newCell(cell);
+          edge(nd, i, j);
+          placeCell(rows[r + i], grid, r + i, c + j, nd);
         }
       msg('已分割成 ' + rs + '×' + cs + ' 格');
     } else if (kind === 'delTable') {
@@ -2116,14 +2131,54 @@ $('#colDelBtn').onclick = () => tableOp('delCol');
 $('#tblDelBtn').onclick = () => tableOp('delTable');
 $('#splitBtn').onclick = () => tableOp('split');
 // 儲存格垂直對齊：套用到選取範圍涵蓋的所有格子（沒選取就是游標那一格）；靠上是預設，就清掉設定
+// 選取的儲存格：以選取起點與終點所在的格子圍出格線矩形（像 Word 一樣是方塊，不是閱讀順序經過的格子），
+// 合併儲存格跨出矩形時把矩形撐大；Firefox 的多段格子選取也一併算進來
 function selCells() {
   const cell = cellOfCaret();
   if (!cell) return null;
-  const sel = getSelection(),
-    cells = [...cell.closest('table').querySelectorAll('td,th')].filter(c =>
-      [...Array(sel.rangeCount).keys()].some(i => sel.getRangeAt(i).intersectsNode(c)),
-    );
-  return cells.length ? cells : [cell];
+  const table = cell.closest('table'),
+    { grid } = tableGrid(table),
+    sel = getSelection();
+  const at = n => {
+    const el = n && (n.nodeType === 1 ? n : n.parentElement),
+      td = el && el.closest('td,th');
+    return td && td.closest('table') === table ? td : null;
+  };
+  const ends = [];
+  for (let i = 0; i < sel.rangeCount; i++) {
+    const r = sel.getRangeAt(i);
+    ends.push(at(r.startContainer.nodeType === 1 ? r.startContainer.childNodes[r.startOffset] || r.startContainer : r.startContainer));
+    ends.push(at(r.endContainer.nodeType === 1 ? r.endContainer.childNodes[Math.max(0, r.endOffset - 1)] || r.endContainer : r.endContainer));
+  }
+  const pos = td => {
+    let b = null;
+    grid.forEach((row, r) => row.forEach((x, c) => {
+      if (x !== td) return;
+      b = b ? [Math.min(b[0], r), Math.min(b[1], c), Math.max(b[2], r), Math.max(b[3], c)] : [r, c, r, c];
+    }));
+    return b;
+  };
+  let box = null;
+  for (const td of ends.filter(Boolean)) {
+    const b = pos(td);
+    if (b) box = box ? [Math.min(box[0], b[0]), Math.min(box[1], b[1]), Math.max(box[2], b[2]), Math.max(box[3], b[3])] : b;
+  }
+  if (!box) return [cell];
+  // 矩形邊上若切過合併儲存格，就撐大到把它整個包進來
+  for (let grow = true; grow; ) {
+    grow = false;
+    for (let r = box[0]; r <= box[2]; r++)
+      for (let c = box[1]; c <= box[3]; c++) {
+        const b = grid[r][c] && pos(grid[r][c]);
+        if (b && (b[0] < box[0] || b[1] < box[1] || b[2] > box[2] || b[3] > box[3])) {
+          box = [Math.min(box[0], b[0]), Math.min(box[1], b[1]), Math.max(box[2], b[2]), Math.max(box[3], b[3])];
+          grow = true;
+        }
+      }
+  }
+  const out = new Set();
+  for (let r = box[0]; r <= box[2]; r++) for (let c = box[1]; c <= box[3]; c++) if (grid[r][c]) out.add(grid[r][c]);
+  return [...out];
 }
 document.querySelectorAll('[data-valign]').forEach(b =>
   b.addEventListener('click', () => {
