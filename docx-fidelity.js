@@ -202,15 +202,33 @@
   function paraBox(layers) {
     const css = [];
     const tw = (v) => (v / 20).toFixed(1) + 'pt';
-    const left = num(pAttr(layers, 'ind', 'left'), num(pAttr(layers, 'ind', 'start'), 0));
-    const right = num(pAttr(layers, 'ind', 'right'), num(pAttr(layers, 'ind', 'end'), 0));
+    // 縮排：有字元單位（*Chars，百分之一字元、非 0）就用 em（1 字元＝段落字級，跟 Word 一樣），否則用 twips
+    const ind = (twA, chA) => {
+      const c = num(pAttr(layers, 'ind', chA), 0);
+      return c ? { v: c / 100, em: true } : { v: num(pAttr(layers, 'ind', twA), 0), em: false };
+    };
+    const len = (x) => (x.em ? +x.v.toFixed(2) + 'em' : tw(x.v));
+    let left = ind('left', 'leftChars');
+    if (!left.v) left = ind('start', 'startChars');
+    let right = ind('right', 'rightChars');
+    if (!right.v) right = ind('end', 'endChars');
     // firstLine 與 hanging 互斥：取最上層有設定的那一個
-    const indL = layers.slice().reverse().find((l) => { const i = tag(l, 'ind'); return i && (val(i, 'firstLine') != null || val(i, 'hanging') != null); });
-    const first = indL ? num(val(tag(indL, 'ind'), 'firstLine'), 0) : 0, hang = indL ? num(val(tag(indL, 'ind'), 'hanging'), 0) : 0;
-    if (left) css.push('margin-left:' + tw(left));
-    if (right) css.push('margin-right:' + tw(right));
-    if (hang) css.push('text-indent:-' + tw(hang));
-    else if (first) css.push('text-indent:' + tw(first));
+    const indL = layers.slice().reverse().find((l) => { const i = tag(l, 'ind'); return i && ['firstLine', 'hanging', 'firstLineChars', 'hangingChars'].some((a) => val(i, a) != null); });
+    const one = (twA, chA) => {
+      const i = indL && tag(indL, 'ind');
+      const c = i ? num(val(i, chA), 0) : 0;
+      return c ? { v: c / 100, em: true } : { v: i ? num(val(i, twA), 0) : 0, em: false };
+    };
+    const first = one('firstLine', 'firstLineChars'), hang = one('hanging', 'hangingChars');
+    if (left.v) css.push('margin-left:' + len(left));
+    if (right.v) css.push('margin-right:' + len(right));
+    if (hang.v) css.push('text-indent:-' + len(hang));
+    else if (first.v) css.push('text-indent:' + len(first));
+    // 用字元縮排時，段落本身要有 Word 的字級，em 才會等於 Word 的一個字元
+    if ([left, right, first, hang].some((x) => x.em && x.v)) {
+      const sz = num(pAttr(layers.map((l) => tag(l, 'rPr')).filter(Boolean).map((r) => ({ children: [...r.children] })), 'sz', 'val'), 0);
+      if (sz) css.push('font-size:' + sz / 2 + 'pt');
+    }
     const before = pAttr(layers, 'spacing', 'before'), after = pAttr(layers, 'spacing', 'after');
     css.push('margin-top:' + tw(num(before, 0)), 'margin-bottom:' + tw(num(after, 0)));
     const line = num(pAttr(layers, 'spacing', 'line'), 0), rule = pAttr(layers, 'spacing', 'lineRule') || 'auto';
@@ -239,11 +257,14 @@
     const layers = pLayers(pPr, styleId, ctx);
     const align = paraAlign(layers.slice().reverse().find((l) => tag(l, 'jc')));
     if (align) styles.push('text-align:' + align);
-    styles.push(...paraBox(layers));
+    const pBox = paraBox(layers),
+      pbSize = pBox.filter((x) => x.startsWith('font-size'));   // 段落標記的字級比樣式具體，要放在樣式字級後面才蓋得過
+    styles.push(...pBox.filter((x) => !x.startsWith('font-size')));
     const shd = pPr ? tag(pPr, 'shd') : null;
     const fill = shd ? val(shd, 'fill') : null;
     if (fill && /^[0-9a-f]{6}$/i.test(fill) && fill.toUpperCase() !== 'FFFFFF') styles.push('background-color:#' + fill);
     if (base.css.length) styles.push(...base.css);
+    styles.push(...pbSize);
 
     let inner = '';
     const parts = [];
