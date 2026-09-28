@@ -943,12 +943,19 @@ body.intable #fontSize {
   display: none;
 }
 @media (max-width: 1279px) {
-  /* 窄一點（含手機）：放不下一列時改成左右滑動，不換行 */
-  body.intable .tools {
-    flex-wrap: nowrap;
+  /* 表格工具這一組自己就比整條工具列寬：讓它自己佔一列並在組內橫向捲動，不要把整條工具列變成捲動區 */
+  body.intable .grp.tblgrp {
+    flex: 1 1 100%;
+    min-width: 0;
     overflow-x: auto;
     scrollbar-width: thin;
   }
+}
+/* 「更多」面板只在手機用得到（桌機時 details 帶 hidden、群組留在工具列上，由 JS 決定要不要搬） */
+/* 「文字格式」是「文字」的延伸（手機才會被搬進「更多」），桌機不要多一條分隔線把同一類切開 */
+.grp.grp-text2 {
+  border-left: 0;
+  padding-left: 2px;
 }
 .tblchip {
   flex: none;
@@ -1062,14 +1069,41 @@ body.intable #fontSize {
 }
 /* 手機直向，以及觸控裝置橫向（高度很矮）：工具列固定在底部、跟著鍵盤，拇指好按；尋找列開在工具列上方 */
 @media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
+  /* 手機：不用橫向捲動，改成折成兩列；不常用的群組收進「更多▾」面板 */
   .tools {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+    flex-wrap: wrap;
+    row-gap: 4px;
   }
-  .tools::-webkit-scrollbar {
+  .grp.grp-text {
+    /* 手機的文字組只有字級與粗斜底，寬度夠；窄一點的手機仍可自己折行 */
+    flex: 0 1 auto;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+  /* 「更多」面板：關著的時候一定不要顯示（作者樣式會蓋掉瀏覽器預設的隱藏行為） */
+  .tools > .moremenu > .panel {
     display: none;
+  }
+  .tools > .moremenu[open] > .panel {
+    display: flex;
+  }
+  .moremenu > .panel .grp {
+    flex-wrap: wrap;
+    padding-left: 0;
+    border-left: 0;
+  }
+  /* 面板裡放的是「更多」的長尾功能，給它寬一點比較好按（位置由 placeMenu 夾在畫面內） */
+  .tools > .moremenu > .panel {
+    min-width: min(80vw, 330px);
+  }
+  /* 面板裡的每一組加上分類標題，收進選單也看得出「這一區是什麼」 */
+  .moremenu > .panel .grp::before {
+    content: attr(aria-label);
+    display: block;
+    width: 100%;
+    padding: 4px 2px 2px;
+    font-size: 12px;
+    color: #64748b;
   }
   .tool,
   .tools select {
@@ -1236,6 +1270,17 @@ body.intable #fontSize {
   gap: 10px;
   padding: 12px;
 }
+.menu .panel.settings .setsec {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.menu .panel.settings .setcap {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+}
 .menu .panel.settings .chk {
   font-size: 14px;
 }
@@ -1255,14 +1300,13 @@ body.intable #fontSize {
   transition: color 0.2s;
 }
 @media (max-width: 640px), (pointer: coarse) and (max-height: 500px) {
-  /* 工具列右緣淡出，提示還能往右滑 */
-  .tools {
-    -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent);
-    mask-image: linear-gradient(90deg, #000 88%, transparent);
+  /* 手機主工具列改成折行、不再橫向捲動；會捲動的是表格工具那一列，所以淡出提示改掛在它上面 */
+  body.intable .grp.tblgrp:not(.end) {
+    -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
+    mask-image: linear-gradient(90deg, #000 85%, transparent);
   }
-  /* 選單面板是 .tools 的子元素，遮罩會把它一起遮掉（看不到也點不到），開選單時先拿掉 */
-  .tools.menuopen,
-  .tools.end {
+  /* 選單面板是這些列的子元素，遮罩會把面板一起遮掉（看不到也點不到），開選單時先拿掉 */
+  .tools.menuopen .grp.tblgrp {
     -webkit-mask-image: none;
     mask-image: none;
   }
@@ -1352,6 +1396,7 @@ body.intable #fontSize {
       <button class="tool" data-top="merge" title="合併拖曳選取的多個格子">合併選取</button>
       <button class="tool" data-top="split" title="分割合併的儲存格">分割</button>
       <span class="tsep"></span>
+      <span class="tblchip">儲存格對齊</span>
       <button class="tool" data-halign="left" title="儲存格內容靠左">靠左</button>
       <button class="tool" data-halign="center" title="儲存格內容水平置中">水平置中</button>
       <button class="tool" data-halign="right" title="儲存格內容靠右">靠右</button>
@@ -1411,16 +1456,19 @@ body.intable #fontSize {
       <span class="tsep"></span>
       <button class="tool danger" data-top="delTable" title="刪除整個表格">刪除表格</button>
       </div>
-      <div class="grp" role="group" aria-label="文字">
+      <div class="grp grp-text" role="group" aria-label="文字">
       <select id="fontSize" title="字級" aria-label="字級">
         <option value="2">小字</option>
         <option value="3" selected>一般</option>
         <option value="4">大字</option>
         <option value="5">標題</option>
       </select>
-      <button class="tool" data-cmd="bold" title="粗體（Ctrl+B）" aria-label="粗體" aria-pressed="false"><b>B</b></button>
-      <button class="tool" data-cmd="italic" title="斜體（Ctrl+I）" aria-label="斜體" aria-pressed="false"><i>I</i></button>
-      <button class="tool" data-cmd="underline" title="底線（Ctrl+U）" aria-label="底線" aria-pressed="false"><u>U</u></button>
+      <button class="tool" data-cmd="bold" title="粗體（Ctrl+B）" aria-label="粗體" aria-keyshortcuts="Control+B" aria-pressed="false"><b>B</b></button>
+      <button class="tool" data-cmd="italic" title="斜體（Ctrl+I）" aria-label="斜體" aria-keyshortcuts="Control+I" aria-pressed="false"><i>I</i></button>
+      <button class="tool" data-cmd="underline" title="底線（Ctrl+U）" aria-label="底線" aria-keyshortcuts="Control+U" aria-pressed="false"><u>U</u></button>
+      </div>
+      <!-- 手機才會用到：以下的群組由 JS 搬進這個「更多」面板（桌機它們就留在工具列上） -->
+<div class="grp grp-text2" role="group" aria-label="文字格式">
       <button class="tool" data-cmd="strikeThrough" title="刪除線" aria-label="刪除線" aria-pressed="false"><s>S</s></button>
       <button class="tool" data-cmd="superscript" title="上標（例如註腳編號 x²）" aria-label="上標" aria-pressed="false">x²</button>
       <button class="tool" data-cmd="subscript" title="下標（例如化學式 x₂）" aria-label="下標" aria-pressed="false">x₂</button>
@@ -1439,14 +1487,14 @@ body.intable #fontSize {
       </details>
       <button class="tool" data-cmd="removeFormat" title="清除格式（只留文字）" aria-label="清除格式"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h8M8 5v9M5.5 14h5M15 14.5l5 5M20 14.5l-5 5"/></svg></button>
       </div>
-      <div class="grp" role="group" aria-label="對齊與清單">
+      <div class="grp grp-align" role="group" aria-label="對齊與清單">
       <button class="tool" data-cmd="justifyLeft" title="靠左" aria-label="靠左" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 10h10M4 14h16M4 18h10"/></svg></button>
       <button class="tool" data-cmd="justifyCenter" title="置中" aria-label="置中" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 10h10M4 14h16M7 18h10"/></svg></button>
       <button class="tool" data-cmd="justifyRight" title="靠右" aria-label="靠右" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M10 10h10M4 14h16M10 18h10"/></svg></button>
       <button class="tool" data-cmd="insertUnorderedList" title="項目符號清單" aria-label="項目符號清單" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="7" r="1.3"/><circle cx="5" cy="12" r="1.3"/><circle cx="5" cy="17" r="1.3"/><path d="M9 7h11M9 12h11M9 17h11"/></svg></button>
       <button class="tool" data-cmd="insertOrderedList" title="編號清單" aria-label="編號清單" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h1.5v4M4 9h3M4 14.5c0-1 2.8-1 2.8.3 0 1-2.8 1.6-2.8 3.2h3M10 7h10M10 12h10M10 17h10"/></svg></button>
       </div>
-      <div class="grp" role="group" aria-label="段落">
+      <div class="grp grp-para" role="group" aria-label="段落">
       <select id="blockStyle" title="段落樣式" aria-label="段落樣式">
         <option value="p" selected>內文</option>
         <option value="h1">標題 1</option>
@@ -1467,7 +1515,7 @@ body.intable #fontSize {
       </select>
       <button class="tool" data-para="outdent" title="減少縮排" aria-label="減少縮排"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 6h9M11 10h9M11 14h9M4 18h16M7 9l-3 3 3 3"/></svg></button>
       <button class="tool" data-para="indent" title="增加縮排" aria-label="增加縮排"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 6h9M11 10h9M11 14h9M4 18h16M4 9l3 3-3 3"/></svg></button>
-      <button class="tool" data-para="first" title="首行縮排兩字（再按一次取消）" aria-label="首行縮排">首行</button>
+      <button class="tool" data-para="first" title="首行縮排兩字（再按一次取消）" aria-label="首行縮排" aria-pressed="false">首行</button>
       <details class="menu indmenu">
         <summary class="tool" title="縮排（字元）與段落間距（段前、段後）">段落<span class="caret">▾</span></summary>
         <div class="panel" role="menu">
@@ -1530,29 +1578,46 @@ body.intable #fontSize {
       </details>
       <button class="tool" id="pbBtn" title="在這裡強制換頁（列印與 Word 匯出都有效）" aria-label="插入分頁"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v5h12V3M6 21v-5h12v5M3 12h2M8 12h2M13 12h2M18 12h3"/></svg><span class="lbl">分頁</span></button>
       </div>
-      <div class="grp" role="group" aria-label="檢視">
-      <button class="tool" id="findToggle" title="尋找與取代（Ctrl+F）" aria-label="尋找與取代"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg><span class="lbl">尋找</span></button>
+      <div class="grp grp-view" role="group" aria-label="檢視">
+      <button class="tool" id="findToggle" title="尋找與取代（Ctrl+F）" aria-label="尋找與取代" aria-keyshortcuts="Control+F"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg><span class="lbl">尋找</span></button>
       <button class="tool" id="deskToggle" title="閱讀模式：以電腦版 A4 版面唯讀檢視，縮放至螢幕寬" aria-label="閱讀模式"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3zM21 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7z"/></svg><span class="lbl">閱讀</span></button>
       <details class="menu">
         <summary class="tool" title="紙張、方向、邊界、頁碼與更新紀錄" aria-label="設定"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></svg><span class="lbl">設定</span><span class="caret">▾</span></summary>
-        <div class="panel settings">
-        <label class="chk" title="Word 檔的頁尾置中頁碼"><input type="checkbox" id="docxPageNum" checked>Word 頁碼</label>
-        <label class="chk" title="產生的 PDF 每頁下方加「第 X 頁 / 共 Y 頁」"><input type="checkbox" id="pdfPageNum" checked>PDF 頁碼</label>
-        <label class="chk" title="列印與 PDF 的邊界（公釐）">邊界<input id="marginMm" class="num" type="number" min="0" max="40" step="1" value="12">mm</label>
-        <label class="chk" title="用保版面模式匯入 .docx：帶入紙張大小與邊界、頁首頁尾、分頁、字型字級、表格欄寬"><input type="checkbox" id="fidelityImport" checked>保版面</label>
-        <select id="pageSize">
-          <option value="a4">A4</option>
-          <option value="letter">Letter</option>
-          <option value="legal">Legal</option>
-        </select>
-        <select id="orientation">
-          <option value="portrait">直向</option>
-          <option value="landscape">橫向</option>
-        </select>
-        <button class="mi" id="logBtn">更新紀錄</button>
+        <div class="panel settings" role="group" aria-label="設定">
+        <!-- 面板裡放的是表單元件，用 role=menu 語意不對；下面依「匯入／頁面／匯出」分段 -->
+        <div class="setsec" role="group" aria-label="匯入">
+          <span class="setcap">匯入</span>
+          <label class="chk" title="用保版面模式匯入 .docx：帶入紙張大小與邊界、頁首頁尾、分頁、字型字級、表格欄寬"><input type="checkbox" id="fidelityImport" checked>保版面</label>
+        </div>
+        <div class="setsec" role="group" aria-label="頁面">
+          <span class="setcap">頁面</span>
+          <select id="pageSize" aria-label="紙張尺寸">
+            <option value="a4">A4</option>
+            <option value="letter">Letter</option>
+            <option value="legal">Legal</option>
+          </select>
+          <select id="orientation" aria-label="紙張方向">
+            <option value="portrait">直向</option>
+            <option value="landscape">橫向</option>
+          </select>
+          <label class="chk" title="列印與 PDF 的邊界（公釐）">邊界<input id="marginMm" class="num" type="number" min="0" max="40" step="1" value="12" aria-label="頁面邊界（公釐）">mm</label>
+        </div>
+        <div class="setsec" role="group" aria-label="匯出">
+          <span class="setcap">匯出</span>
+          <label class="chk" title="Word 檔的頁尾置中頁碼"><input type="checkbox" id="docxPageNum" checked>Word 頁碼</label>
+          <label class="chk" title="產生的 PDF 每頁下方加「第 X 頁 / 共 Y 頁」"><input type="checkbox" id="pdfPageNum" checked>PDF 頁碼</label>
+        </div>
+        <div class="setsec" role="group" aria-label="其他">
+          <button class="mi" id="logBtn">更新紀錄</button>
+        </div>
       </div>
       </details>
       </div>
+      <!-- 手機的「更多」面板：桌機時 hidden，手機由 JS 把上面的群組搬進來 -->
+      <details class="menu moremenu" hidden>
+        <summary class="tool" title="更多：文字格式、對齊與清單、段落、插入、檢視">更多<span class="caret">▾</span></summary>
+        <div class="panel"></div>
+      </details>
     </div>
     <div id="findbar" class="findbar">
       <input id="findText" placeholder="尋找：多個關鍵字用空格，/正則/" enterkeyhint="search">
@@ -1787,6 +1852,7 @@ function syncToolbar() {
   if (inTable !== document.body.classList.contains('intable')) {
     document.body.classList.toggle('intable', inTable);
     $('.tools').scrollLeft = 0; // 手機：切換後回到最前面，剛出現的那組按鈕才看得到
+    syncToolsEnd();
   }
   document.querySelectorAll('.tool[data-cmd]').forEach(b => {
     const c = b.dataset.cmd;
@@ -1804,6 +1870,17 @@ function syncToolbar() {
     const fc = String(document.queryCommandValue('foreColor') || '');
     if (fc) setSwatch($('.colorbtn'), fc);
   } catch (e) {}
+  // 「首行縮排」是切換鈕：游標所在段落有沒有首行縮排要反映在按鈕上（不然不知道現在是開還是關）
+  const firstBtn = document.querySelector('[data-para="first"]');
+  if (firstBtn) {
+    let on = false;
+    try {
+      const blk = selBlocks()[0];
+      on = !!blk && parseFloat(getComputedStyle(blk).textIndent) > 0;
+    } catch (e) {}
+    firstBtn.classList.toggle('on', on);
+    firstBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
   let blk = 'p';
   try {
     blk = String(document.queryCommandValue('formatBlock') || 'p').toLowerCase();
@@ -2788,7 +2865,12 @@ function placeImgBar() {
   const r = selImg.getBoundingClientRect();
   Object.assign(selBox.style, { left: r.left - 3 + 'px', top: r.top - 3 + 'px', width: r.width + 6 + 'px', height: r.height + 6 + 'px' });
   imgBar.style.left = Math.max(4, Math.min(innerWidth - imgBar.offsetWidth - 4, r.left)) + 'px';
-  imgBar.style.top = (r.top - imgBar.offsetHeight - 8 > 60 ? r.top - imgBar.offsetHeight - 8 : Math.min(r.bottom + 8, innerHeight - imgBar.offsetHeight - 4)) + 'px';
+  // 手機的工具列固定在畫面底部：圖片小工具列要扣掉它的高度，不然兩條會疊在一起（也蓋住圖片）
+  const tb = $('.toolbar'),
+    reserved = mobileQ.matches && tb ? tb.offsetHeight + 10 : 0;
+  const maxTop = innerHeight - imgBar.offsetHeight - 4 - reserved;
+  const above = r.top - imgBar.offsetHeight - 8 > 60 ? r.top - imgBar.offsetHeight - 8 : null;
+  imgBar.style.top = Math.max(4, above != null ? above : Math.min(r.bottom + 8, maxTop)) + 'px';
 }
 function selectImg(img) {
   selImg = img;
@@ -3040,7 +3122,11 @@ function placeMenu(d) {
   p.style.top = (p.offsetHeight > below && r.top > below ? r.top - 4 - p.offsetHeight : r.bottom + 4) + 'px';
   p.style.left = Math.max(8, Math.min(r.left, innerWidth - p.offsetWidth - 8)) + 'px';
 }
-const closeMenus = keep => menus.forEach(d => d !== keep && d.removeAttribute('open'));
+// 關掉其他選單；若剛開的是某個選單的子項（例如「更多」面板裡的螢光），不要連父層一起關掉
+const closeMenus = keep =>
+  menus.forEach(d => {
+    if (d !== keep && !(keep && d.contains(keep))) d.removeAttribute('open');
+  });
 menus.forEach(d => {
   d.addEventListener('toggle', () => {
     toolsEl.classList.toggle('menuopen', menus.some(m => m.open && toolsEl.contains(m)));
@@ -3057,10 +3143,16 @@ document.addEventListener('click', e => {
 addEventListener('resize', () => closeMenus());
 $('.tools').addEventListener('scroll', () => closeMenus(), { passive: true });
 $('#printBtn').onclick = () => window.print();
-// 手機工具列：捲到底就拿掉右側淡出提示
-const syncToolsEnd = () =>
-  toolsEl.classList.toggle('end', toolsEl.scrollLeft + toolsEl.clientWidth >= toolsEl.scrollWidth - 2);
+// 手機：捲到底就拿掉右側淡出提示（表格工具那一列在手機是自己捲動的，也一起處理）
+function syncToolsEnd() {
+  const tb = $('.tools'),
+    tg = document.querySelector('.grp.tblgrp');
+  if (tb) tb.classList.toggle('end', tb.scrollLeft + tb.clientWidth >= tb.scrollWidth - 2);
+  if (tg) tg.classList.toggle('end', tg.scrollLeft + tg.clientWidth >= tg.scrollWidth - 2);
+}
 toolsEl.addEventListener('scroll', syncToolsEnd, { passive: true });
+const tblgrpEl = document.querySelector('.grp.tblgrp');
+if (tblgrpEl) tblgrpEl.addEventListener('scroll', syncToolsEnd, { passive: true });
 addEventListener('resize', syncToolsEnd);
 syncToolsEnd();
 // 閱讀模式搜尋時，右上的按鈕要避開頁首（頁首高度依寬度而變）
@@ -3080,6 +3172,32 @@ if (vv) {
   vv.addEventListener('resize', liftToolbar);
   vv.addEventListener('scroll', liftToolbar);
 }
+// 手機的「更多」面板：把長尾的群組從工具列搬進面板；桌機再搬回原位（維持一條工具列、不動分類順序）
+const MORE_GROUPS = ['grp-text2', 'grp-align', 'grp-para', 'grp-insert', 'grp-view'];
+function applyMoreMenu() {
+  const menu = document.querySelector('.moremenu'),
+    panel = menu && menu.querySelector('.panel');
+  if (!menu || !panel) return;
+  if (mobileQ.matches) {
+    MORE_GROUPS.forEach(cls => {
+      const g = document.querySelector('.tools > .' + cls);
+      if (g) panel.appendChild(g);
+    });
+    menu.hidden = false;
+  } else {
+    menu.removeAttribute('open');
+    menu.hidden = true;
+    // moremenu 是 .tools 的最後一個子項，依序插回它前面就等於原本的順序
+    MORE_GROUPS.forEach(cls => {
+      const g = panel.querySelector('.' + cls);
+      if (g) toolsEl.insertBefore(g, menu);
+    });
+  }
+  closeMenus();
+  syncToolsEnd();
+}
+applyMoreMenu();
+mobileQ.addEventListener('change', applyMoreMenu);
 // LINE 內建瀏覽器：選檔、下載、儲存空間都不可靠。網址帶 openExternalBrowser=1 時，
 // LINE 會改用手機的預設瀏覽器開啟
 if (/\bLine\/\d/i.test(navigator.userAgent)) {
