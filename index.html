@@ -1596,10 +1596,12 @@ function cleanNode(root) {
   root.querySelectorAll('script,style,iframe,object,embed,link,meta,base,form,plaintext,xmp,noembed,noframes,title,textarea').forEach(n => n.remove());
   const w = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
   const nested = [];
+  const remoteImgs = [];
   let el;
   while ((el = w.nextNode())) {
     // SVG／MathML 命名空間下的 <template> 沒有 .content（只有 HTML 的才有），不能直接往下遞迴
     if (el.localName === 'template' && el.content) nested.push(el);
+    let droppedSrc = false;
     for (const a of [...el.attributes]) {
       const n = a.name.toLowerCase(),
         v = a.value.replace(/[\u0000-\u0020]/g, '').toLowerCase();
@@ -1611,10 +1613,32 @@ function cleanNode(root) {
         ((n === 'href' || n === 'src' || n === 'xlink:href') &&
           /^(javascript:|vbscript:|data:text\/html)/.test(v)) ||
         (n === 'style' && /url\s*\(|@import/i.test(a.value))
-      )
+      ) {
         el.removeAttribute(a.name);
+        continue;
+      }
+      // 圖片（含 srcset／poster／background）只接受文件自己帶進來的內容（data:／blob:）。
+      // 來源不明的遠端網址會讓瀏覽器主動連到對方伺服器：洩漏 IP，也等於回報「這份文件被打開了」，
+      // 跟這個工具「檔案不離開瀏覽器」的承諾相反。
+      if (
+        (n === 'src' || n === 'srcset' || n === 'poster' || n === 'background' || n === 'xlink:href') &&
+        v &&
+        !/^(data:image\/|blob:)/.test(v)
+      ) {
+        el.removeAttribute(a.name);
+        droppedSrc = true;
+      }
     }
+    if (droppedSrc) remoteImgs.push(el);
   }
+  // 有圖被擋掉就留一行說明，免得使用者以為文件原本就沒有圖
+  for (const n of remoteImgs)
+    if (n.localName === 'img' && !n.getAttribute('src')) {
+      const ph = document.createElement('span');
+      ph.className = 'docx-noimg';
+      ph.textContent = '〔站外圖片已略過：來源不在文件內〕';
+      n.replaceWith(ph);
+    }
   // 文字裡的 XML 不合法控制字元：U+000B／U+000C（Word／Excel 複製出來的軟換行）換成 <br> 保留換行，
   // 其餘（NUL、BEL…）直接丟掉。留著會讓匯出的 .docx 變成非 well-formed 的 XML。
   const tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
