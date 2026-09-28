@@ -1374,10 +1374,11 @@ body:not(.intable) .tblgrp + .grp {
             <label>右<input type="number" class="num" data-ind="right" min="0" max="40" step="0.5"></label>
             <label><select data-ind="special" aria-label="特殊縮排"><option value="">無</option><option value="first">首行</option><option value="hang">凸排</option></select></label>
             <label><input type="number" class="num" data-ind="by" min="0" max="40" step="0.5">字元</label>
-            <label>段前<input type="number" class="num" data-ind="before" min="0" max="200" step="1"></label>
-            <label>段後<input type="number" class="num" data-ind="after" min="0" max="200" step="1"></label>
+            <label>段前<input type="number" class="num" data-ind="before" min="0" max="200" step="0.5"></label>
+            <label>段後<input type="number" class="num" data-ind="after" min="0" max="200" step="0.5"></label>
+            <label>間距單位<select data-ind="unit" aria-label="段落間距單位"><option value="pt">pt</option><option value="line">行</option></select></label>
           </div>
-          <div class="padunit" style="padding:0 6px 6px">縮排單位：字元；段落間距單位：pt</div>
+          <div class="padunit" style="padding:0 6px 6px">縮排單位：字元；1 行＝12pt（跟 Word 一樣）</div>
           <button class="tool mi" id="indApply" role="menuitem">套用到選取的段落</button>
         </div>
       </details>
@@ -3011,8 +3012,13 @@ indMenu.querySelector('summary').addEventListener('pointerdown', () => {
   indF('right').value = ch(cs.marginRight);
   indF('special').value = ti > 0 ? 'first' : ti < 0 ? 'hang' : '';
   indF('by').value = Math.abs(ti) || '';
-  indF('before').value = Math.round((parseFloat(cs.marginTop) || 0) * 0.75 * 2) / 2;
-  indF('after').value = Math.round((parseFloat(cs.marginBottom) || 0) * 0.75 * 2) / 2;
+  // 以行設定過的段落就用行顯示（data-before-lines／data-after-lines），否則用 pt
+  const lines = el.dataset.beforeLines != null || el.dataset.afterLines != null,
+    ptOf = v => (parseFloat(v) || 0) * 0.75;
+  indF('unit').value = lines ? 'line' : 'pt';
+  const show = (k, v) => (indF(k).value = lines ? Math.round((ptOf(v) / 12) * 100) / 100 : Math.round(ptOf(v) * 2) / 2);
+  show('before', cs.marginTop);
+  show('after', cs.marginBottom);
 });
 $('#indApply').onclick = () => {
   const els = indBlocks && indBlocks.length && indBlocks[0].isConnected ? indBlocks : selBlocks();
@@ -3027,9 +3033,14 @@ $('#indApply').onclick = () => {
       el.style.marginLeft = left ? left + 'em' : '';
       el.style.marginRight = n('right') ? n('right') + 'em' : '';
       el.style.textIndent = sp && by ? (sp === 'hang' ? -by : by) + 'em' : '';
-      // 段落間距（pt）：欄位留空就不動
-      if (indF('before').value !== '') el.style.marginTop = n('before') + 'pt';
-      if (indF('after').value !== '') el.style.marginBottom = n('after') + 'pt';
+      // 段落間距：欄位留空就不動；單位是「行」時 1 行＝12pt，並記住行數（匯出成 Word 的 beforeLines／afterLines）
+      const byLine = indF('unit').value === 'line';
+      for (const [k, prop, dk] of [['before', 'marginTop', 'beforeLines'], ['after', 'marginBottom', 'afterLines']]) {
+        if (indF(k).value === '') continue;
+        el.style[prop] = (byLine ? n(k) * 12 : n(k)) + 'pt';
+        if (byLine) el.dataset[dk] = n(k);
+        else delete el.dataset[dk];
+      }
     }),
   );
   msg('已設定段落縮排與間距');
@@ -3726,12 +3737,15 @@ function paragraphXml(el, ctx, style, prefix) {
   if (hasImg && !prefix) Object.assign(sp, { after: 0, line: 240, lineRule: 'auto' });
   if (cs && st.marginTop && st.marginTop !== 'auto') sp.before = tw(cs.marginTop);
   if (cs && st.marginBottom && st.marginBottom !== 'auto') sp.after = tw(cs.marginBottom);
+  // 以行設定的間距：Word 的 beforeLines／afterLines（百分之一行）
+  if (el.dataset && el.dataset.beforeLines != null) sp.beforeLines = Math.round(parseFloat(el.dataset.beforeLines) * 100);
+  if (el.dataset && el.dataset.afterLines != null) sp.afterLines = Math.round(parseFloat(el.dataset.afterLines) * 100);
   if (cs && st.lineHeight && st.lineHeight !== 'normal') {
     if (/^[\d.]+$/.test(st.lineHeight)) Object.assign(sp, { line: Math.round(parseFloat(st.lineHeight) * 240), lineRule: 'auto' });
     else Object.assign(sp, { line: tw(cs.lineHeight), lineRule: 'exact' });
   }
   const spacing = Object.keys(sp).length
-    ? '<w:spacing' + ['before', 'after', 'line', 'lineRule'].filter(k => k in sp).map(k => ' w:' + k + '="' + sp[k] + '"').join('') + '/>'
+    ? '<w:spacing' + ['before', 'beforeLines', 'after', 'afterLines', 'line', 'lineRule'].filter(k => k in sp).map(k => ' w:' + k + '="' + sp[k] + '"').join('') + '/>'
     : '';
   const ind = {},
     chars = v => (/em$/.test(v) ? Math.round(parseFloat(v) * 100) : null); // 以字元設定的縮排 → Word 的 *Chars（百分之一字元）

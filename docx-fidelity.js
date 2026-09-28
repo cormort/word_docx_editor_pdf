@@ -229,8 +229,12 @@
       const sz = num(pAttr(layers.map((l) => tag(l, 'rPr')).filter(Boolean).map((r) => ({ children: [...r.children] })), 'sz', 'val'), 0);
       if (sz) css.push('font-size:' + sz / 2 + 'pt');
     }
+    // 段前段後：有「行」（beforeLines／afterLines，百分之一行，1 行＝12pt）就照行，否則照 twips
+    const bL = num(pAttr(layers, 'spacing', 'beforeLines'), 0), aL = num(pAttr(layers, 'spacing', 'afterLines'), 0);
     const before = pAttr(layers, 'spacing', 'before'), after = pAttr(layers, 'spacing', 'after');
-    css.push('margin-top:' + tw(num(before, 0)), 'margin-bottom:' + tw(num(after, 0)));
+    css.push('margin-top:' + (bL ? (bL / 100 * 12).toFixed(1) + 'pt' : tw(num(before, 0))), 'margin-bottom:' + (aL ? (aL / 100 * 12).toFixed(1) + 'pt' : tw(num(after, 0))));
+    if (bL) css.push('--lines-before:' + bL / 100);
+    if (aL) css.push('--lines-after:' + aL / 100);
     const line = num(pAttr(layers, 'spacing', 'line'), 0), rule = pAttr(layers, 'spacing', 'lineRule') || 'auto';
     if (line) css.push('line-height:' + (rule === 'auto' ? (line / 240 * 1.3).toFixed(2) : tw(line)));  // ponytail: auto 行距 ×1.3 近似 Word 的單行高度
     return css;
@@ -324,7 +328,11 @@
     const pb = inner.indexOf('</p><div class="pagebreak"');
     if (after && pb >= 0) { inner = inner.slice(0, pb + 4) + after + inner.slice(pb + 4); after = ''; }
     if (!inner.trim()) inner = '';
-    return { html: '<' + htmlTag + cls + (styles.length ? ' style="' + styles.join(';') + '"' : '') + '>' + inner + '</' + htmlTag + '>', after,
+    // 以行設定的段落間距記在 data 屬性（編輯器的段落選單用行顯示、匯出寫回 beforeLines／afterLines）
+    const lineData = styles.filter((x) => x.startsWith('--lines-')).map((x) => ' data-' + x.slice(2).replace(':', '="') + '"').join('')
+      .replace('data-lines-before', 'data-before-lines').replace('data-lines-after', 'data-after-lines');
+    const cssOut = styles.filter((x) => !x.startsWith('--lines-'));
+    return { html: '<' + htmlTag + cls + lineData + (cssOut.length ? ' style="' + cssOut.join(';') + '"' : '') + '>' + inner + '</' + htmlTag + '>', after,
       pPr, numId: val(tag(pPr, 'numPr') ? tag(tag(pPr, 'numPr'), 'numId') : null, 'val'),
       ilvl: num(val(tag(pPr, 'numPr') ? tag(tag(pPr, 'numPr'), 'ilvl') : null, 'val'), 0),
       empty: !inner.trim() };
