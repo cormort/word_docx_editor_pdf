@@ -332,6 +332,9 @@
     if (ext === 'emf' && bytes) {
       try { dataUrl = emfToPng(bytes); } catch (e) { dataUrl = ''; }
     }
+    if (ext === 'wmf' && bytes) {
+      try { dataUrl = wmfToPng(bytes); } catch (e) { dataUrl = ''; }
+    }
     if (/^(emf|wmf|emz|wmz)$/.test(ext) && !dataUrl) {
       ctx.vectorImages = (ctx.vectorImages || 0) + 1;
       return '<span class="docx-noimg">〔' + ext.toUpperCase() + ' 向量圖：無法轉換，請在 Word 另存成 PNG 後重新插入〕</span>';
@@ -353,6 +356,157 @@
     return '<img src="' + dataUrl + '" style="' + style + '" alt="">';
   }
 
+
+  // DIB（BITMAPINFO + 像素）→ canvas，EMF 與 WMF 共用；bits 省略時像素緊接在調色盤後面
+  function dibCanvas(u8, h, bits) {
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    const i32 = (o) => dv.getInt32(o, true), u32 = (o) => dv.getUint32(o, true);
+    const hdr = u32(h);
+    if (hdr < 40) return null;                                 // 舊式 BITMAPCOREHEADER：罕見，略過
+    const w = i32(h + 4), hh = i32(h + 8), bpp = dv.getUint16(h + 14, true), comp = u32(h + 16);
+    const H = Math.abs(hh), up = hh > 0;
+    if (comp === 4 || comp === 5 || !w || !H) return null;     // 內嵌 JPEG/PNG：少見，略過
+    let nPal = u32(h + 32); if (!nPal && bpp <= 8) nPal = 1 << bpp;
+    const pal = h + hdr + (comp === 3 && hdr === 40 ? 12 : 0);
+    if (bits == null) bits = pal + (bpp <= 8 ? nPal * 4 : 0);
+    const c = document.createElement('canvas'); c.width = w; c.height = H;
+    const id = c.getContext('2d').createImageData(w, H), d = id.data;
+    const stride = ((w * bpp + 31) >> 5) << 2;
+    if (bits + stride * H > u8.length) return null;
+    for (let y = 0; y < H; y++) {
+      const row = bits + (up ? H - 1 - y : y) * stride;
+      for (let x = 0; x < w; x++) {
+        const o = (y * w + x) * 4; let b, gg, r;
+        if (bpp === 32) { b = u8[row + x * 4]; gg = u8[row + x * 4 + 1]; r = u8[row + x * 4 + 2]; }
+        else if (bpp === 24) { b = u8[row + x * 3]; gg = u8[row + x * 3 + 1]; r = u8[row + x * 3 + 2]; }
+        else if (bpp === 16) { const v = dv.getUint16(row + x * 2, true); r = ((v >> 10) & 31) << 3; gg = ((v >> 5) & 31) << 3; b = (v & 31) << 3; }
+        else { const per = 8 / bpp, byte = u8[row + ((x / per) | 0)], idx = (byte >> (8 - bpp * ((x % per) + 1))) & ((1 << bpp) - 1), q = pal + idx * 4; b = u8[q]; gg = u8[q + 1]; r = u8[q + 2]; }
+        d[o] = r; d[o + 1] = gg; d[o + 2] = b; d[o + 3] = 255;
+      }
+    }
+    c.getContext('2d').putImageData(id, 0, 0);
+    return c;
+  }
+
+  // ---------- WMF → PNG ----------
+  // 16 位元的舊格式：參數多半倒著放（y 在 x 前、下右上左），物件表用「最小的空位」編號。
+  // ponytail: 同 EMF，只做常見紀錄；區域（region）裁切與點陣筆刷略過。
+  const CHARSET = { 128: 'shift_jis', 129: 'euc-kr', 134: 'gbk', 136: 'big5', 161: 'windows-1253', 162: 'windows-1254', 177: 'windows-1255', 178: 'windows-1256', 186: 'windows-1257', 204: 'windows-1251', 222: 'windows-874', 238: 'windows-1250' };
+  function wmfToPng(u8) {
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    const i16 = (o) => dv.getInt16(o, true), u16 = (o) => dv.getUint16(o, true), u32 = (o) => dv.getUint32(o, true);
+    const rgb = (o) => 'rgb(' + u8[o] + ',' + u8[o + 1] + ',' + u8[o + 2] + ')';
+    let p = 0, box = null, inch = 1440;
+    if (u32(0) === 0x9AC6CDD7) { box = [i16(6), i16(8), i16(10), i16(12)]; inch = u16(14) || 1440; p = 22; }
+    if (u16(p) > 2 || u16(p + 2) !== 9) throw new Error('not wmf');
+    p += u16(p + 2) * 2;
+    const first = p;
+    // 沒有 placeable 標頭就用最後一次設定的視窗範圍當畫布
+    if (!box) {
+      let org = [0, 0], ext = null;
+      for (let q = first; q + 6 <= u8.length;) { const sz = u32(q) * 2, f = u16(q + 4); if (sz < 6) break;
+        if (f === 0x020B) org = [i16(q + 8), i16(q + 6)]; if (f === 0x020C) ext = [i16(q + 8), i16(q + 6)]; if (!f) break; q += sz; }
+      if (!ext) throw new Error('wmf no extent');
+      box = [org[0], org[1], org[0] + ext[0], org[1] + ext[1]];
+      inch = 1440;
+    }
+    const lw = Math.abs(box[2] - box[0]), lh = Math.abs(box[3] - box[1]);
+    if (!lw || !lh) throw new Error('empty wmf');
+    let pw = lw / inch * 96, ph = lh / inch * 96;
+    const k = Math.min(EMF_MAX / Math.max(pw, ph), Math.max(pw, ph) < 600 ? 2 : 1);
+    pw *= k; ph *= k;
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(pw)); cv.height = Math.max(1, Math.round(ph));
+    const g = cv.getContext('2d');
+    const objs = [];
+    const add = (o) => { let i = 0; while (objs[i]) i++; objs[i] = o; };
+    let st = { pen: { t: 'p', c: '#000', w: 0 }, brush: { t: 'b', c: '#fff' }, font: null, textColor: '#000', align: 0, fill: 'evenodd',
+      wOrg: [box[0], box[1]], wExt: [box[2] - box[0], box[3] - box[1]], cur: [0, 0], clip: null };
+    const stack = [];
+    const copy = (x) => Object.assign({}, x, { wOrg: x.wOrg.slice(), wExt: x.wExt.slice(), cur: x.cur.slice() });
+    // 視窗（邏輯座標）直接對應整張畫布；視埠設定在 placeable 圖裡沒有意義
+    const devM = () => new DOMMatrix().scale(cv.width / (st.wExt[0] || 1), cv.height / (st.wExt[1] || 1)).translate(-st.wOrg[0], -st.wOrg[1]);
+    const withClip = (fn) => {
+      g.save();
+      if (st.clip) { g.setTransform(1, 0, 0, 1, 0, 0); g.beginPath(); const r = st.clip; g.rect(r[0], r[1], r[2] - r[0], r[3] - r[1]); g.clip(); }
+      g.setTransform(devM()); fn(); g.restore();
+    };
+    const paint = (q, doFill) => withClip(() => {
+      if (doFill && st.brush && st.brush.c) { g.fillStyle = st.brush.c; g.fill(q, st.fill); }
+      if (st.pen && st.pen.c) { const m = devM(); g.strokeStyle = st.pen.c; g.lineWidth = st.pen.w > 0 ? st.pen.w : 1 / (Math.abs(m.a) || 1); g.stroke(q); }
+    });
+    const ptsXY = (o, n) => { const a = []; for (let i = 0; i < n; i++) a.push([i16(o + i * 4), i16(o + i * 4 + 2)]); return a; };
+    const poly = (a, closed) => { const q = new Path2D(); a.forEach((pt, i) => (i ? q.lineTo(pt[0], pt[1]) : q.moveTo(pt[0], pt[1]))); if (closed) q.closePath(); return q; };
+    const text = (x, y, bytes, dx) => {
+      const f = st.font || { h: -12, weight: 400, italic: 0, esc: 0, name: 'sans-serif', cs: 0 };
+      let txt; try { txt = new TextDecoder(CHARSET[f.cs] || 'big5').decode(bytes); } catch (e) { txt = new TextDecoder('big5').decode(bytes); }
+      withClip(() => {
+        g.font = (f.italic ? 'italic ' : '') + (f.weight >= 600 ? 'bold ' : '') + (Math.abs(f.h) || 12) + "px '" + f.name + "', 'Microsoft JhengHei', 'PingFang TC', sans-serif";
+        g.fillStyle = st.textColor;
+        const va = st.align & 24; g.textBaseline = va === 24 ? 'alphabetic' : va === 8 ? 'bottom' : 'top';
+        const ha = st.align & 6; g.textAlign = ha === 6 ? 'center' : ha === 2 ? 'right' : 'left';
+        g.translate(x, y); if (f.esc) g.rotate(-f.esc / 10 * Math.PI / 180);
+        if (dx && ha === 0) { let cx = 0, bi = 0; for (const ch of txt) { g.fillText(ch, cx, 0); const nb = ch.charCodeAt(0) > 127 && CHARSET[f.cs] !== 'windows-1252' ? 2 : 1; for (let j = 0; j < nb && bi < dx.length; j++) cx += dx[bi++]; } }
+        else g.fillText(txt, 0, 0);
+      });
+    };
+    const blit = (img, sx, sy, sw, sh, dx, dy, dw, dh) => withClip(() => { g.imageSmoothingQuality = 'high'; g.drawImage(img, sx, img.height - sy - sh, sw, sh, dx, dy, dw, dh); });
+    while (p + 6 <= u8.length) {
+      const size = u32(p) * 2, f = u16(p + 4), o = p + 6;
+      if (size < 6 || p + size > u8.length || f === 0) break;
+      try { switch (f) {
+        case 0x020B: st.wOrg = [i16(o + 2), i16(o)]; break;
+        case 0x020C: st.wExt = [i16(o + 2), i16(o)]; break;
+        case 0x0106: st.fill = u16(o) === 2 ? 'nonzero' : 'evenodd'; break;
+        case 0x012E: st.align = u16(o); break;
+        case 0x0209: st.textColor = rgb(o); break;
+        case 0x001E: stack.push(copy(st)); break;
+        case 0x0127: { const n = i16(o); const idx = n < 0 ? stack.length + n : n - 1; if (stack[idx]) { st = stack[idx]; stack.length = idx; } break; }
+        case 0x02FA: add({ t: 'p', c: (u16(o) & 15) === 5 ? null : rgb(o + 6), w: i16(o + 2) }); break;
+        case 0x02FC: add({ t: 'b', c: u16(o) === 1 ? null : rgb(o + 2) }); break;
+        case 0x02FB: { let e = o + 18; while (e < p + size && u8[e]) e++;
+          add({ t: 'f', h: i16(o), esc: i16(o + 4), weight: i16(o + 8), italic: u8[o + 10], cs: u8[o + 13],
+            name: new TextDecoder(CHARSET[u8[o + 13]] || 'big5').decode(u8.subarray(o + 18, e)) }); break; }
+        case 0x0142: case 0x01F9: add({ t: 'b', c: '#c0c0c0' }); break;   // 點陣筆刷：用灰色近似
+        case 0x00F7: case 0x06FF: add({ t: 'x' }); break;                  // 調色盤、區域：佔位
+        case 0x012D: { const ob = objs[u16(o)]; if (ob) { if (ob.t === 'p') st.pen = ob; else if (ob.t === 'b') st.brush = ob; else if (ob.t === 'f') st.font = ob; } break; }
+        case 0x01F0: objs[u16(o)] = undefined; break;
+        case 0x0416: { const m = devM(), a = m.transformPoint(new DOMPoint(i16(o + 6), i16(o + 4))), b = m.transformPoint(new DOMPoint(i16(o + 2), i16(o)));
+          const r = [Math.min(a.x, b.x), Math.min(a.y, b.y), Math.max(a.x, b.x), Math.max(a.y, b.y)];
+          st.clip = st.clip ? [Math.max(r[0], st.clip[0]), Math.max(r[1], st.clip[1]), Math.min(r[2], st.clip[2]), Math.min(r[3], st.clip[3])] : r; break; }
+        case 0x0214: st.cur = [i16(o + 2), i16(o)]; break;
+        case 0x0213: { const q = new Path2D(); q.moveTo(st.cur[0], st.cur[1]); st.cur = [i16(o + 2), i16(o)]; q.lineTo(st.cur[0], st.cur[1]); paint(q, false); break; }
+        case 0x0324: paint(poly(ptsXY(o + 2, u16(o)), true), true); break;
+        case 0x0325: paint(poly(ptsXY(o + 2, u16(o)), false), false); break;
+        case 0x0538: { const n = u16(o); let q = o + 2 + n * 2; const all = new Path2D();
+          for (let i = 0; i < n; i++) { const c = u16(o + 2 + i * 2); all.addPath(poly(ptsXY(q, c), true)); q += c * 4; }
+          paint(all, true); break; }
+        case 0x041B: case 0x061C: { const j = f === 0x061C ? 4 : 0, b = i16(o + j), r = i16(o + j + 2), t = i16(o + j + 4), l = i16(o + j + 6);
+          const q = new Path2D(); q.rect(l, t, r - l, b - t); paint(q, true); break; }
+        case 0x0418: { const b = i16(o), r = i16(o + 2), t = i16(o + 4), l = i16(o + 6); const q = new Path2D();
+          q.ellipse((l + r) / 2, (t + b) / 2, Math.abs(r - l) / 2, Math.abs(b - t) / 2, 0, 0, Math.PI * 2); paint(q, true); break; }
+        case 0x041D: { const rop = u32(o), h = i16(o + 4), w = i16(o + 6), y = i16(o + 8), x = i16(o + 10);
+          const c = rop === 0x00FF0062 ? '#fff' : rop === 0x00000042 ? '#000' : rop === 0x00F00021 ? st.brush && st.brush.c : null;
+          if (c) withClip(() => { g.fillStyle = c; g.fillRect(x, y, w, h); }); break; }
+        case 0x0521: { const n = u16(o), s0 = o + 2, pad = (n + 1) & ~1; text(i16(s0 + pad + 2), i16(s0 + pad), u8.subarray(s0, s0 + n)); break; }
+        case 0x0A32: { const y = i16(o), x = i16(o + 2), n = u16(o + 4), opt = u16(o + 6); const s0 = o + 8 + (opt & 6 ? 8 : 0);
+          const pad = (n + 1) & ~1, dxs = [];
+          for (let i = 0; i < n && s0 + pad + i * 2 + 2 <= p + size; i++) dxs.push(i16(s0 + pad + i * 2));
+          text(x, y, u8.subarray(s0, s0 + n), dxs.length === n ? dxs : null); break; }
+        case 0x0B41: case 0x0F43: case 0x0940: {
+          // DIBSTRETCHBLT／STRETCHDIB／DIBBITBLT：參數倒著放，最後接 DIB
+          const sd = f === 0x0F43 ? 2 : 0, q = o + 4 + sd;
+          let sh, sw, sy, sx, dh, dw, dy, dx, bmi;
+          if (f === 0x0940) { sy = i16(q); sx = i16(q + 2); dh = sh = i16(q + 4); dw = sw = i16(q + 6); dy = i16(q + 8); dx = i16(q + 10); bmi = q + 12; }
+          else { sh = i16(q); sw = i16(q + 2); sy = i16(q + 4); sx = i16(q + 6); dh = i16(q + 8); dw = i16(q + 10); dy = i16(q + 12); dx = i16(q + 14); bmi = q + 16; }
+          if (bmi >= p + size) break;                          // 沒帶點陣圖的變體
+          const img = dibCanvas(u8, bmi, null);
+          if (img) blit(img, sx, sy, sw, sh, dx, dy, dw, dh); break; }
+      } } catch (e) { /* 單一紀錄壞掉就跳過 */ }
+      p += size;
+    }
+    return cv.toDataURL('image/png');
+  }
 
   // ---------- EMF → PNG ----------
   // 瀏覽器不支援 EMF：自己把 GDI 紀錄畫到 canvas 再轉 PNG。EMF+ 註解略過（Word 存的是雙格式，GDI 那份就夠）。
@@ -411,30 +565,7 @@
       for (const a of st.clip) for (const b of rects) { const r = [Math.max(a[0], b[0]), Math.max(a[1], b[1]), Math.min(a[2], b[2]), Math.min(a[3], b[3])]; if (r[2] > r[0] && r[3] > r[1]) out.push(r); }
       st.clip = out;
     };
-    const dib = (rec, offBmi, offBits, cbBits) => {          // DIB → canvas
-      const h = rec + offBmi, w = i32(h + 4), hh = i32(h + 8), bpp = dv.getUint16(h + 14, true), comp = u32(h + 16);
-      const hdr = u32(h), H = Math.abs(hh), up = hh > 0;
-      if (comp === 4 || comp === 5) return null;             // 內嵌 JPEG/PNG：少見，略過
-      let nPal = u32(h + 32); if (!nPal && bpp <= 8) nPal = 1 << bpp;
-      const pal = h + hdr + (comp === 3 && hdr === 40 ? 12 : 0);
-      const c = document.createElement('canvas'); c.width = w; c.height = H;
-      const id = c.getContext('2d').createImageData(w, H), d = id.data;
-      const stride = ((w * bpp + 31) >> 5) << 2, bits = rec + offBits;
-      if (bits + stride * H > u8.length) return null;
-      for (let y = 0; y < H; y++) {
-        const row = bits + (up ? H - 1 - y : y) * stride;
-        for (let x = 0; x < w; x++) {
-          const o = (y * w + x) * 4; let b, gg, r;
-          if (bpp === 32) { b = u8[row + x * 4]; gg = u8[row + x * 4 + 1]; r = u8[row + x * 4 + 2]; }
-          else if (bpp === 24) { b = u8[row + x * 3]; gg = u8[row + x * 3 + 1]; r = u8[row + x * 3 + 2]; }
-          else if (bpp === 16) { const v = dv.getUint16(row + x * 2, true); r = ((v >> 10) & 31) << 3; gg = ((v >> 5) & 31) << 3; b = (v & 31) << 3; }
-          else { const per = 8 / bpp, byte = u8[row + ((x / per) | 0)], idx = (byte >> (8 - bpp * ((x % per) + 1))) & ((1 << bpp) - 1), q = pal + idx * 4; b = u8[q]; gg = u8[q + 1]; r = u8[q + 2]; }
-          d[o] = r; d[o + 1] = gg; d[o + 2] = b; d[o + 3] = 255;
-        }
-      }
-      c.getContext('2d').putImageData(id, 0, 0);
-      return c;
-    };
+    const dib = (rec, offBmi, offBits) => dibCanvas(u8, rec + offBmi, rec + offBits);
     const blit = (img, sx, sy, sw, sh, dx, dy, dw, dh) => withClip(() => {
       g.imageSmoothingQuality = 'high';
       // DIB 的來源座標是由下往上；drawImage 用的是由上往下，這裡已經在 dib() 翻好了
@@ -625,7 +756,7 @@
       warnings: [],
     };
     for (const [name, entry] of zip) {
-      if (/^word\/media\//i.test(name) && !/\.(wmf|emz|wmz)$/i.test(name)) ctx.media.set(name, entry.method === 0 ? entry.raw : await entryBytes(zip, name));
+      if (/^word\/media\//i.test(name) && !/\.(emz|wmz)$/i.test(name)) ctx.media.set(name, entry.method === 0 ? entry.raw : await entryBytes(zip, name));
     }
     const doc = xml(documentXml);
     const body = [...doc.getElementsByTagName('*')].find((e) => e.localName === 'body');
