@@ -228,10 +228,7 @@
             : /^(DIV|BLOCKQUOTE|SECTION)$/.test(block.tagName) && !soleImg(block) && block.children.length
               ? splitBox(block, fits, body.getBoundingClientRect().top + contentH)
               : soleImg(block)
-                ? // 圖：下一頁整張放得下就整張搬，比一頁還高才切
-                  soleImg(block).getBoundingClientRect().height > contentH - 2
-                  ? splitImg(block, body.getBoundingClientRect().top + contentH)
-                  : null
+                ? splitImg(block, body.getBoundingClientRect().top + contentH) // 圖：在頁尾直接切開（剩不到 40px 才整張搬）
                 : splitPara(block, body.getBoundingClientRect().top + contentH);
       if (rest) {
         blocks.splice(i + 1, 0, rest);
