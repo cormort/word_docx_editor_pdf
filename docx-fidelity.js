@@ -186,6 +186,8 @@
     };
     if (on('b')) st.b = true;
     if (on('i')) st.i = true;
+    // 刪除線：匯出時 index.html 會讀 text-decoration 再寫回 w:strike，兩邊要對得起來
+    if (on('strike') || on('dstrike')) st.css.push('text-decoration:line-through');
     const u = pick('u');
     if (u && ((val(u, 'val') || 'single') !== 'none')) st.u = true;
     const color = val(pick('color'), 'val');

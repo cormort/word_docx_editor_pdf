@@ -395,6 +395,58 @@ input {
   opacity: 0;
   cursor: pointer;
 }
+/* 文字顏色與螢光：跟「底色」一樣，真正的 <input type=color> 蓋在按鈕上，眼睛看到的是色塊 */
+.colorbtn,
+.hlmenu > summary {
+  position: relative;
+}
+.colorbtn input,
+.hlpanel .hlcustom input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.colorbtn b {
+  border-bottom: 3px solid var(--sw, #d92b2b);
+  line-height: 1.15;
+}
+.sw {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  border-radius: 3px;
+  border: 1px solid #00000040;
+  background: var(--sw, #ffff00);
+}
+.hlpanel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 196px;
+  padding: 6px;
+}
+.hlpanel .mi {
+  flex: 1 1 auto;
+  justify-content: flex-start;
+}
+.hlpanel .hlcustom {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* 表格工具那一組自己就比整條工具列寬（桌機 1200px 會爆出容器，右邊的內距／刪除表格根本按不到）
+   → 桌機（≥1280，跟文字標籤同一個斷點）讓它跟復原／重做共用一列、必要時內部換行；
+   窄一點與手機維持整條橫向捲動（不要變成好幾列高） */
+@media (min-width: 1280px) {
+  body.intable .grp.tblgrp {
+    flex: 1 1 auto;   /* 跟「復原／重做」共用一列，空間不夠時自己換行 */
+    min-width: 0;
+    flex-wrap: wrap;
+    row-gap: 5px;
+  }
+}
 /* 框線選單上方的樣式／粗細／顏色 */
 .bdopts {
   display: flex;
@@ -890,17 +942,13 @@ body.intable #blockStyle,
 body.intable #fontSize {
   display: none;
 }
-@media (max-width: 1100px) {
-  /* 放不下一列時改成左右滑動，不換行 */
+@media (max-width: 1279px) {
+  /* 窄一點（含手機）：放不下一列時改成左右滑動，不換行 */
   body.intable .tools {
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: thin;
   }
-}
-body:not(.intable) .tblgrp + .grp {
-  padding-left: 0;
-  border-left: 0;
 }
 .tblchip {
   flex: none;
@@ -931,8 +979,9 @@ body:not(.intable) .tblgrp + .grp {
   align-items: center;
   gap: 2px;
   flex: none;
-  padding-left: 6px;
-  border-left: 1px solid var(--line);
+  padding-left: 8px;
+  /* 分組線比一般邊框稍微明顯一點，掃描工具列時才看得出「這裡換一類了」 */
+  border-left: 1px solid #cbd5e1;
 }
 .grp:first-child {
   padding-left: 0;
@@ -962,7 +1011,8 @@ body:not(.intable) .tblgrp + .grp {
 .lbl {
   display: none;
 }
-@media (min-width: 1100px) {
+/* 文字標籤要 1280px 以上才放得下（1100px 就顯示會讓工具列多折一列，反而更難掃） */
+@media (min-width: 1280px) {
   .lbl {
     display: inline;
   }
@@ -1286,6 +1336,10 @@ body:not(.intable) .tblgrp + .grp {
   <div id="notice" class="notice no-print" role="alert"></div>
   <section class="toolbar no-print" role="toolbar" aria-label="編輯工具列">
     <div class="tools">
+      <div class="grp grp-hist" role="group" aria-label="復原與重做">
+      <button class="tool" data-cmd="undo" title="復原（Ctrl+Z）" aria-label="復原" aria-keyshortcuts="Control+Z"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-2"/></svg></button>
+      <button class="tool" data-cmd="redo" title="重做（Ctrl+Y）" aria-label="重做" aria-keyshortcuts="Control+Y"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h2"/></svg></button>
+      </div>
       <div class="grp tblgrp" role="group" aria-label="表格工具">
       <span class="tblchip">表格</span>
       <button class="tool" data-top="addRow" title="在下方插入列">＋列</button>
@@ -1301,10 +1355,6 @@ body:not(.intable) .tblgrp + .grp {
       <button class="tool" data-halign="left" title="儲存格內容靠左">靠左</button>
       <button class="tool" data-halign="center" title="儲存格內容水平置中">水平置中</button>
       <button class="tool" data-halign="right" title="儲存格內容靠右">靠右</button>
-      <span class="tsep"></span>
-      <button class="tool" data-valign="top" title="儲存格內容靠上">靠上</button>
-      <button class="tool" data-valign="middle" title="儲存格內容垂直置中">垂直置中</button>
-      <button class="tool" data-valign="bottom" title="儲存格內容靠下">靠下</button>
       <span class="tsep"></span>
       <label class="tool cellbg" title="儲存格底色">底色<input type="color" class="cellColor" value="#fff2cc" aria-label="儲存格底色"></label>
       <button class="tool" data-cellbg="none" title="清除儲存格底色">清除底色</button>
@@ -1361,6 +1411,41 @@ body:not(.intable) .tblgrp + .grp {
       <span class="tsep"></span>
       <button class="tool danger" data-top="delTable" title="刪除整個表格">刪除表格</button>
       </div>
+      <div class="grp" role="group" aria-label="文字">
+      <select id="fontSize" title="字級" aria-label="字級">
+        <option value="2">小字</option>
+        <option value="3" selected>一般</option>
+        <option value="4">大字</option>
+        <option value="5">標題</option>
+      </select>
+      <button class="tool" data-cmd="bold" title="粗體（Ctrl+B）" aria-label="粗體" aria-pressed="false"><b>B</b></button>
+      <button class="tool" data-cmd="italic" title="斜體（Ctrl+I）" aria-label="斜體" aria-pressed="false"><i>I</i></button>
+      <button class="tool" data-cmd="underline" title="底線（Ctrl+U）" aria-label="底線" aria-pressed="false"><u>U</u></button>
+      <button class="tool" data-cmd="strikeThrough" title="刪除線" aria-label="刪除線" aria-pressed="false"><s>S</s></button>
+      <button class="tool" data-cmd="superscript" title="上標（例如註腳編號 x²）" aria-label="上標" aria-pressed="false">x²</button>
+      <button class="tool" data-cmd="subscript" title="下標（例如化學式 x₂）" aria-label="下標" aria-pressed="false">x₂</button>
+      <label class="tool colorbtn" title="文字顏色（套用到選取的文字）"><b>A</b><input type="color" id="fontColor" value="#d92b2b" aria-label="文字顏色"><i class="sw" aria-hidden="true"></i></label>
+      <details class="menu hlmenu">
+        <summary class="tool" title="螢光標示" aria-label="螢光標示"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3.5h5.5l-.8 6.2 3 3.1-6.8 1.7-2.9-3z"/><path d="M5 20.5h14"/></svg><i class="sw" aria-hidden="true"></i><span class="caret">▾</span></summary>
+        <div class="panel hlpanel" role="menu">
+          <button class="tool mi" data-hl="#ffff00" role="menuitem"><i class="sw" style="--sw:#ffff00"></i>黃</button>
+          <button class="tool mi" data-hl="#a7f3a0" role="menuitem"><i class="sw" style="--sw:#a7f3a0"></i>綠</button>
+          <button class="tool mi" data-hl="#a5f3fc" role="menuitem"><i class="sw" style="--sw:#a5f3fc"></i>青</button>
+          <button class="tool mi" data-hl="#fbcfe8" role="menuitem"><i class="sw" style="--sw:#fbcfe8"></i>粉</button>
+          <button class="tool mi" data-hl="#bfdbfe" role="menuitem"><i class="sw" style="--sw:#bfdbfe"></i>藍</button>
+          <button class="tool mi" data-hl="" role="menuitem">無螢光</button>
+          <label class="tool mi hlcustom">自訂<input type="color" id="hlColor" value="#ffff00" aria-label="自訂螢光顏色"></label>
+        </div>
+      </details>
+      <button class="tool" data-cmd="removeFormat" title="清除格式（只留文字）" aria-label="清除格式"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h8M8 5v9M5.5 14h5M15 14.5l5 5M20 14.5l-5 5"/></svg></button>
+      </div>
+      <div class="grp" role="group" aria-label="對齊與清單">
+      <button class="tool" data-cmd="justifyLeft" title="靠左" aria-label="靠左" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 10h10M4 14h16M4 18h10"/></svg></button>
+      <button class="tool" data-cmd="justifyCenter" title="置中" aria-label="置中" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 10h10M4 14h16M7 18h10"/></svg></button>
+      <button class="tool" data-cmd="justifyRight" title="靠右" aria-label="靠右" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M10 10h10M4 14h16M10 18h10"/></svg></button>
+      <button class="tool" data-cmd="insertUnorderedList" title="項目符號清單" aria-label="項目符號清單" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="7" r="1.3"/><circle cx="5" cy="12" r="1.3"/><circle cx="5" cy="17" r="1.3"/><path d="M9 7h11M9 12h11M9 17h11"/></svg></button>
+      <button class="tool" data-cmd="insertOrderedList" title="編號清單" aria-label="編號清單" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h1.5v4M4 9h3M4 14.5c0-1 2.8-1 2.8.3 0 1-2.8 1.6-2.8 3.2h3M10 7h10M10 12h10M10 17h10"/></svg></button>
+      </div>
       <div class="grp" role="group" aria-label="段落">
       <select id="blockStyle" title="段落樣式" aria-label="段落樣式">
         <option value="p" selected>內文</option>
@@ -1399,26 +1484,6 @@ body:not(.intable) .tblgrp + .grp {
           <button class="tool mi" id="indApply" role="menuitem">套用到選取的段落</button>
         </div>
       </details>
-      <button class="tool" data-cmd="undo" title="復原（Ctrl+Z）" aria-label="復原">↶</button>
-      <button class="tool" data-cmd="redo" title="重做（Ctrl+Y）" aria-label="重做">↷</button>
-      </div>
-      <div class="grp" role="group" aria-label="文字">
-      <select id="fontSize" title="字級" aria-label="字級">
-        <option value="2">小字</option>
-        <option value="3" selected>一般</option>
-        <option value="4">大字</option>
-        <option value="5">標題</option>
-      </select>
-      <button class="tool" data-cmd="bold" title="粗體（Ctrl+B）" aria-label="粗體" aria-pressed="false"><b>B</b></button>
-      <button class="tool" data-cmd="italic" title="斜體（Ctrl+I）" aria-label="斜體" aria-pressed="false"><i>I</i></button>
-      <button class="tool" data-cmd="underline" title="底線（Ctrl+U）" aria-label="底線" aria-pressed="false"><u>U</u></button>
-      </div>
-      <div class="grp" role="group" aria-label="對齊與清單">
-      <button class="tool" data-cmd="justifyLeft" title="靠左" aria-label="靠左" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 10h10M4 14h16M4 18h10"/></svg></button>
-      <button class="tool" data-cmd="justifyCenter" title="置中" aria-label="置中" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 10h10M4 14h16M7 18h10"/></svg></button>
-      <button class="tool" data-cmd="justifyRight" title="靠右" aria-label="靠右" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M10 10h10M4 14h16M10 18h10"/></svg></button>
-      <button class="tool" data-cmd="insertUnorderedList" title="項目符號清單" aria-label="項目符號清單" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="7" r="1.3"/><circle cx="5" cy="12" r="1.3"/><circle cx="5" cy="17" r="1.3"/><path d="M9 7h11M9 12h11M9 17h11"/></svg></button>
-      <button class="tool" data-cmd="insertOrderedList" title="編號清單" aria-label="編號清單" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h1.5v4M4 9h3M4 14.5c0-1 2.8-1 2.8.3 0 1-2.8 1.6-2.8 3.2h3M10 7h10M10 12h10M10 17h10"/></svg></button>
       </div>
       <div class="grp grp-insert" role="group" aria-label="插入">
       <button class="tool" id="imgBtn" title="插入圖片（也可拖放）" aria-label="插入圖片"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-8 8"/></svg><span class="lbl">圖片</span></button>
@@ -1726,7 +1791,7 @@ function syncToolbar() {
   document.querySelectorAll('.tool[data-cmd]').forEach(b => {
     const c = b.dataset.cmd;
     let on = false;
-    if (/^(bold|italic|underline|insertUnorderedList|insertOrderedList|justify)/.test(c)) {
+    if (/^(bold|italic|underline|strikeThrough|superscript|subscript|insertUnorderedList|insertOrderedList|justify)/.test(c)) {
       try {
         on = document.queryCommandState(c);
       } catch (e) {}
@@ -1734,6 +1799,11 @@ function syncToolbar() {
     b.classList.toggle('on', on);
     b.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
+  // 色塊顯示游標所在位置的顏色（跟 Word 一樣：A 底下那條線就是目前文字顏色）
+  try {
+    const fc = String(document.queryCommandValue('foreColor') || '');
+    if (fc) setSwatch($('.colorbtn'), fc);
+  } catch (e) {}
   let blk = 'p';
   try {
     blk = String(document.queryCommandValue('formatBlock') || 'p').toLowerCase();
@@ -3054,6 +3124,45 @@ $('.tools').addEventListener('click', e => {
   document.execCommand(b.dataset.cmd, false, null);
   syncToolbar();
 });
+// 文字顏色與螢光：色塊按鈕底下是真正的 <input type=color>，選了顏色直接套用到選取的文字
+function setSwatch(el, color) {
+  if (!el) return;
+  const host = el.closest('.colorbtn') || el.closest('.hlmenu');
+  if (host) host.style.setProperty('--sw', color);
+}
+function applyInline(cmd, value) {
+  editor.focus();
+  try {
+    document.execCommand(cmd, false, value);
+  } catch (e) {
+    msg('這個瀏覽器不支援套用該格式。', true);
+  }
+  syncToolbar();
+}
+const fontColorInput = $('#fontColor'),
+  hlColorInput = $('#hlColor');
+if (fontColorInput)
+  fontColorInput.addEventListener('input', e => {
+    applyInline('foreColor', e.target.value);
+    setSwatch(e.target, e.target.value);
+  });
+if (hlColorInput)
+  hlColorInput.addEventListener('input', e => {
+    applyInline('hiliteColor', e.target.value);
+    setSwatch(e.target, e.target.value);
+  });
+document.querySelectorAll('[data-hl]').forEach(b =>
+  b.addEventListener('click', () => {
+    const c = b.dataset.hl || 'transparent'; // 「無螢光」＝把底色設回透明（Chromium／Safari 都支援）
+    applyInline('hiliteColor', c);
+    setSwatch(b, c);
+    const d = b.closest('details');
+    if (d) d.open = false;
+  }),
+);
+// 一開始的色塊要跟 input 的預設值一致（不然會顯示成別的颜色）
+if (fontColorInput) setSwatch(fontColorInput, fontColorInput.value);
+if (hlColorInput) setSwatch(hlColorInput, hlColorInput.value);
 $('#fontSize').onchange = e => {
   editor.focus();
   document.execCommand('fontSize', false, e.target.value);
@@ -3630,6 +3739,10 @@ function zipStore(files) {
   });
 }
 
+// 工具列「字級」選單的 HTML font[size] → Word 的半點（w:sz）。
+// 數值要跟瀏覽器實際畫出來的 px 一致（實測 13／16／18／24px ＝ 9.75／12／13.5／18pt），
+// 不然畫面上看到的字級和匯出的 Word 不一樣，就失去 WYSIWYG 的意義
+const FONT_SIZE_HALF = { 2: 20, 3: 24, 4: 27, 5: 36 };
 // 收集行內文字與樣式（b/i/u/code/font size、換行）
 // 顏色：inline style 的顏色轉成 RRGGBB（Word 的 w:color／w:shd 用）
 function toHex(v) {
@@ -3667,14 +3780,28 @@ function nodeStyle(node, inherited) {
   if (tag === 'b' || tag === 'strong') st.b = true;
   if (tag === 'i' || tag === 'em') st.i = true;
   if (tag === 'u') st.u = true;
+  if (tag === 's' || tag === 'strike' || tag === 'del') st.strike = true;
+  if (tag === 'sup') st.vert = 'superscript';
+  if (tag === 'sub') st.vert = 'subscript';
   if (tag === 'code' || tag === 'pre') st.mono = true;
   if (tag === 'mark' && !st.shade) st.shade = 'FFFF00';
   if (tag === 'font') {
     const sz = +node.getAttribute('size');
-    st.half = { 2: 20, 3: 22, 4: 26, 5: 32 }[sz] || st.half;
+    st.half = FONT_SIZE_HALF[sz] || st.half;
+    const fc = toHex(node.getAttribute('color') || ''); // execCommand('foreColor') 產生的是 <font color>
+    if (fc && fc !== '000000') st.color = fc;
   }
   try {
     const cs = node.style;
+    // 行內樣式也要認：從網頁／Google 文件貼上來的內容是這種形式（只認標籤的話格式會在匯出時整批消失）
+    const fw = cs && cs.fontWeight ? String(cs.fontWeight) : '';
+    if (fw && (/^(bold|bolder)$/i.test(fw) || +fw >= 600)) st.b = true;
+    if (cs && cs.fontStyle === 'italic') st.i = true;
+    const deco = cs ? cs.textDecorationLine || cs.textDecoration || '' : '';
+    if (/underline/.test(deco)) st.u = true;
+    if (/line-through/.test(deco)) st.strike = true;
+    if (cs && cs.verticalAlign === 'super') st.vert = 'superscript';
+    else if (cs && cs.verticalAlign === 'sub') st.vert = 'subscript';
     const c = cs && cs.color ? toHex(cs.color) : '';
     if (c && c !== '000000') st.color = c;
     const bg = cs && cs.backgroundColor ? toHex(cs.backgroundColor) : '';
@@ -3711,11 +3838,13 @@ function runsXml(runs) {
       const rPr = [
         r.b ? '<w:b/>' : '',
         r.i ? '<w:i/>' : '',
+        r.strike ? '<w:strike/>' : '',
         r.u ? '<w:u w:val="single"/>' : '',
         r.mono ? '<w:rFonts w:ascii="Consolas" w:hAnsi="Consolas" w:eastAsia="Consolas"/>' : '',
         r.color ? '<w:color w:val="' + r.color + '"/>' : '',
         r.shade ? '<w:shd w:val="clear" w:color="auto" w:fill="' + r.shade + '"/>' : '',
         r.half ? '<w:sz w:val="' + r.half + '"/><w:szCs w:val="' + r.half + '"/>' : '',
+        r.vert ? '<w:vertAlign w:val="' + r.vert + '"/>' : '',
       ].join('');
       // 換行（<br> 收成 \n）與貼上 Word／Excel 帶進來的軟換行 U+000B、分頁 U+000C 都變 <w:br/>；
       // 這樣文字不會消失，也不會把控制字元直接寫進 XML 讓檔案壞掉。空片段不用產生空的 <w:t>
@@ -4282,7 +4411,7 @@ function buildDocx() {
     '" w:cs="' +
     DOCX_FONT +
     '"/>' +
-    '<w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:rPrDefault>' +
+    '<w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:rPrDefault>' +
     '<w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="300" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>' +
     '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>' +
     '<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:qFormat/>' +
