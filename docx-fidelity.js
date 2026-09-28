@@ -327,17 +327,23 @@
     if (!rel) return '';
     const path = 'word/' + rel.target.replace(/^\/?word\//, '').replace(/^\.\//, '');
     const ext = (path.split('.').pop() || 'png').toLowerCase();
-    if (/^(emf|wmf|emz|wmz)$/.test(ext)) {
-      ctx.vectorImages = (ctx.vectorImages || 0) + 1;
-      return '<span class="docx-noimg">〔' + ext.toUpperCase() + ' 向量圖：瀏覽器無法顯示，請在 Word 另存成 PNG 後重新插入〕</span>';
-    }
     const bytes = ctx.media.get(path) || ctx.media.get(rel.target) || ctx.media.get('word/' + rel.target);
+    let dataUrl = '';
+    if (ext === 'emf' && bytes) {
+      try { dataUrl = emfToPng(bytes); } catch (e) { dataUrl = ''; }
+    }
+    if (/^(emf|wmf|emz|wmz)$/.test(ext) && !dataUrl) {
+      ctx.vectorImages = (ctx.vectorImages || 0) + 1;
+      return '<span class="docx-noimg">〔' + ext.toUpperCase() + ' 向量圖：無法轉換，請在 Word 另存成 PNG 後重新插入〕</span>';
+    }
     if (!bytes) return '';
-    const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'gif' ? 'image/gif' : ext === 'webp' ? 'image/webp' : 'image/png';
-    let b64 = '';
-    const chunk = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunk) b64 += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-    const dataUrl = 'data:' + mime + ';base64,' + btoa(b64);
+    if (!dataUrl) {
+      const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'gif' ? 'image/gif' : ext === 'webp' ? 'image/webp' : 'image/png';
+      let b64 = '';
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) b64 += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+      dataUrl = 'data:' + mime + ';base64,' + btoa(b64);
+    }
     const ext2 = node.localName === 'extent' ? node : [...node.getElementsByTagName('*')].find((e) => e.localName === 'extent');
     let style = 'max-width:100%';
     if (ext2) {
@@ -345,6 +351,189 @@
       if (cx) style += ';width:' + (cx / EMU_PT).toFixed(1) + 'pt';
     }
     return '<img src="' + dataUrl + '" style="' + style + '" alt="">';
+  }
+
+
+  // ---------- EMF → PNG ----------
+  // 瀏覽器不支援 EMF：自己把 GDI 紀錄畫到 canvas 再轉 PNG。EMF+ 註解略過（Word 存的是雙格式，GDI 那份就夠）。
+  // ponytail: 只實作 Word 圖表／截圖常見的紀錄；遇到沒實作的紀錄就跳過，畫面可能缺東西但不會壞掉。
+  const EMF_MAX = 2400;                      // 輸出最長邊（px）
+  function emfToPng(u8) {
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    if (dv.getUint32(0, true) !== 1 || dv.getUint32(40, true) !== 0x464D4520) throw new Error('not emf');
+    const bL = dv.getInt32(8, true), bT = dv.getInt32(12, true), bR = dv.getInt32(16, true), bB = dv.getInt32(20, true);
+    const bw = bR - bL + 1, bh = bB - bT + 1;
+    if (bw <= 1 || bh <= 1) throw new Error('empty emf');
+    const k = Math.min(1, EMF_MAX / Math.max(bw, bh)) * (Math.max(bw, bh) < 600 ? 2 : 1);
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(bw * k)); cv.height = Math.max(1, Math.round(bh * k));
+    const g = cv.getContext('2d');
+    const i32 = (o) => dv.getInt32(o, true), u32 = (o) => dv.getUint32(o, true), i16 = (o) => dv.getInt16(o, true), f32 = (o) => dv.getFloat32(o, true);
+    const rgb = (o) => 'rgb(' + u8[o] + ',' + u8[o + 1] + ',' + u8[o + 2] + ')';
+    const STOCK = { 0: { t: 'b', c: '#fff' }, 1: { t: 'b', c: '#c0c0c0' }, 2: { t: 'b', c: '#808080' }, 3: { t: 'b', c: '#404040' }, 4: { t: 'b', c: '#000' }, 5: { t: 'b', c: null },
+      6: { t: 'p', c: '#fff', w: 0 }, 7: { t: 'p', c: '#000', w: 0 }, 8: { t: 'p', c: null, w: 0 } };
+    const objs = [];
+    let st = { pen: STOCK[7], brush: STOCK[0], font: null, textColor: '#000', bkColor: '#fff', bkMode: 2, align: 0, fill: 'evenodd',
+      world: new DOMMatrix(), wOrg: [0, 0], wExt: [1, 1], vOrg: [0, 0], vExt: [1, 1], mapMode: 1, cur: [0, 0], clip: null };
+    const stack = [];
+    const copy = (s) => Object.assign({}, s, { world: DOMMatrix.fromMatrix(s.world), wOrg: s.wOrg.slice(), wExt: s.wExt.slice(), vOrg: s.vOrg.slice(), vExt: s.vExt.slice(), cur: s.cur.slice() });
+    const devM = () => {                     // 邏輯座標 → canvas 像素
+      const aniso = st.mapMode === 7 || st.mapMode === 8;
+      const sx = aniso ? st.vExt[0] / (st.wExt[0] || 1) : 1, sy = aniso ? st.vExt[1] / (st.wExt[1] || 1) : 1;
+      return new DOMMatrix().scale(k).translate(-bL, -bT).translate(st.vOrg[0], st.vOrg[1]).scale(sx, sy).translate(-st.wOrg[0], -st.wOrg[1]).multiply(st.world);
+    };
+    let path = null;                          // BEGINPATH 之後累積的路徑
+    const withClip = (fn) => {
+      g.save();
+      if (st.clip) { g.setTransform(1, 0, 0, 1, 0, 0); g.beginPath(); for (const r of st.clip) g.rect(r[0], r[1], r[2] - r[0], r[3] - r[1]); g.clip(); }
+      g.setTransform(devM()); fn(); g.restore();
+    };
+    const lineW = () => { const m = devM(); const sc = Math.hypot(m.a, m.b) || 1; return st.pen.w > 0 ? st.pen.w : 1 / sc; };
+    const paint = (p, doFill, doStroke) => withClip(() => {
+      if (doFill && st.brush && st.brush.c) { g.fillStyle = st.brush.c; g.fill(p, st.fill); }
+      if (doStroke && st.pen && st.pen.c) { g.strokeStyle = st.pen.c; g.lineWidth = lineW(); g.lineJoin = 'round'; g.stroke(p); }
+    });
+    const shape = (p, closed) => { if (path) { path.addPath(p); return; } paint(p, closed, true); };
+    const pts16 = (o, n) => { const a = []; for (let i = 0; i < n; i++) a.push([i16(o + i * 4), i16(o + i * 4 + 2)]); return a; };
+    const poly = (a, closed, bez) => {
+      const p = new Path2D(); if (!a.length) return p;
+      p.moveTo(a[0][0], a[0][1]);
+      if (bez) for (let i = 1; i + 2 < a.length; i += 3) p.bezierCurveTo(a[i][0], a[i][1], a[i + 1][0], a[i + 1][1], a[i + 2][0], a[i + 2][1]);
+      else for (let i = 1; i < a.length; i++) p.lineTo(a[i][0], a[i][1]);
+      if (closed) p.closePath();
+      return p;
+    };
+    const devRect = (l, t, r, b) => { const m = devM(); const p1 = m.transformPoint(new DOMPoint(l, t)), p2 = m.transformPoint(new DOMPoint(r, b));
+      return [Math.min(p1.x, p2.x), Math.min(p1.y, p2.y), Math.max(p1.x, p2.x), Math.max(p1.y, p2.y)]; };
+    const andClip = (rects) => {
+      if (!st.clip) { st.clip = rects; return; }
+      const out = [];
+      for (const a of st.clip) for (const b of rects) { const r = [Math.max(a[0], b[0]), Math.max(a[1], b[1]), Math.min(a[2], b[2]), Math.min(a[3], b[3])]; if (r[2] > r[0] && r[3] > r[1]) out.push(r); }
+      st.clip = out;
+    };
+    const dib = (rec, offBmi, offBits, cbBits) => {          // DIB → canvas
+      const h = rec + offBmi, w = i32(h + 4), hh = i32(h + 8), bpp = dv.getUint16(h + 14, true), comp = u32(h + 16);
+      const hdr = u32(h), H = Math.abs(hh), up = hh > 0;
+      if (comp === 4 || comp === 5) return null;             // 內嵌 JPEG/PNG：少見，略過
+      let nPal = u32(h + 32); if (!nPal && bpp <= 8) nPal = 1 << bpp;
+      const pal = h + hdr + (comp === 3 && hdr === 40 ? 12 : 0);
+      const c = document.createElement('canvas'); c.width = w; c.height = H;
+      const id = c.getContext('2d').createImageData(w, H), d = id.data;
+      const stride = ((w * bpp + 31) >> 5) << 2, bits = rec + offBits;
+      if (bits + stride * H > u8.length) return null;
+      for (let y = 0; y < H; y++) {
+        const row = bits + (up ? H - 1 - y : y) * stride;
+        for (let x = 0; x < w; x++) {
+          const o = (y * w + x) * 4; let b, gg, r;
+          if (bpp === 32) { b = u8[row + x * 4]; gg = u8[row + x * 4 + 1]; r = u8[row + x * 4 + 2]; }
+          else if (bpp === 24) { b = u8[row + x * 3]; gg = u8[row + x * 3 + 1]; r = u8[row + x * 3 + 2]; }
+          else if (bpp === 16) { const v = dv.getUint16(row + x * 2, true); r = ((v >> 10) & 31) << 3; gg = ((v >> 5) & 31) << 3; b = (v & 31) << 3; }
+          else { const per = 8 / bpp, byte = u8[row + ((x / per) | 0)], idx = (byte >> (8 - bpp * ((x % per) + 1))) & ((1 << bpp) - 1), q = pal + idx * 4; b = u8[q]; gg = u8[q + 1]; r = u8[q + 2]; }
+          d[o] = r; d[o + 1] = gg; d[o + 2] = b; d[o + 3] = 255;
+        }
+      }
+      c.getContext('2d').putImageData(id, 0, 0);
+      return c;
+    };
+    const blit = (img, sx, sy, sw, sh, dx, dy, dw, dh) => withClip(() => {
+      g.imageSmoothingQuality = 'high';
+      // DIB 的來源座標是由下往上；drawImage 用的是由上往下，這裡已經在 dib() 翻好了
+      g.drawImage(img, sx, img.height - sy - sh, sw, sh, dx, dy, dw, dh);
+    });
+    const dec = new TextDecoder('utf-16le');
+    let p = 0;
+    while (p + 8 <= u8.length) {
+      const t = u32(p), size = u32(p + 4);
+      if (size < 8 || p + size > u8.length) break;
+      const o = p + 8;
+      try { switch (t) {
+        case 9: st.wExt = [i32(o), i32(o + 4)]; break;
+        case 10: st.wOrg = [i32(o), i32(o + 4)]; break;
+        case 11: st.vExt = [i32(o), i32(o + 4)]; break;
+        case 12: st.vOrg = [i32(o), i32(o + 4)]; break;
+        case 17: st.mapMode = u32(o); break;
+        case 18: st.bkMode = u32(o); break;
+        case 19: st.fill = u32(o) === 2 ? 'nonzero' : 'evenodd'; break;
+        case 22: st.align = u32(o); break;
+        case 24: st.textColor = rgb(o); break;
+        case 25: st.bkColor = rgb(o); break;
+        case 27: st.cur = [i32(o), i32(o + 4)]; if (path) path.moveTo(st.cur[0], st.cur[1]); break;
+        case 54: { const q = new Path2D(); q.moveTo(st.cur[0], st.cur[1]); st.cur = [i32(o), i32(o + 4)]; q.lineTo(st.cur[0], st.cur[1]);
+          if (path) path.lineTo(st.cur[0], st.cur[1]); else paint(q, false, true); break; }
+        case 30: andClip([devRect(i32(o), i32(o + 4), i32(o + 8), i32(o + 12))]); break;
+        case 33: stack.push(copy(st)); break;
+        case 34: { const n = i32(o); const idx = n < 0 ? stack.length + n : n - 1; if (stack[idx]) { st = stack[idx]; stack.length = idx; } break; }
+        case 35: st.world = new DOMMatrix([f32(o), f32(o + 4), f32(o + 8), f32(o + 12), f32(o + 16), f32(o + 20)]); break;
+        case 36: { const x = new DOMMatrix([f32(o), f32(o + 4), f32(o + 8), f32(o + 12), f32(o + 16), f32(o + 20)]), mode = u32(o + 24);
+          st.world = mode === 1 ? new DOMMatrix() : mode === 2 ? st.world.multiply(x) : mode === 3 ? x.multiply(st.world) : x; break; }
+        case 37: { const h = u32(o); const ob = h & 0x80000000 ? STOCK[h & 0x7fffffff] : objs[h];
+          if (ob) { if (ob.t === 'p') st.pen = ob; else if (ob.t === 'b') st.brush = ob; else if (ob.t === 'f') st.font = ob; } break; }
+        case 38: objs[u32(o)] = { t: 'p', c: (u32(o + 4) & 15) === 5 ? null : rgb(o + 16), w: i32(o + 8) }; break;
+        case 39: objs[u32(o)] = { t: 'b', c: u32(o + 4) === 1 ? null : rgb(o + 8) }; break;
+        case 40: delete objs[u32(o)]; break;
+        case 95: objs[u32(o)] = { t: 'p', c: (u32(o + 20) & 15) === 5 || u32(o + 28) === 1 ? null : rgb(o + 32), w: u32(o + 24) }; break;
+        case 82: { const lf = o + 4, name = dec.decode(u8.subarray(lf + 28, lf + 92)).replace(/\0.*$/s, '');
+          objs[u32(o)] = { t: 'f', h: i32(lf), weight: i32(lf + 16), italic: u8[lf + 20], esc: i32(lf + 8), name }; break; }
+        case 28: break;                                        // SETMETARGN：沿用目前裁切
+        case 75: { const cb = u32(o), mode = u32(o + 4);
+          if (mode === 5 && !cb) { st.clip = null; break; }
+          const rd = o + 8, n = u32(rd + 8), rects = [];
+          for (let i = 0; i < n; i++) { const q = rd + 32 + i * 16; rects.push([(i32(q) - bL) * k, (i32(q + 4) - bT) * k, (i32(q + 8) - bL) * k, (i32(q + 12) - bT) * k]); }
+          if (mode === 5) st.clip = rects; else if (mode === 1) andClip(rects); break; }
+        case 59: path = new Path2D(); break;
+        case 60: break;
+        case 61: if (path) path.closePath(); break;
+        case 62: case 63: case 64: if (path) { const q = path; path = null; paint(q, t !== 64, t !== 62); } break;
+        case 85: case 86: case 87: case 88: case 89: {
+          const a = pts16(o + 20, u32(o + 16));
+          if (t === 88 || t === 89) a.unshift(st.cur.slice());
+          if (path && (t === 88 || t === 89)) { const q = poly(a, false, t === 88); path.addPath(q); }
+          else shape(poly(a, t === 86, t === 85 || t === 88), t === 86);
+          if (a.length) st.cur = a[a.length - 1].slice(); break; }
+        case 90: case 91: {
+          const n = u32(o + 16); let q = o + 24 + n * 4; const all = new Path2D();
+          for (let i = 0; i < n; i++) { const c = u32(o + 24 + i * 4); all.addPath(poly(pts16(q, c), t === 91)); q += c * 4; }
+          shape(all, t === 91); break; }
+        case 43: { const q = new Path2D(); q.rect(i32(o), i32(o + 4), i32(o + 8) - i32(o), i32(o + 12) - i32(o + 4)); shape(q, true); break; }
+        case 42: { const l = i32(o), tt = i32(o + 4), r = i32(o + 8), b = i32(o + 12); const q = new Path2D();
+          q.ellipse((l + r) / 2, (tt + b) / 2, Math.abs(r - l) / 2, Math.abs(b - tt) / 2, 0, 0, Math.PI * 2); shape(q, true); break; }
+        case 84: {                                             // EXTTEXTOUTW
+          const e = o + 28, x = i32(e), y = i32(e + 4), n = u32(e + 8), offS = u32(e + 12), offDx = u32(e + 36);
+          if (!n) break;
+          const txt = dec.decode(u8.subarray(p + offS, p + offS + n * 2));
+          const f = st.font || { h: -12, weight: 400, italic: 0, esc: 0, name: 'sans-serif' };
+          withClip(() => {
+            const px = Math.abs(f.h) || 12;
+            g.font = (f.italic ? 'italic ' : '') + (f.weight >= 600 ? 'bold ' : '') + px + "px '" + f.name + "', 'Microsoft JhengHei', 'PingFang TC', sans-serif";
+            g.fillStyle = st.textColor;
+            const va = st.align & 24; g.textBaseline = va === 24 ? 'alphabetic' : va === 8 ? 'bottom' : 'top';
+            const ha = st.align & 6;
+            g.translate(x, y); if (f.esc) g.rotate(-f.esc / 10 * Math.PI / 180);
+            if (offDx) {                                       // 逐字位置照 Word 算好的間距擺
+              let total = 0; const dx = []; for (let i = 0; i < n; i++) { dx.push(i32(p + offDx + i * 4)); total += dx[i]; }
+              let cx = ha === 6 ? -total / 2 : ha === 2 ? -total : 0; g.textAlign = 'left';
+              for (let i = 0; i < n; i++) { g.fillText(txt[i], cx, 0); cx += dx[i]; }
+            } else { g.textAlign = ha === 6 ? 'center' : ha === 2 ? 'right' : 'left'; g.fillText(txt, 0, 0); }
+          });
+          break; }
+        case 76: {                                             // BITBLT
+          const dx = i32(o + 16), dy = i32(o + 20), dw = i32(o + 24), dh = i32(o + 28), rop = u32(o + 32);
+          const offBmi = u32(o + 68), cbBmi = u32(o + 72), offBits = u32(o + 76), cbBits = u32(o + 80);
+          if (!cbBmi) {
+            const c = rop === 0x00FF0062 ? '#fff' : rop === 0x00000042 ? '#000' : rop === 0x00F00021 ? st.brush && st.brush.c : null;  // 其他 ROP 需要讀目的地，略過
+            if (c) withClip(() => { g.fillStyle = c; g.fillRect(dx, dy, dw, dh); });
+          } else { const img = dib(p, offBmi, offBits, cbBits); if (img) blit(img, i32(o + 36), i32(o + 40), dw, dh, dx, dy, dw, dh); }
+          break; }
+        case 81: {                                             // STRETCHDIBITS
+          const dx = i32(o + 16), dy = i32(o + 20), sx = i32(o + 24), sy = i32(o + 28), sw = i32(o + 32), sh = i32(o + 36);
+          const img = dib(p, u32(o + 40), u32(o + 48), u32(o + 52));
+          if (img) blit(img, sx, sy, sw, sh, dx, dy, i32(o + 64), i32(o + 68));
+          break; }
+        case 14: p = u8.length; break;                         // EOF
+      } } catch (e) { /* 單一紀錄壞掉就跳過 */ }
+      p += size;
+    }
+    return cv.toDataURL('image/png');
   }
 
   // ---------- 表格 ----------
@@ -436,7 +625,7 @@
       warnings: [],
     };
     for (const [name, entry] of zip) {
-      if (/^word\/media\//i.test(name) && !/\.(emf|wmf|emz|wmz)$/i.test(name)) ctx.media.set(name, entry.method === 0 ? entry.raw : await entryBytes(zip, name));
+      if (/^word\/media\//i.test(name) && !/\.(wmf|emz|wmz)$/i.test(name)) ctx.media.set(name, entry.method === 0 ? entry.raw : await entryBytes(zip, name));
     }
     const doc = xml(documentXml);
     const body = [...doc.getElementsByTagName('*')].find((e) => e.localName === 'body');
@@ -504,7 +693,7 @@
         if (ref.localName === 'headerReference' && (type === 'default' || !header)) header = await convertEdge(text, ctx);
         if (ref.localName === 'footerReference' && (type === 'default' || !footer)) footer = await convertEdge(text, ctx);
       }
-      if (ctx.vectorImages) ctx.warnings.push(ctx.vectorImages + ' 張 EMF/WMF 向量圖瀏覽器無法顯示，已用文字標示位置');
+      if (ctx.vectorImages) ctx.warnings.push(ctx.vectorImages + ' 張 EMF/WMF 向量圖無法轉換，已用文字標示位置');
       if (header && /\bPAGE\b/.test(header)) ctx.warnings.push('頁尾的頁碼欄位會顯示 Word 上次存檔的數字');
     }
     return { html: html.join('\n'), page, header, footer, warnings: ctx.warnings, lists: listCount, breaks: (html.join('').match(/class="pagebreak"/g) || []).length };

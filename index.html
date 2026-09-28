@@ -308,6 +308,14 @@ input {
     width: 100% !important;
   }
 }
+/* 平板與電腦：編輯工具列固定在頁首下方，不跟著捲動 */
+@media screen and (min-width: 641px) and (min-height: 501px) {
+  body:not(.desk) .toolbar {
+    position: sticky;
+    top: var(--toph, 0px);
+    z-index: 9;
+  }
+}
 @media (max-width: 900px) {
   .topin {
     align-items: flex-start;
@@ -1142,6 +1150,19 @@ body:not(.intable) .tblgrp + .grp {
         <option value="blockquote">引言</option>
         <option value="pre">預格式</option>
       </select>
+      <select id="lineHeight" title="行距" aria-label="行距">
+        <option value="">行距</option>
+        <option value="1">1.0</option>
+        <option value="1.15">1.15</option>
+        <option value="1.5">1.5</option>
+        <option value="1.75">1.75</option>
+        <option value="2">2.0</option>
+        <option value="2.5">2.5</option>
+        <option value="3">3.0</option>
+      </select>
+      <button class="tool" data-para="outdent" title="減少縮排" aria-label="減少縮排"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 6h9M11 10h9M11 14h9M4 18h16M7 9l-3 3 3 3"/></svg></button>
+      <button class="tool" data-para="indent" title="增加縮排" aria-label="增加縮排"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 6h9M11 10h9M11 14h9M4 18h16M4 9l3 3-3 3"/></svg></button>
+      <button class="tool" data-para="first" title="首行縮排兩字（再按一次取消）" aria-label="首行縮排">首行</button>
       <button class="tool" data-cmd="undo" title="復原（Ctrl+Z）" aria-label="復原">↶</button>
       <button class="tool" data-cmd="redo" title="重做（Ctrl+Y）" aria-label="重做">↷</button>
       </div>
@@ -2059,6 +2080,47 @@ $('#fontSize').onchange = e => {
   editor.focus();
   document.execCommand('fontSize', false, e.target.value);
 };
+// ---- 段落：行距、左縮排、首行縮排（直接寫在段落的 style 上，匯出 docx／PDF 都帶得走）----
+function selBlocks() {
+  const s = getSelection();
+  if (!s.rangeCount || !editor.contains(s.anchorNode)) return [];
+  const r = s.getRangeAt(0);
+  const Q = 'p,h1,h2,h3,h4,li,blockquote,pre';
+  let els = [...editor.querySelectorAll(Q)].filter(el => r.intersectsNode(el) && !el.querySelector(Q));
+  if (!els.length) {
+    document.execCommand('formatBlock', false, 'p'); // 游標在沒有段落的純文字上：先包成段落
+    const n = getSelection().anchorNode;
+    const b = n && (n.nodeType === 1 ? n : n.parentNode).closest(Q);
+    els = b && editor.contains(b) ? [b] : [];
+  }
+  return els;
+}
+function paraEdit(fn) {
+  editor.focus();
+  const els = selBlocks();
+  if (!els.length) return msg('請先把游標放在要調整的段落');
+  recordEdit(() => els.forEach(fn));
+}
+$('#lineHeight').onchange = e => {
+  const v = e.target.value;
+  e.target.value = '';
+  if (v) paraEdit(el => (el.style.lineHeight = v));
+};
+document.querySelectorAll('[data-para]').forEach(b =>
+  b.addEventListener('click', () => {
+    const k = b.dataset.para;
+    paraEdit(el => {
+      if (k === 'first') {
+        el.style.textIndent = parseFloat(getComputedStyle(el).textIndent) > 0 ? '' : '2em';
+        return;
+      }
+      const step = 2 * parseFloat(getComputedStyle(el).fontSize);
+      const m = Math.max(0, parseFloat(getComputedStyle(el).marginLeft) + (k === 'indent' ? step : -step));
+      el.style.marginLeft = m ? Math.round(m) + 'px' : '';
+    });
+  }),
+);
+new ResizeObserver(() => document.documentElement.style.setProperty('--toph', $('.top').offsetHeight + 'px')).observe($('.top'));
 $('#blockStyle').onchange = e => {
   editor.focus();
   document.execCommand('formatBlock', false, e.target.value);
