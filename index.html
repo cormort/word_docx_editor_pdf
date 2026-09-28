@@ -369,6 +369,19 @@ input {
   background: var(--blue);
   pointer-events: none;
 }
+/* 跨頁表格標題列的複本（分頁檢視） */
+.paper.pgclone {
+  position: absolute;
+  z-index: 6;
+  width: auto;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0;
+  box-shadow: none !important;
+  background: #fff;
+  pointer-events: none;
+  transform-origin: 0 0;
+}
 /* 滑鼠移到工具按鈕上立即顯示說明（瀏覽器原生 title 要等約一秒，觸控裝置也不顯示） */
 .tip {
   position: fixed;
@@ -1279,6 +1292,8 @@ body:not(.intable) .tblgrp + .grp {
           <button class="tool mi" id="mergeDBtn" role="menuitem">與下方合併</button>
           <button class="tool mi" id="splitBtn" role="menuitem">分割儲存格</button>
           <hr class="msep" role="separator">
+          <button class="tool mi" id="headRowBtn" role="menuitem" title="從第一列到游標所在列設為標題列，表格跨頁時在每頁頂端重複；再按一次取消">標題列（跨頁重複）</button>
+          <hr class="msep" role="separator">
           <button class="tool mi danger" id="tblDelBtn" role="menuitem">刪除整個表格</button>
         </div>
       </details>
@@ -2028,6 +2043,25 @@ $('#rowDelBtn').onclick = () => tableOp('delRow');
 $('#colDelBtn').onclick = () => tableOp('delCol');
 $('#tblDelBtn').onclick = () => tableOp('delTable');
 $('#splitBtn').onclick = () => tableOp('split');
+// 標題列：第一列到游標所在列搬進 <thead>；游標已在標題列裡就取消（搬回 tbody 開頭）
+$('#headRowBtn').onclick = () => {
+  const cell = cellOfCaret();
+  if (!cell) return msg('請先把游標放在表格內。', true);
+  const table = cell.closest('table'),
+    tr = cell.parentElement;
+  recordEdit(() => {
+    const body = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
+    if (table.tHead) {
+      const rows = [...table.tHead.rows];
+      table.tHead.remove();
+      body.prepend(...rows);
+      if (rows.includes(tr)) return msg('已取消標題列');
+    }
+    const rows = [...table.rows].slice(0, [...table.rows].indexOf(tr) + 1);
+    table.createTHead().append(...rows);
+    msg('已設為標題列：表格跨頁時會在每頁頂端重複');
+  });
+};
 $('.tblgrp').addEventListener('click', e => {
   const b = e.target.closest('[data-top]');
   if (b) tableOp(b.dataset.top);
@@ -3216,7 +3250,8 @@ function tableXml(tbl, ctx) {
       // 列高（拖曳調整或匯入）：Word 的「最小列高」，內容多時仍會長高
       const hv = parseFloat(tr.style.height),
         tw = hv > 0 ? Math.round(hv * (/pt$/.test(tr.style.height) ? 20 : 15)) : 0, // pt（匯入）或 px（拖曳）→ twips
-        trPr = tw ? '<w:trPr><w:trHeight w:val="' + tw + '" w:hRule="atLeast"/></w:trPr>' : '';
+        hdr = tr.parentElement.tagName === 'THEAD' ? '<w:tblHeader/>' : '', // 標題列：Word 跨頁時重複
+        trPr = tw || hdr ? '<w:trPr>' + hdr + (tw ? '<w:trHeight w:val="' + tw + '" w:hRule="atLeast"/>' : '') + '</w:trPr>' : '';
       return '<w:tr>' + trPr + out + '</w:tr>';
     })
     .join('');
@@ -3670,6 +3705,7 @@ function paginate() {
   document.body.classList.toggle('paged', on);
   if (!on) {
     sheet.textContent = '';
+    drawHeads([], 1);
     fit();
     return;
   }
@@ -3686,15 +3722,16 @@ function paginate() {
     pg.margins.map(v => v + 'mm').join(' ') +
     '!important;box-shadow:none!important;filter:drop-shadow(0 2px 5px #0f172a26);background:repeating-linear-gradient(to bottom,#fff 0,#fff ' +
     H + 'px,transparent ' + H + 'px,transparent ' + step + 'px)!important}';
-  // 頁與頁之間的空隙蓋在內容上面：跨頁的表格框線、超過一頁的圖都會像分開的紙一樣被切開
+  // 頁邊界與頁間空隙蓋在內容上面：跨頁表格留下的框線、超過一頁的圖都像分開的紙一樣被切開，邊界維持空白
   const mask =
-    'body.paged #editor{position:relative}body.paged #editor::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:5;background:repeating-linear-gradient(to bottom,transparent 0,transparent ' +
-    H + 'px,var(--bg) ' + H + 'px,var(--bg) ' + step + 'px)}';
+    'body.paged #editor{position:relative}body.paged #editor::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:5;background:repeating-linear-gradient(to bottom,#fff 0,#fff ' +
+    T + 'px,transparent ' + T + 'px,transparent ' + (H - B) + 'px,#fff ' + (H - B) + 'px,#fff ' + H + 'px,var(--bg) ' + H + 'px,var(--bg) ' + step + 'px)}';
   sheet.textContent = '@media screen{' + base(H) + mask + '}';
   fit();
   const er = editor.getBoundingClientRect(),
     z = er.width / editor.offsetWidth || 1;
-  const rules = [];
+  const rules = [],
+    heads = [];
   let acc = 0, // 前面推移累積的位移：一次量完再算，免得每推一次就重排整份文件
     end = T;
   const TEXTBLK = /^(P|H[1-6]|LI|PRE|BLOCKQUOTE)$/,
@@ -3774,6 +3811,11 @@ function paginate() {
       if (cs.position === 'absolute' || cs.float !== 'none' || cs.display === 'none') continue;
       const k = Math.floor(top / step),
         tag = el.tagName;
+      if (tag === 'THEAD') {
+        prev = el; // 標題列不拆
+        end = Math.max(end, (r.bottom - er.top) / z + acc);
+        continue;
+      }
       if (breakTop >= 0) {
         const d = (Math.floor(breakTop / step) + 1) * step + T - top;
         if (d > 0.5) pushRule(s, el, cs, prev, d);
@@ -3781,14 +3823,18 @@ function paginate() {
         const first = top >= k * step + H - B - 0.5; // 起點已經在頁尾邊界之後
         if (!first && /^(UL|OL|TABLE|TBODY|THEAD|TFOOT)$/.test(tag) && el.children.length) {
           // 表格第一列就放不下：先整個表格推到下一頁，再進去逐列換頁
-          const r0 = tag === 'TABLE' && el.rows[0] ? el.rows[0].getBoundingClientRect() : null;
+          const fr = tag === 'TABLE' ? (el.tBodies[0] && el.tBodies[0].rows[0]) || el.rows[0] : null, // 標題列＋第一筆資料列
+            r0 = fr ? fr.getBoundingClientRect() : null;
           if (r0 && (r0.bottom - er.top) / z + acc > k * step + H - B + 0.5) pushRule(s, el, cs, prev, (k + 1) * step + T - top);
           walk(el, s); // 清單、表格：進去逐項／逐列換頁
         } else if (!first && tag === 'TR') {
-          // 表格列：推不動 tr 的邊界，改把這列每格的上內距加大
+          // 表格列：推不動 tr 的邊界，改把這列每格的上內距加大；有標題列就多留它的高度，再疊一份複本上去
           const c = el.cells[0],
             pt = c ? parseFloat(getComputedStyle(c).paddingTop) || 0 : 0,
-            d = (k + 1) * step + T - top;
+            th = el.closest('table').tHead,
+            hh = th && el.parentElement !== th ? th.getBoundingClientRect().height / z : 0,
+            d = (k + 1) * step + T - top + hh;
+          if (hh) heads.push({ table: el.closest('table'), y: (k + 1) * step + T });
           rules.push(s + '>td,' + s + '>th{padding-top:' + (pt + d).toFixed(1) + 'px!important}');
           acc += d;
         } else if (!first && h > room && tag === 'DIV' && el.children.length) {
@@ -3805,6 +3851,36 @@ function paginate() {
   walk(editor, '#editor');
   const pages = Math.floor((end + B - 1) / step) + 1;
   sheet.textContent = '@media screen{' + base(pages * step - GAP) + mask + rules.join('') + '}';
+  drawHeads(heads, z);
+}
+// 跨頁表格的標題列複本：疊在每個續頁的表格頂端（唯讀、不屬於文件內容）
+const pgHeads = document.createElement('div');
+pgHeads.className = 'no-print';
+document.body.append(pgHeads);
+function drawHeads(list, z) {
+  pgHeads.innerHTML = '';
+  if (!list.length) return;
+  const et = editor.getBoundingClientRect().top + scrollY;
+  for (const { table, y } of list) {
+    const tr = table.getBoundingClientRect(),
+      box = document.createElement('div');
+    box.className = 'paper pgclone';
+    box.style.cssText =
+      'left:' + (tr.left + scrollX) + 'px;top:' + (et + y * z) + 'px;width:' + table.offsetWidth + 'px;transform:scale(' + z + ')';
+    const t = document.createElement('table');
+    t.style.cssText = table.style.cssText;
+    const cg = table.querySelector(':scope > colgroup');
+    if (cg) t.append(cg.cloneNode(true));
+    const th = table.tHead.cloneNode(true),
+      src = [...table.tHead.querySelectorAll('td,th')];
+    // 欄寬照原表格實際量到的寬度，框線才對得齊
+    t.style.tableLayout = 'fixed';
+    t.style.width = table.offsetWidth + 'px';
+    th.querySelectorAll('td,th').forEach((c, i) => (c.style.width = src[i].offsetWidth + 'px'));
+    t.append(th);
+    box.append(t);
+    pgHeads.append(box);
+  }
 }
 // 編輯區自己的 style（縮放）是我們設的，不算內容變動，否則會一直重排
 new MutationObserver(ms => ms.some(m => !(m.target === editor && m.type === 'attributes')) && paginateSoon()).observe(editor, { childList: true, subtree: true, characterData: true, attributes: true });

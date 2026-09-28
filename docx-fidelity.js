@@ -824,7 +824,7 @@
         rowspans.set(r + ':' + c, count);
       }
     });
-    let body = '';
+    let body = '', head = '', inHead = true;
     rows.forEach((tr, r) => {
       let cells = '';
       const width = matrix[r] ? matrix[r].length : 0;
@@ -845,11 +845,14 @@
       }
       // 列高：Word 的 trHeight（twips；exact／atLeast 都當最小高度）
       const trH = num(val(tag(tag(tr, 'trPr'), 'trHeight'), 'val'), 0);
-      body += '<tr' + (trH ? ' style="height:' + (trH / 20).toFixed(1) + 'pt"' : '') + '>' + cells + '</tr>';
+      const row = '<tr' + (trH ? ' style="height:' + (trH / 20).toFixed(1) + 'pt"' : '') + '>' + cells + '</tr>';
+      // 開頭連續標了 tblHeader 的列＝跨頁重複的標題列 → <thead>
+      inHead = inHead && !!tag(tag(tr, 'trPr'), 'tblHeader') && val(tag(tag(tr, 'trPr'), 'tblHeader'), 'val') !== '0';
+      if (inHead) head += row; else body += row;
     });
     let colgroup = '';
     if (cols.length && totalW) colgroup = '<colgroup>' + cols.map((w) => '<col style="width:' + ((w / totalW) * 100).toFixed(2) + '%">').join('') + '</colgroup>';
-    return '<table>' + colgroup + '<tbody>' + body + '</tbody></table>';
+    return '<table>' + colgroup + (head ? '<thead>' + head + '</thead>' : '') + '<tbody>' + body + '</tbody></table>';
   }
 
   // ---------- 頁首／頁尾 ----------
