@@ -128,6 +128,63 @@
     block.style.marginBottom = '0';
     return rest;
   }
+  // 只放一張圖的區塊（<img> 或只含一張圖的段落）
+  const soleImg = b =>
+    b.tagName === 'IMG' ? b : b.querySelectorAll('img').length === 1 && !b.textContent.trim() ? b.querySelector('img') : null;
+  // 比一頁還高的圖：這頁放上半截、下一頁接著放下半截（用裁切框＋負邊界，圖本身不動）。
+  // data-off＝這一截從原圖第幾像素開始；limit＝這頁內容區底端（視窗座標）
+  function splitImg(block, limit) {
+    const img = soleImg(block);
+    if (!img) return null;
+    const full = parseFloat(block.dataset.full) || img.getBoundingClientRect().height,
+      off = parseFloat(block.dataset.off) || 0,
+      top = block.getBoundingClientRect().top,
+      avail = Math.floor(limit - top - 2);
+    if (avail < 40 || full - off <= avail) return null;
+    const br = block.getBoundingClientRect(),
+      ir = img.getBoundingClientRect();
+    const slice = (from, h) => {
+      const b = block.tagName === 'IMG' ? document.createElement('div') : block.cloneNode(false),
+        clip = document.createElement('div'),
+        im = img.cloneNode(false);
+      clip.style.cssText = 'overflow:hidden;height:' + h + 'px;width:' + ir.width + 'px;margin-left:' + (ir.left - br.left) + 'px';
+      im.style.cssText = 'display:block;width:' + ir.width + 'px;height:' + full + 'px;max-width:none;margin:-' + from + 'px 0 0 0;float:none';
+      clip.appendChild(im);
+      b.appendChild(clip);
+      b.style.margin = '0';
+      b.dataset.full = full;
+      b.dataset.off = from;
+      return b;
+    };
+    block.replaceWith(slice(off, avail));
+    return slice(off + avail, full - off - avail);
+  }
+  // 文字方塊這類容器：放得下的子區塊留在這頁，跨頁的那個子區塊再往下切，其餘搬到下一頁的複本裡
+  function splitBox(box, fits, limit) {
+    const kids = [...box.children];
+    if (!kids.length) return null;
+    const moved = [];
+    while (box.children.length && !fits()) moved.unshift(box.removeChild(box.lastElementChild));
+    if (moved.length) {
+      const k0 = moved[0];
+      box.appendChild(k0);
+      const part = TEXTBLK.test(k0.tagName) ? splitPara(k0, limit) : /^(DIV|BLOCKQUOTE|SECTION)$/.test(k0.tagName) ? splitBox(k0, fits, limit) : null;
+      if (part && fits()) moved[0] = part;
+      else {
+        if (part) k0.append(...part.childNodes); // 切了還是放不下：合回去整個搬
+        box.removeChild(k0);
+      }
+    }
+    if (!moved.length || !box.children.length) {
+      box.append(...moved.filter(m => !box.contains(m)));
+      return null;
+    }
+    const rest = box.cloneNode(false);
+    rest.append(...moved);
+    rest.style.marginTop = '0';
+    box.style.marginBottom = '0';
+    return rest;
+  }
   const hasContent = body => body.textContent.trim() !== '' || !!body.querySelector('img,table,hr');
 
   function paginate(source, o) {
@@ -168,7 +225,14 @@
           ? splitTable(block, fits)
           : /^(UL|OL)$/.test(block.tagName)
             ? splitList(block, fits)
-            : splitPara(block, body.getBoundingClientRect().top + contentH);
+            : /^(DIV|BLOCKQUOTE|SECTION)$/.test(block.tagName) && !soleImg(block) && block.children.length
+              ? splitBox(block, fits, body.getBoundingClientRect().top + contentH)
+              : soleImg(block)
+                ? // 圖：下一頁整張放得下就整張搬，比一頁還高才切
+                  soleImg(block).getBoundingClientRect().height > contentH - 2
+                  ? splitImg(block, body.getBoundingClientRect().top + contentH)
+                  : null
+                : splitPara(block, body.getBoundingClientRect().top + contentH);
       if (rest) {
         blocks.splice(i + 1, 0, rest);
         newPage();
