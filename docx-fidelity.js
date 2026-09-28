@@ -312,12 +312,17 @@
     if (wPt) css.push('width:' + wPt.toFixed(1) + 'pt');
     if (wPt && hPt) css.push('aspect-ratio:' + wPt.toFixed(2) + '/' + hPt.toFixed(2));
     const anchor = all.find((e) => e.localName === 'anchor');
+    let vBlock = 0;
     if (anchor) {
       const posH = tag(anchor, 'positionH'), wrap = [...anchor.children].find((e) => /^wrap/.test(e.localName));
       const align = posH && tag(posH, 'align') ? tag(posH, 'align').textContent.trim() : '';
       const off = posH && tag(posH, 'posOffset') ? num(tag(posH, 'posOffset').textContent, 0) / EMU_PT : 0;
+      // 垂直：只處理相對段落／行的位移（相對頁面的在沒有分頁引擎下無從對應）
+      const posV = tag(anchor, 'positionV'), relV = posV ? posV.getAttribute('relativeFrom') : '';
+      const voff = posV && tag(posV, 'posOffset') && /^(paragraph|line)$/.test(relV) ? num(tag(posV, 'posOffset').textContent, 0) / EMU_PT : 0;
       const floaty = wrap && /^wrap(Square|Tight|Through)$/.test(wrap.localName) && wPt && wPt <= FLOAT_MAX_PT && align !== 'center';
-      if (floaty) css.push('float:' + (align === 'right' || align === 'outside' ? 'right' : 'left'), 'margin:0 6pt 4pt ' + (off > 0 && !align ? off.toFixed(1) : '0') + 'pt');
+      if (floaty) css.push('float:' + (align === 'right' || align === 'outside' ? 'right' : 'left'), 'margin:' + Math.max(0, voff).toFixed(1) + 'pt 6pt 4pt ' + (off > 0 && !align ? off.toFixed(1) : '0') + 'pt');
+      else if (voff) vBlock = voff;                               // 大圖：匯入後依實際排版挪到對應高度（index.html placeFloats）
       else {
         css.push('display:block');
         if (align === 'center') css.push('margin-left:auto', 'margin-right:auto');
@@ -325,7 +330,7 @@
         else if (off > 0 && !align) css.push('margin-left:' + off.toFixed(1) + 'pt');
       }
     }
-    return css.join(';');
+    return { css: css.join(';'), voff: vBlock };
   }
 
   // ---------- 圖片／文字方塊 ----------
@@ -380,7 +385,8 @@
       for (let i = 0; i < bytes.length; i += chunk) b64 += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
       dataUrl = 'data:' + mime + ';base64,' + btoa(b64);
     }
-    return '<img src="' + dataUrl + '" style="' + imgBox(node) + '" alt="">';
+    const box = imgBox(node);
+    return '<img src="' + dataUrl + '" style="' + box.css + '"' + (box.voff ? ' data-voff="' + box.voff.toFixed(1) + '"' : '') + ' alt="">';
   }
 
 

@@ -2315,6 +2315,41 @@ $('#file').onchange = e => {
   e.target.value = '';
   if (f) openDocx(f);
 };
+// 浮動大圖在 Word 裡是「錨點段落往下 N pt」：以紙張寬度排版、先把這些圖抽出來量高度，再把圖放到那個高度的段落前
+function placeFloats() {
+  const imgs = [...editor.querySelectorAll('img[data-voff]')];
+  if (!imgs.length) return;
+  const PT = 96 / 72,
+    w = editor.style.width;
+  if (w) editor.style.setProperty('width', w, 'important'); // 暫時用 Word 的紙寬量，高度才對得上
+  imgs.forEach(i => (i.style.display = 'none'));
+  const plan = imgs.map(img => {
+    const src = img.closest('p,li,h1,h2,h3,h4,blockquote,pre');
+    if (!src || !src.parentNode) return null;
+    const target = src.getBoundingClientRect().top + parseFloat(img.dataset.voff) * PT;
+    let at = null;
+    for (let s = src.parentNode.firstElementChild; s; s = s.nextElementSibling) {
+      if (s.getBoundingClientRect().top >= target - 1) {
+        at = s;
+        break;
+      }
+    }
+    return { img, src, at };
+  });
+  editor.style.width = w;
+  imgs.forEach(i => {
+    i.style.display = 'block';
+    i.removeAttribute('data-voff');
+  });
+  for (const x of plan) {
+    if (!x || x.at === x.src || x.at === x.src.nextElementSibling) continue;
+    const p = document.createElement('p');
+    p.append(x.img);
+    x.src.parentNode.insertBefore(p, x.at);
+  }
+  // 圖搬走後只剩空白的錨點段落：全部搬完再刪（其他圖可能以它為插入點）
+  for (const x of plan) if (x && x.src.isConnected && !x.src.textContent.trim() && !x.src.querySelector('img,table')) x.src.remove();
+}
 async function openDocx(file) {
   if (file.size > 60 * 1024 * 1024) return msg('檔案超過 60MB，瀏覽器可能無法處理，請先簡化內容。', true);
   notice.style.display = 'none';
@@ -2332,6 +2367,7 @@ async function openDocx(file) {
           editor.innerHTML = sanitizeHtml(r.html);
           pageEdges(r.header, r.footer);
           applyDocumentPage(r.page);
+          placeFloats();
           const bits = [];
           if (r.page) bits.push('紙張 ' + r.page.w + '×' + r.page.h + 'mm');
           if (r.lists) bits.push(r.lists + ' 個清單');
