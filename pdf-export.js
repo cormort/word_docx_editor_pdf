@@ -14,16 +14,21 @@
   const FONT = 'WdeText';
 
   // ---------- 分頁 ----------
-  // 從表格尾端一列一列往下一頁搬，直到這頁放得下；第一列全是 th 時當標題列，每頁重複。
+  // 從表格尾端一列一列往下一頁搬，直到這頁放得下；<thead> 的列（或第一列全是 th）當標題列，每頁重複。
   // 回傳下一頁要接著放的表格，連一列都放不下就回傳 null。
   function splitTable(table, fits) {
     const rows = [...table.querySelectorAll(':scope > tr, :scope > * > tr')];
-    const head = rows.length && [...rows[0].cells].every(c => c.tagName === 'TH') ? 1 : 0;
+    const home = new Map(rows.map(r => [r, r.parentNode])); // 搬不動時放回原本的 thead／tbody
+    const head = table.tHead
+      ? table.tHead.rows.length
+      : rows.length && [...rows[0].cells].every(c => c.tagName === 'TH')
+        ? 1
+        : 0;
     if (rows.length - head < 2) return null;
     let kept = rows.length;
     while (kept > head && !fits()) rows[--kept].remove();
     if (kept === head) {
-      for (const row of rows.slice(head)) (rows[0].parentNode || table).appendChild(row);
+      for (const row of rows.slice(head)) home.get(row).appendChild(row);
       return null;
     }
     // 跨頁的縱向合併儲存格：這頁到斷點為止，剩下的列數交給下一頁同一欄的格子
@@ -49,9 +54,13 @@
     });
     const rest = table.cloneNode(false);
     for (const cg of table.querySelectorAll(':scope > colgroup')) rest.appendChild(cg.cloneNode(true));
+    if (head) {
+      const th = document.createElement('thead');
+      for (const row of rows.slice(0, head)) th.appendChild(row.cloneNode(true));
+      rest.appendChild(th);
+    }
     const body = document.createElement('tbody');
     rest.appendChild(body);
-    if (head) body.appendChild(rows[0].cloneNode(true));
     for (const row of rows.slice(kept)) body.appendChild(row);
     return rest;
   }
