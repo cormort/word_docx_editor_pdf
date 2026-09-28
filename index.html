@@ -322,6 +322,30 @@ input {
   border-radius: 2px;
   pointer-events: none;
 }
+.imgselbox i {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border: 2px solid var(--blue);
+  border-radius: 3px;
+  pointer-events: auto;
+  touch-action: none;
+}
+.imgselbox i[data-c='nw'] { left: -8px; top: -8px; cursor: nwse-resize; }
+.imgselbox i[data-c='ne'] { right: -8px; top: -8px; cursor: nesw-resize; }
+.imgselbox i[data-c='sw'] { left: -8px; bottom: -8px; cursor: nesw-resize; }
+.imgselbox i[data-c='se'] { right: -8px; bottom: -8px; cursor: nwse-resize; }
+.imgsize {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  background: #1e293bcc;
+  color: #fff;
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
 .imgbar {
   position: fixed;
   z-index: 60;
@@ -1566,6 +1590,7 @@ function histGo(d) {
   const j = histI + d;
   if (j < 0 || j >= hist.length) return msg(d < 0 ? '沒有可以復原的動作' : '沒有可以重做的動作');
   histI = j;
+  selectImg(null); // 內容整個換掉，原本選取的圖片已不存在
   editor.innerHTML = hist[j].h;
   editor.focus();
   if (hist[j].sel) setSelPath(hist[j].sel);
@@ -2030,7 +2055,41 @@ document.body.append(imgBar);
 const selBox = document.createElement('div');
 selBox.className = 'imgselbox no-print';
 selBox.hidden = true;
+selBox.innerHTML = '<i data-c="nw"></i><i data-c="ne"></i><i data-c="sw"></i><i data-c="se"></i><span class="imgsize" hidden></span>';
 document.body.append(selBox);
+// 拖曳四個角調整大小：只改寬度，高度跟著原比例；放開才記一筆復原
+selBox.addEventListener('pointerdown', e => {
+  const h = e.target.closest('i[data-c]');
+  if (!h || !selImg) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const img = selImg,
+    sx = e.clientX,
+    left = /w/.test(h.dataset.c),
+    z = img.getBoundingClientRect().width / img.offsetWidth || 1, // 分頁檢視縮放時換回 CSS 像素
+    w0 = img.offsetWidth,
+    maxW = (img.parentElement.clientWidth || w0) - 1,
+    tag = selBox.querySelector('.imgsize');
+  snap();
+  h.setPointerCapture(e.pointerId);
+  tag.hidden = false;
+  const move = ev => {
+    const w = Math.round(Math.max(24, Math.min(maxW, w0 + ((left ? -1 : 1) * (ev.clientX - sx)) / z)));
+    img.style.width = w + 'px';
+    img.style.height = 'auto';
+    tag.textContent = w + ' × ' + img.offsetHeight;
+    placeImgBar();
+  };
+  const up = () => {
+    h.removeEventListener('pointermove', move);
+    h.removeEventListener('pointerup', up);
+    tag.hidden = true;
+    snap();
+    saveDraft();
+  };
+  h.addEventListener('pointermove', move);
+  h.addEventListener('pointerup', up);
+});
 const dropCaret = document.createElement('div');
 dropCaret.className = 'dropcaret no-print';
 dropCaret.hidden = true;
