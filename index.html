@@ -2211,6 +2211,75 @@ editor.addEventListener('keydown', e => {
 });
 addEventListener('scroll', () => selImg && placeImgBar(), true);
 addEventListener('resize', () => selImg && placeImgBar());
+// ---- 表格：拖曳欄與欄之間的框線調整欄寬（寫進 colgroup 的百分比，匯出 Word 也照這個比例）----
+function colEdgeAt(e) {
+  const cell = e.target.closest && e.target.closest('td,th');
+  if (!cell || !editor.contains(cell) || !editor.isContentEditable) return null;
+  const table = cell.closest('table'),
+    { grid, cols } = tableGrid(table);
+  if (cols < 2) return null;
+  const tol = e.pointerType === 'mouse' ? 5 : 10;
+  // 第 j 條內框線：任何「最後一欄是 j」的格子的右緣
+  for (let j = 0; j < cols - 1; j++) {
+    for (const row of grid) {
+      const td = row[j];
+      if (!td || row[j + 1] === td) continue;
+      const r = td.getBoundingClientRect();
+      if (Math.abs(e.clientX - r.right) <= tol && e.clientY >= r.top && e.clientY <= r.bottom) return { table, j, cols, grid };
+      break;
+    }
+  }
+  return null;
+}
+editor.addEventListener('pointermove', e => {
+  if (e.pointerType === 'mouse' && !e.buttons) editor.style.cursor = colEdgeAt(e) ? 'col-resize' : '';
+});
+editor.addEventListener(
+  'pointerdown',
+  e => {
+    const hit = colEdgeAt(e);
+    if (!hit) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const { table, j, cols, grid } = hit;
+    // 目前各欄實際寬度（取每欄一個單欄格子量）
+    const w0 = Array.from({ length: cols }, (_, c) => {
+      for (const row of grid) {
+        const td = row[c];
+        if (td && td.colSpan === 1) return td.getBoundingClientRect().width;
+      }
+      return table.getBoundingClientRect().width / cols;
+    });
+    const sum = w0.reduce((a, b) => a + b, 0);
+    snap();
+    let cg = table.querySelector(':scope > colgroup');
+    if (!cg) {
+      cg = document.createElement('colgroup');
+      table.prepend(cg);
+    }
+    cg.innerHTML = '<col>'.repeat(cols);
+    table.style.tableLayout = 'fixed';
+    const setW = ws => [...cg.children].forEach((col, i) => (col.style.width = ((ws[i] / sum) * 100).toFixed(2) + '%'));
+    setW(w0);
+    const sx = e.clientX;
+    const move = ev => {
+      const ws = w0.slice(),
+        pair = w0[j] + w0[j + 1];
+      ws[j] = Math.max(20, Math.min(pair - 20, w0[j] + ev.clientX - sx));
+      ws[j + 1] = pair - ws[j];
+      setW(ws);
+    };
+    const up = () => {
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      snap();
+      saveDraft();
+    };
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+  },
+  true,
+);
 // ---- 拖放 .docx／圖片到頁面上 ----
 ['dragenter', 'dragover'].forEach(ev =>
   document.addEventListener(ev, e => {
@@ -2553,48 +2622,52 @@ $('#file').onchange = e => {
   e.target.value = '';
   if (f) openDocx(f);
 };
-// 浮動大圖在 Word 裡是「錨點段落往下 N pt」：以紙張寬度排版、先把這些圖抽出來量高度，再把圖放到那個高度的段落前
+// 段落錨定的浮動物件群組（docx-fidelity 已依垂直位移排好）放回 Word 的相對位置：
+// 以紙張寬度排版量出文字的自然位置，每組的目標高度＝錨點段落頂端＋data-voff；依文件順序模擬排版，
+// 文字走到目標高度時插入該組，繞排的組會把後面的文字往下擠（不繞排的不擠）。最後拆掉群組外框。
 function placeFloats() {
-  const imgs = [...editor.querySelectorAll('[data-voff]')]; // 圖片與文字方塊
-  if (!imgs.length) return;
+  const gs = [...editor.querySelectorAll('[data-fgroup]')];
+  if (!gs.length) return;
   const PT = 96 / 72,
     w = editor.style.width;
   if (w) editor.style.setProperty('width', w, 'important'); // 暫時用 Word 的紙寬量，高度才對得上
-  imgs.forEach(i => (i.style.display = 'none'));
-  const plan = imgs.map(img => {
-    // 圖片在錨點段落裡；文字方塊是錨點段落後面的獨立區塊，本身就是要搬的東西
-    const isBox = img.tagName !== 'IMG',
-      src = isBox ? img : img.closest('p,li,h1,h2,h3,h4,blockquote,pre');
-    if (!src || !src.parentNode) return null;
-    const ref = isBox ? src.previousElementSibling : src;
-    const top0 = ref ? ref.getBoundingClientRect().top : src.parentNode.getBoundingClientRect().top;
-    const target = top0 + parseFloat(img.dataset.voff) * PT;
-    let at = null;
-    for (let s = src.parentNode.firstElementChild; s; s = s.nextElementSibling) {
-      if (s.getBoundingClientRect().top >= target - 1) {
-        at = s;
-        break;
+  const H = new Map(gs.map(g => [g, g.getBoundingClientRect().height]));
+  gs.forEach(g => (g.style.display = 'none'));
+  const plans = [];
+  for (const box of new Set(gs.map(g => g.parentNode))) {
+    const kids = [...box.children],
+      top = new Map(kids.filter(k => !H.has(k)).map(k => [k, k.getBoundingClientRect().top]));
+    const order = [],
+      pend = [],
+      at = new Map(); // 文字區塊實際（推移後）的頂端
+    let shift = 0,
+      ref = null;
+    const flush = y => {
+      pend.sort((a, b) => a.t - b.t);
+      while (pend.length && (y == null || pend[0].t <= y + 1)) {
+        const g = pend.shift().g;
+        order.push(g);
+        if (!g.hasAttribute('data-nowrap')) shift += H.get(g);
       }
+    };
+    for (const k of kids) {
+      if (H.has(k)) {
+        const base = ref ? at.get(ref) : box.getBoundingClientRect().top;
+        pend.push({ g: k, t: base + parseFloat(k.dataset.voff || 0) * PT });
+        continue;
+      }
+      flush(k.classList.contains('pagebreak') ? Infinity : top.get(k) + shift); // 浮動物件不跨過分頁符號
+      at.set(k, top.get(k) + shift);
+      order.push(k);
+      ref = k;
     }
-    return { img, src, at, isBox };
-  });
-  editor.style.width = w;
-  imgs.forEach(i => {
-    i.style.display = i.tagName === 'IMG' ? 'block' : '';
-    i.removeAttribute('data-voff');
-  });
-  for (const x of plan) {
-    if (!x || x.at === x.src || x.at === x.src.nextElementSibling) continue;
-    if (x.isBox) {
-      x.src.parentNode.insertBefore(x.src, x.at);
-      continue;
-    }
-    const p = document.createElement('p');
-    p.append(x.img);
-    x.src.parentNode.insertBefore(p, x.at);
+    flush(null);
+    plans.push({ box, order });
   }
-  // 圖搬走後只剩空白的錨點段落：全部搬完再刪（其他圖可能以它為插入點）
-  for (const x of plan) if (x && !x.isBox && x.src.isConnected && !x.src.textContent.trim() && !x.src.querySelector('img,table')) x.src.remove();
+  editor.style.width = w;
+  gs.forEach(g => g.style.removeProperty('display'));
+  for (const { box, order } of plans) order.forEach(k => box.appendChild(k));
+  gs.forEach(g => g.replaceWith(...g.childNodes));
 }
 async function openDocx(file) {
   if (file.size > 60 * 1024 * 1024) return msg('檔案超過 60MB，瀏覽器可能無法處理，請先簡化內容。', true);
@@ -3073,10 +3146,13 @@ function tableXml(tbl, ctx) {
   });
   const total = ctx.textTw,
     colW = Math.round(total / Math.max(1, cols));
-  const gridXml =
-    '<w:tblGrid>' +
-    Array.from({ length: cols }, () => '<w:gridCol w:w="' + colW + '"/>').join('') +
-    '</w:tblGrid>';
+  // 欄寬：有 colgroup（匯入或拖曳調整過）就照比例，否則平均
+  const cg = [...tbl.querySelectorAll(':scope > colgroup > col')].map(c => parseFloat(c.style.width) || 0);
+  const pct = cg.length === cols && cg.every(v => v > 0) ? cg : null,
+    sumP = pct ? pct.reduce((a, b) => a + b, 0) : 1;
+  const ws = Array.from({ length: cols }, (_, i) => (pct ? Math.round((total * pct[i]) / sumP) : colW));
+  const wAt = (c, n) => Math.round(ws.slice(c, c + n).reduce((a, b) => a + b, 0) / n); // cellXml 會再乘 span
+  const gridXml = '<w:tblGrid>' + ws.map(w => '<w:gridCol w:w="' + w + '"/>').join('') + '</w:tblGrid>';
   const borders =
     '<w:tblBorders>' +
     ['top', 'left', 'bottom', 'right', 'insideH', 'insideV']
@@ -3089,15 +3165,15 @@ function tableXml(tbl, ctx) {
       for (let c = 0; c < cols; c++) {
         const m = grid[r][c];
         if (!m) {
-          out += cellXml(document.createElement('td'), ctx, colW, 1, '');
+          out += cellXml(document.createElement('td'), ctx, wAt(c, 1), 1, '');
           continue;
         }
         if (m.c0 !== c) continue; // 橫向被 gridSpan 蓋掉
         if (!m.start && m.r0 < r) {
-          out += cellXml(m.cell, ctx, colW, 1, 'cont');
+          out += cellXml(m.cell, ctx, wAt(c, 1), 1, 'cont');
           continue;
         } // 縱向續格
-        out += cellXml(m.cell, ctx, colW, m.cs, m.rs > 1 ? 'restart' : '');
+        out += cellXml(m.cell, ctx, wAt(c, m.cs), m.cs, m.rs > 1 ? 'restart' : '');
       }
       return '<w:tr>' + out + '</w:tr>';
     })

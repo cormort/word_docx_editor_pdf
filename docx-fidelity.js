@@ -286,10 +286,24 @@
         } else if (ch.localName === 'del') { /* 追蹤修訂的刪除內容：不輸出 */ }
       }
     };
+    const outer = ctx.floats;
+    ctx.floats = [];
     walk(p, null);
+    // 同一段落錨定的多個浮動物件（圖、圖說文字方塊）：照 Word 的垂直位移由上而下排，整組放在段落後面；
+    // 匯入後 index.html 的 placeFloats 再依實際排版把整組放到「錨點段落往下 data-voff pt」的位置
+    let after = '';
+    if (ctx.floats.length) {
+      const fl = ctx.floats.sort((a, b) => a.v - b.v);
+      const nw = fl.every((f) => f.noWrap);                  // 全是「不繞排」：Word 裡不會把文字往下擠
+      after = '<div data-fgroup data-voff="' + fl[0].v.toFixed(1) + '"' + (nw ? ' data-nowrap' : '') + '>' + fl.map((f) => f.html).join('') + '</div>';
+    }
+    ctx.floats = outer;
     inner = parts.join('');
+    // 段落裡有分頁符號：浮動物件屬於分頁前那一頁，群組放在分頁符號之前
+    const pb = inner.indexOf('</p><div class="pagebreak"');
+    if (after && pb >= 0) { inner = inner.slice(0, pb + 4) + after + inner.slice(pb + 4); after = ''; }
     if (!inner.trim()) inner = '';
-    return { html: '<' + htmlTag + cls + (styles.length ? ' style="' + styles.join(';') + '"' : '') + '>' + inner + '</' + htmlTag + '>',
+    return { html: '<' + htmlTag + cls + (styles.length ? ' style="' + styles.join(';') + '"' : '') + '>' + inner + '</' + htmlTag + '>', after,
       pPr, numId: val(tag(pPr, 'numPr') ? tag(tag(pPr, 'numPr'), 'numId') : null, 'val'),
       ilvl: num(val(tag(pPr, 'numPr') ? tag(tag(pPr, 'numPr'), 'ilvl') : null, 'val'), 0),
       empty: !inner.trim() };
@@ -312,7 +326,7 @@
     if (wPt) css.push('width:' + wPt.toFixed(1) + 'pt');
     if (wPt && hPt && !isBox) css.push('aspect-ratio:' + wPt.toFixed(2) + '/' + hPt.toFixed(2));
     const anchor = all.find((e) => e.localName === 'anchor');
-    let vBlock = 0;
+    let block = null;
     if (anchor) {
       const posH = tag(anchor, 'positionH'), wrap = [...anchor.children].find((e) => /^wrap/.test(e.localName));
       const align = posH && tag(posH, 'align') ? tag(posH, 'align').textContent.trim() : '';
@@ -329,19 +343,20 @@
         if (align === 'center') pos.push('left:50%', 'transform:translateX(-50%)');
         else if (align === 'right' || align === 'outside') pos.push('right:0');
         else pos.push('left:' + (base + off).toFixed(1) + 'pt');
-        return { css: css.concat(pos).join(';'), voff: 0, abs: true };
+        return { css: css.concat(pos).join(';'), abs: true };
       }
       const floaty = wrap && /^wrap(Square|Tight|Through)$/.test(wrap.localName) && wPt && wPt <= FLOAT_MAX_PT && align !== 'center';
       if (floaty) css.push('float:' + (align === 'right' || align === 'outside' ? 'right' : 'left'), 'margin:' + Math.max(0, voff).toFixed(1) + 'pt 6pt 4pt ' + (off > 0 && !align ? off.toFixed(1) : '0') + 'pt');
       else {
-        if (voff && !(isBox && noWrap)) vBlock = voff;            // 大圖：匯入後依實際排版挪到對應高度（index.html placeFloats）
+        // 獨立成行的浮動物件：交給段落收集，依垂直位移排序後放在段落後面（見 docxParagraph）
+        block = { v: voff, noWrap: isBox && noWrap };
         css.push('display:block');
         if (align === 'center') css.push('margin-left:auto', 'margin-right:auto');
         else if (align === 'right' || align === 'outside') css.push('margin-left:auto');
         else if (off > 0 && !align) css.push('margin-left:' + off.toFixed(1) + 'pt');
       }
     }
-    return { css: css.join(';'), voff: vBlock };
+    return { css: css.join(';'), block };
   }
 
   // ---------- 圖片／文字方塊 ----------
@@ -356,19 +371,23 @@
     const inTxbx = (e) => { for (let x = e.parentNode; x && x !== node; x = x.parentNode) if (x.localName === 'txbxContent') return true; return false; };
     let out = '';
     for (const e of all) {
-      if ((e.localName === 'blip' || e.localName === 'imagedata') && !inTxbx(e)) out += docxImage(e, node, ctx);
+      if ((e.localName !== 'blip' && e.localName !== 'imagedata') || inTxbx(e)) continue;
+      const img = docxImage(e, node, ctx), box = imgBox(node, ctx, false);
+      if (img && box.block && ctx.floats) ctx.floats.push({ v: box.block.v, html: '<p>' + img + '</p>' });
+      else out += img;
     }
     const boxes = all.filter((e) => e.localName === 'txbxContent' && !inTxbx(e));
     if (boxes.length) {
       let inner = '';
       for (const b of boxes) for (const ch of b.children) {
-        if (ch.localName === 'p') inner += docxParagraph(ch, ctx).html;
+        if (ch.localName === 'p') { const r = docxParagraph(ch, ctx); inner += r.html + r.after; }
         else if (ch.localName === 'tbl') inner += docxTable(ch, ctx);
       }
       if (inner.replace(/<[^>]+>/g, '').trim()) {
         const b = imgBox(node, ctx, true);
-        const div = '<div class="docx-txbx" style="' + b.css + '"' + (b.voff ? ' data-voff="' + b.voff.toFixed(1) + '"' : '') + '>' + inner + '</div>';
-        out += '</p>' + (b.abs ? '<div class="docx-txbx-anchor" style="position:relative;height:0">' + div + '</div>' : div) + '<p>';
+        const div = '<div class="docx-txbx" style="' + b.css + '">' + inner + '</div>';
+        if (b.block && ctx.floats) ctx.floats.push({ v: b.block.v, html: div, noWrap: b.block.noWrap });
+        else out += '</p>' + (b.abs ? '<div class="docx-txbx-anchor" style="position:relative;height:0">' + div + '</div>' : div) + '<p>';
       }
     }
     return out;
@@ -400,8 +419,7 @@
       for (let i = 0; i < bytes.length; i += chunk) b64 += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
       dataUrl = 'data:' + mime + ';base64,' + btoa(b64);
     }
-    const box = imgBox(node, ctx, false);
-    return '<img src="' + dataUrl + '" style="' + box.css + '"' + (box.voff ? ' data-voff="' + box.voff.toFixed(1) + '"' : '') + ' alt="">';
+    return '<img src="' + dataUrl + '" style="' + imgBox(node, ctx, false).css + '" alt="">';
   }
 
 
@@ -821,7 +839,7 @@
         const attrs = (span > 1 ? ' colspan="' + span + '"' : '') + (rs > 1 ? ' rowspan="' + rs + '"' : '');
         const isHead = val(tcPr && tag(tcPr, 'tcW'), 'w') && false;
         let inner = '';
-        for (const p of tags(m.tc, 'p')) inner += docxParagraph(p, ctx).html;
+        for (const p of tags(m.tc, 'p')) { const r = docxParagraph(p, ctx); inner += r.html + r.after; }
         if (!inner) inner = '<p><br></p>';
         cells += '<td' + attrs + '>' + inner + '</td>';
       }
@@ -840,8 +858,8 @@
     if (!root) return null;
     let out = '';
     for (const p of tags(root, 'p')) {
-      const { html } = docxParagraph(p, ctx);
-      out += html;
+      const { html, after } = docxParagraph(p, ctx);
+      out += html + after;
     }
     return /[^\s]/.test(out.replace(/<[^>]+>/g, '')) ? out : null;
   }
@@ -896,10 +914,10 @@
           const ilvl = r.ilvl;
           while (listCtx && listCtx.ilvl > ilvl) closeList(listCtx.ilvl);
           if (!listCtx || listCtx.numId !== r.numId || listCtx.ilvl < ilvl) openList(r.numId, ilvl);
-          html.push('<li' + (r.html.match(/style="([^"]*)"/) ? ' style="' + r.html.match(/style="([^"]*)"/)[1] + '"' : '') + '>' + r.html.replace(/^<[^>]+>|<\/[^>]+>$/g, '') + '</li>');
+          html.push('<li' + (r.html.match(/style="([^"]*)"/) ? ' style="' + r.html.match(/style="([^"]*)"/)[1] + '"' : '') + '>' + r.html.replace(/^<[^>]+>|<\/[^>]+>$/g, '') + r.after + '</li>');
         } else {
           closeList(0);
-          html.push(r.html || '<p><br></p>');
+          html.push((r.html || '<p><br></p>') + r.after);
         }
       } else if (node.localName === 'tbl') {
         closeList(0);
