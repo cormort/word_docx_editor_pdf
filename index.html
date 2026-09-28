@@ -3378,7 +3378,8 @@ function applyFormat(f) {
   const has = test => rangeSome(sel.getRangeAt(0), test),
     inRange = (q, fn) => {
       const r = sel.getRangeAt(0);
-      editor.querySelectorAll(q).forEach(el => r.intersectsNode(el) && fn(el));
+      // 先收齊再動手：fn 改了 DOM 之後選取範圍會跟著變，邊走邊判斷會漏掉後面的元素
+      [...editor.querySelectorAll(q)].filter(el => r.intersectsNode(el)).forEach(fn);
     };
   // 要開：還沒全開就按一次。要關：只要有一部分開著（混合選取時 queryCommandState 是 false），
   // 先按成全開再按一次關掉
@@ -3401,20 +3402,9 @@ function applyFormat(f) {
       set('subscript', f.vert === 'subscript', f.vert !== 'subscript' && has(x => x.vert === 'subscript'));
       // 顏色與螢光只在目標真的不一樣時才動，免得每刷一次就多包一層 <font>／<span>
       // 文字顏色不能用 'inherit'：execCommand 會把它原樣寫成 <font color="rgba(0, 0, 0, 0)"> 這種無效值
-      const color = f.color || f.defColor || '000000';
-      if (has(x => x.color !== color)) {
-        document.execCommand('foreColor', false, '#' + color);
-        // 來源是預設色：把剛寫進去的預設色拿掉，讓文字回到「自動」色（不然匯出會寫死成 w:color）。
-        // 外層本來就是別的顏色（例如連結）時才需要保留，否則會跟著外層變色
-        if (!f.color)
-          inRange('font[color], [style*="color"]', el => {
-            if (!el.parentElement || toHex(getComputedStyle(el.parentElement).color) !== color) return;
-            if (toHex(el.getAttribute('color') || '') === color) el.removeAttribute('color');
-            if (toHex(el.style.color) === color) el.style.color = '';
-            if (!el.getAttribute('style')) el.removeAttribute('style');
-            if (/^(FONT|SPAN)$/.test(el.tagName) && !el.attributes.length) el.replaceWith(...el.childNodes);
-          });
-      }
+      const color = f.color || f.defColor || '000000',
+        recolor = has(x => x.color !== color);
+      if (recolor) document.execCommand('foreColor', false, '#' + color);
       if (has(x => x.shade !== f.shade)) document.execCommand('hiliteColor', false, f.shade ? '#' + f.shade : 'transparent');
       // 字級：來源是預設字級就刷回 3（＝12pt 預設）；對得上工具列的 HTML font size（2–5）就用它，
       // 對不上（例如匯入的 14pt）就先套 size=7 當記號，再換成精確的 pt，免得被捨入成最接近的工具列字級
@@ -3430,6 +3420,17 @@ function applyFormat(f) {
       }
       const a = f.align; // jcOf 的值：center／right／both，靠左是 ''
       document.execCommand(a === 'center' ? 'justifyCenter' : a === 'right' ? 'justifyRight' : a === 'both' ? 'justifyFull' : 'justifyLeft');
+      // 來源是預設色：把剛寫進去的預設色拿掉，讓文字回到「自動」色（不然匯出會寫死成 w:color）。
+      // 外層本來就是別的顏色（例如連結）時才需要保留，否則會跟著外層變色。
+      // 放在最後：拆掉包住選取文字的 <font> 會讓選取範圍收成一點，之後的螢光、字級、對齊就套不上了
+      if (recolor && !f.color)
+        inRange('font[color], [style*="color"]', el => {
+          if (!el.parentElement || toHex(getComputedStyle(el.parentElement).color) !== color) return;
+          if (toHex(el.getAttribute('color') || '') === color) el.removeAttribute('color');
+          if (toHex(el.style.color) === color) el.style.color = '';
+          if (!el.getAttribute('style')) el.removeAttribute('style');
+          if (/^(FONT|SPAN)$/.test(el.tagName) && !el.attributes.length) el.replaceWith(...el.childNodes);
+        });
     } catch (e) {
       ok = false;
     }

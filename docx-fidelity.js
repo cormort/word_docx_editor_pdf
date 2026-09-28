@@ -212,17 +212,19 @@
     if (va === 'subscript') st.css.push('vertical-align:sub;font-size:.75em');
     const rStyle = pick('rStyle');
     if (rStyle) {
-      const s = ctx.styles.map.get(val(rStyle, 'styleId'));
+      const s = ctx.styles.map.get(val(rStyle, 'val'));
       if (s) {
         const nm = (s.name || '').toLowerCase();
         if (nm === 'strong') st.b = true;
         if (nm === 'emphasis') st.i = true;
       }
     }
-    // 明確寫了 w:val="0"（例如標題裡取消粗體）：蓋過字元樣式，也要記下來輸出 font-weight:normal，
-    // 不然標題的 CSS 粗體會蓋回來
-    if (pick('b') && !on('b')) { st.b = false; st.offB = true; }
-    if (pick('i') && !on('i')) { st.i = false; st.offI = true; }
+    // 明確寫了 w:val="0"（例如標題裡取消粗體）：要記下來輸出 font-weight:normal，不然標題的 CSS 粗體會蓋回來。
+    // Word 的優先順序是 run 自己 > 字元樣式 > 段落樣式，所以只有寫在 run 自己身上的關閉才蓋得過 Strong／Emphasis
+    const own = Array.isArray(rPr) ? rPr[0] : rPr;
+    const off = (name) => pick(name) && !on(name) && (tag(own, name) || !st[name]);
+    if (off('b')) { st.b = false; st.offB = true; }
+    if (off('i')) { st.i = false; st.offI = true; }
     return st;
   }
   function wrapRun(text, st) {
