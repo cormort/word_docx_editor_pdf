@@ -873,7 +873,9 @@
           const col = val(e, 'color');
           bd.push('border-' + side + ':' + Math.max(0.25, num(val(e, 'sz'), 4) / 8) + 'pt ' + (BS[v] || 'solid') + ' ' + (col && /^[0-9a-f]{6}$/i.test(col) ? '#' + col : '#000'));
         }
-        const tdCss = [va ? 'vertical-align:' + va : '', bg, ...bd, cellMar(tblMar, tag(tcPr, 'tcMar'))].filter(Boolean).join(';');
+        // 文字方向：tbRl（直書）→ vertical-rl，btLr（由下而上）→ sideways-lr
+        const wm = { tbRl: 'vertical-rl', tbRlV: 'vertical-rl', btLr: 'sideways-lr' }[val(tag(tcPr, 'textDirection'), 'val')];
+        const tdCss = [va ? 'vertical-align:' + va : '', bg, ...bd, cellMar(tblMar, tag(tcPr, 'tcMar')), wm ? 'writing-mode:' + wm : ''].filter(Boolean).join(';');
         cells += '<td' + attrs + (tdCss ? ' style="' + tdCss + '"' : '') + '>' + inner + '</td>';
       }
       // 列高：Word 的 trHeight（twips；exact／atLeast 都當最小高度）

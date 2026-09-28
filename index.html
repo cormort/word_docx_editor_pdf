@@ -1306,6 +1306,14 @@ body:not(.intable) .tblgrp + .grp {
           <button class="tool mi" data-bd="right" role="menuitem">右框線</button>
         </div>
       </details>
+      <details class="menu">
+        <summary class="tool" title="儲存格文字方向">文字方向<span class="caret">▾</span></summary>
+        <div class="panel" role="menu">
+          <button class="tool mi" data-tdir="" role="menuitem">橫書</button>
+          <button class="tool mi" data-tdir="vertical-rl" role="menuitem">直書（由上而下）</button>
+          <button class="tool mi" data-tdir="sideways-lr" role="menuitem">向上旋轉（由下而上）</button>
+        </div>
+      </details>
       <details class="menu padmenu">
         <summary class="tool" title="儲存格內距（文字與框線的距離）">內距<span class="caret">▾</span></summary>
         <div class="panel" role="menu">
@@ -1392,6 +1400,10 @@ body:not(.intable) .tblgrp + .grp {
           <button class="tool mi" data-bd="all" role="menuitem">儲存格所有框線</button>
           <button class="tool mi" data-bd="outer" role="menuitem">儲存格外框線</button>
           <button class="tool mi" data-bd="none" role="menuitem">儲存格無框線</button>
+          <hr class="msep" role="separator">
+          <button class="tool mi" data-tdir="" role="menuitem">文字橫書</button>
+          <button class="tool mi" data-tdir="vertical-rl" role="menuitem">文字直書</button>
+          <button class="tool mi" data-tdir="sideways-lr" role="menuitem">文字向上旋轉</button>
           <hr class="msep" role="separator">
           <button class="tool mi" id="padMenuBtn" role="menuitem">儲存格內距…</button>
           <button class="tool mi" data-cellbg="pick" role="menuitem">儲存格底色…</button>
@@ -2335,6 +2347,15 @@ padMenu.querySelectorAll('[data-padapply]').forEach(b =>
       ),
     );
     msg(k === 'reset' ? '已還原預設內距' : '已設定儲存格內距');
+  }),
+);
+// 儲存格文字方向：直書＝Word 的 tbRl（中文字直立、英數側躺），向上旋轉＝btLr
+document.querySelectorAll('[data-tdir]').forEach(b =>
+  b.addEventListener('click', () => {
+    const cells = selCells();
+    if (!cells) return msg('請先把游標放在表格內。', true);
+    recordEdit(() => cells.forEach(c => (c.style.writingMode = b.dataset.tdir)));
+    msg('已設定文字方向：' + b.textContent.replace(/^文字/, ''));
   }),
 );
 // 水平對齊在 Word 是段落的屬性：格子本身與格子裡的每個段落都設（段落自己的對齊會蓋過格子）
@@ -3543,6 +3564,7 @@ function cellXml(td, ctx, colW, span, vmerge) {
     cellBorders(td) +
     cellShd(td) +
     cellMar(td) +
+    ({ 'vertical-rl': '<w:textDirection w:val="tbRl"/>', 'sideways-lr': '<w:textDirection w:val="btLr"/>' }[td.style.writingMode] || '') +
     ({ middle: '<w:vAlign w:val="center"/>', bottom: '<w:vAlign w:val="bottom"/>' }[td.style.verticalAlign] || '');
   return '<w:tc><w:tcPr>' + pr + '</w:tcPr>' + inner + '</w:tc>';
 }
