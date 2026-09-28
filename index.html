@@ -620,13 +620,14 @@ input {
     min-height: 60vh;
     box-shadow: 0 4px 14px #0f172a20;
   }
-  .paper h1 {
+  /* 閱讀模式是電腦版 A4 版面（分頁要跟電腦版一致），不套手機的字級與表格捲動 */
+  body:not(.desk) .paper h1 {
     font-size: 24px;
   }
-  .paper h2 {
+  body:not(.desk) .paper h2 {
     font-size: 20px;
   }
-  .paper table {
+  body:not(.desk) .paper table {
     display: block;
     overflow-x: auto;
   }
@@ -1605,7 +1606,7 @@ body.intable #fontSize {
       </div>
       <div class="grp grp-view" role="group" aria-label="檢視">
       <button class="tool" id="findToggle" title="尋找與取代（Ctrl+F）" aria-label="尋找與取代" aria-keyshortcuts="Control+F"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg><span class="lbl">尋找</span></button>
-      <button class="tool" id="deskToggle" title="閱讀模式：以電腦版 A4 版面唯讀檢視，縮放至螢幕寬" aria-label="閱讀模式"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3zM21 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7z"/></svg><span class="lbl">閱讀</span></button>
+      <button class="tool" id="deskToggle" title="閱讀模式：以電腦版 A4 版面分頁唯讀檢視（手機直向整頁顯示、橫向縮放至頁寬）" aria-label="閱讀模式"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3zM21 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7z"/></svg><span class="lbl">閱讀</span></button>
       <details class="menu">
         <summary class="tool" title="紙張、方向、邊界、頁碼與更新紀錄" aria-label="設定"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></svg><span class="lbl">設定</span><span class="caret">▾</span></summary>
         <div class="panel settings" role="group" aria-label="設定">
@@ -5071,7 +5072,7 @@ function paginateSoon(structural) {
 }
 function paginate() {
   const sheet = $('#pgSheet');
-  const on = !pagedQ.matches;
+  const on = !pagedQ.matches || document.body.classList.contains('desk'); // 手機只有閱讀模式分頁，編輯時照螢幕寬重排
   document.body.classList.toggle('paged', on);
   if (!on) {
     sheet.textContent = '';
@@ -5340,15 +5341,23 @@ addEventListener('resize', paginateSoon);
 pagedQ.addEventListener('change', paginateSoon);
 if (document.fonts) document.fonts.ready.then(paginateSoon);
 paginateSoon();
+const portraitQ = matchMedia('(orientation: portrait)');
 function fit() {
   editor.style.zoom = '';
   if (document.body.classList.contains('desk') || document.body.classList.contains('paged')) {
     const w = editor.parentElement,
       c = getComputedStyle(w);
-    editor.style.zoom = Math.min(
-      1,
-      (w.clientWidth - parseFloat(c.paddingLeft) - parseFloat(c.paddingRight)) / editor.offsetWidth,
-    );
+    let z = (w.clientWidth - parseFloat(c.paddingLeft) - parseFloat(c.paddingRight)) / editor.offsetWidth; // 頁寬
+    if (document.body.classList.contains('desk') && pagedQ.matches) {
+      // 手機閱讀模式：橫向縮放到頁寬（可以放大）；直向整頁完整顯示（頁寬、頁高都不超出螢幕，
+      // 扣掉固定在上方的頁首與上下各一段頁間空隙）。螢幕高度用 clientHeight：上面剛把縮放拿掉，
+      // A4 頁面比手機寬，手機瀏覽器會把整頁縮小，這時 innerHeight 會變成放大後的高度
+      if (portraitQ.matches) {
+        const top = getComputedStyle($('.top')).position === 'static' ? 0 : $('.top').offsetHeight;
+        z = Math.min(z, (document.documentElement.clientHeight - top - 32) / ((pdfPage().pageH * 96) / 25.4));
+      }
+    } else z = Math.min(1, z);
+    editor.style.zoom = z;
   }
 }
 function setDesk(on) {
@@ -5357,7 +5366,7 @@ function setDesk(on) {
   try {
     localStorage.setItem('desk', on ? '1' : '');
   } catch (e) {}
-  fit();
+  paginate(); // 手機進出閱讀模式要切換分頁檢視；paginate 最後會 fit()
 }
 $('#deskToggle').onclick = () => setDesk(true);
 $('#readFind').onclick = () => $('#findToggle').click();
