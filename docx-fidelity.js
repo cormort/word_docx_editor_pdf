@@ -843,7 +843,9 @@
         if (!inner) inner = '<p><br></p>';
         cells += '<td' + attrs + '>' + inner + '</td>';
       }
-      body += '<tr>' + cells + '</tr>';
+      // 列高：Word 的 trHeight（twips；exact／atLeast 都當最小高度）
+      const trH = num(val(tag(tag(tr, 'trPr'), 'trHeight'), 'val'), 0);
+      body += '<tr' + (trH ? ' style="height:' + (trH / 20).toFixed(1) + 'pt"' : '') + '>' + cells + '</tr>';
     });
     let colgroup = '';
     if (cols.length && totalW) colgroup = '<colgroup>' + cols.map((w) => '<col style="width:' + ((w / totalW) * 100).toFixed(2) + '%">').join('') + '</colgroup>';

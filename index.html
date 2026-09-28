@@ -2231,9 +2231,47 @@ function colEdgeAt(e) {
   }
   return null;
 }
+// 列的下框線：這格往下延伸到的最後一列
+function rowEdgeAt(e) {
+  const tol = e.pointerType === 'mouse' ? 4 : 10;
+  // 指標剛好在框線上時多半落在下一列的格子，所以取「指標上方一點」的那格
+  const above = document.elementFromPoint(e.clientX, e.clientY - tol),
+    cell = above && above.closest('td,th');
+  if (!cell || !editor.contains(cell) || !editor.isContentEditable) return null;
+  const r = cell.getBoundingClientRect();
+  if (Math.abs(e.clientY - r.bottom) > tol) return null;
+  const table = cell.closest('table'),
+    i = [...table.rows].indexOf(cell.parentElement) + cell.rowSpan - 1;
+  return table.rows[i] ? { tr: table.rows[i] } : null;
+}
 editor.addEventListener('pointermove', e => {
-  if (e.pointerType === 'mouse' && !e.buttons) editor.style.cursor = colEdgeAt(e) ? 'col-resize' : '';
+  if (e.pointerType === 'mouse' && !e.buttons) editor.style.cursor = colEdgeAt(e) ? 'col-resize' : rowEdgeAt(e) ? 'row-resize' : '';
 });
+editor.addEventListener(
+  'pointerdown',
+  e => {
+    if (colEdgeAt(e)) return; // 欄與列交叉處以欄寬優先
+    const hit = rowEdgeAt(e);
+    if (!hit) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const tr = hit.tr,
+      z = editor.getBoundingClientRect().width / editor.offsetWidth || 1, // 分頁檢視縮放時換回 CSS 像素
+      h0 = tr.getBoundingClientRect().height / z,
+      sy = e.clientY;
+    snap();
+    const move = ev => (tr.style.height = Math.round(Math.max(16, h0 + (ev.clientY - sy) / z)) + 'px');
+    const up = () => {
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      snap();
+      saveDraft();
+    };
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+  },
+  true,
+);
 editor.addEventListener(
   'pointerdown',
   e => {
@@ -3175,7 +3213,11 @@ function tableXml(tbl, ctx) {
         } // 縱向續格
         out += cellXml(m.cell, ctx, wAt(c, m.cs), m.cs, m.rs > 1 ? 'restart' : '');
       }
-      return '<w:tr>' + out + '</w:tr>';
+      // 列高（拖曳調整或匯入）：Word 的「最小列高」，內容多時仍會長高
+      const hv = parseFloat(tr.style.height),
+        tw = hv > 0 ? Math.round(hv * (/pt$/.test(tr.style.height) ? 20 : 15)) : 0, // pt（匯入）或 px（拖曳）→ twips
+        trPr = tw ? '<w:trPr><w:trHeight w:val="' + tw + '" w:hRule="atLeast"/></w:trPr>' : '';
+      return '<w:tr>' + trPr + out + '</w:tr>';
     })
     .join('');
   return (
