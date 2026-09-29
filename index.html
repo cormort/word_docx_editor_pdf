@@ -1030,12 +1030,16 @@ body.intable .grp.tblgrp {
     margin: 2px 0;
   }
 }
-.imgbar .imgchip {
+.imgbar .imgchip,
+.imgbar .imgdeltxt {
   display: none;
 }
 @media screen and (min-width: 1100px) and (min-height: 501px) {
   body:not(.desk) .imgbar .imgchip {
     display: block;
+  }
+  body:not(.desk) .imgbar .imgdeltxt {
+    display: inline;
   }
 }
 @media (max-width: 1279px) {
@@ -2929,7 +2933,7 @@ imgBar.innerHTML =
   '<button class="tool" data-img="floatR" title="文字繞在圖片左邊">繞右</button>' +
   '<button class="tool" data-img="up" title="往上移一段">↑</button>' +
   '<button class="tool" data-img="down" title="往下移一段">↓</button>' +
-  '<button class="tool danger imgdel" data-img="del" title="刪除圖片（Delete 鍵）">🗑 刪除圖片</button>';
+  '<button class="tool danger imgdel" data-img="del" title="刪除圖片（Delete 鍵）">🗑 刪除<span class="imgdeltxt">圖片</span></button>';
 document.body.append(imgBar);
 // 選取外框用浮在上面的框畫，不在圖片上加 class（否則會跟著存進草稿與匯出檔）
 const selBox = document.createElement('div');
