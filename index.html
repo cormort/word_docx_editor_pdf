@@ -358,6 +358,9 @@ input {
   padding: 3px;
   box-shadow: 0 4px 14px #0f172a26;
 }
+.imgbar[hidden] {
+  display: none;
+}
 .imgbar .tool {
   min-width: 34px;
   padding: 6px 8px;
@@ -942,14 +945,81 @@ body.dragging .paper {
 body.intable .grp.grp-insert {
   display: none;
 }
+@media screen and (min-width: 1100px) and (min-height: 501px) {
+  body.intable:not(.desk) .grp.grp-insert {
+    display: flex;
+  }
+}
 body.intable .grp.tblgrp {
   display: flex;
 }
-/* 桌機：表格模式也要維持一列（高度一變，下面的內容就會跳動），收起檢視組文字與段落／字級選單 */
-body.intable .lbl,
-body.intable #blockStyle,
-body.intable #fontSize {
+/* 窄螢幕：表格模式也要維持一列（高度一變，下面的內容就會跳動），收起檢視組文字與段落／字級選單 */
+@media (max-width: 1099px) {
+  body.intable .lbl,
+  body.intable #blockStyle,
+  body.intable #fontSize {
+    display: none;
+  }
+}
+/* 電腦：文字工具固定在頂端；表格、圖片的工具像 Photoshop 的屬性面板，放在右側 */
+@media screen and (min-width: 1100px) and (min-height: 501px) {
+  body:not(.desk) .imgbar {
+    left: auto !important;
+    right: 12px;
+    top: calc(var(--toph, 0px) + 96px) !important;
+    width: 232px;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 8px;
+    z-index: 55;
+    box-shadow: 0 6px 20px #0f172a26;
+  }
+  body:not(.desk) .imgbar .tool {
+    flex: 1 0 auto;
+  }
+  body:not(.desk) .imgbar .imgchip {
+    flex-basis: 100%;
+  }
+  body:not(.desk) .imgbar .imgdel {
+    flex-basis: 100%;
+    border: 1px solid #fecaca;
+  }
+  body.intable:not(.desk) .grp.tblgrp {
+    position: fixed;
+    right: 12px;
+    top: calc(var(--toph, 0px) + 96px);
+    z-index: 55;
+    width: 232px;
+    max-height: calc(100vh - var(--toph, 0px) - 112px);
+    overflow-y: auto;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 8px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 6px 20px #0f172a26;
+  }
+  body.intable.inimg:not(.desk) .grp.tblgrp {
+    display: none;
+  }
+  .tblgrp .tblchip {
+    flex-basis: 100%;
+    margin: 0 0 2px;
+  }
+  .tblgrp .tsep {
+    flex-basis: 100%;
+    height: 1px;
+    margin: 2px 0;
+  }
+}
+.imgbar .imgchip {
   display: none;
+}
+@media screen and (min-width: 1100px) and (min-height: 501px) {
+  body:not(.desk) .imgbar .imgchip {
+    display: block;
+  }
 }
 @media (max-width: 1279px) {
   /* 表格工具這一組自己就比整條工具列寬：讓它自己佔一列並在組內橫向捲動，不要把整條工具列變成捲動區 */
@@ -2833,6 +2903,7 @@ const imgBar = document.createElement('div');
 imgBar.className = 'imgbar no-print';
 imgBar.hidden = true;
 imgBar.innerHTML =
+  '<span class="tblchip imgchip">圖片</span>' +
   '<button class="tool" data-img="left" title="靠左（獨立一行）">靠左</button>' +
   '<button class="tool" data-img="center" title="置中（獨立一行）">置中</button>' +
   '<button class="tool" data-img="right" title="靠右（獨立一行）">靠右</button>' +
@@ -2840,7 +2911,7 @@ imgBar.innerHTML =
   '<button class="tool" data-img="floatR" title="文字繞在圖片左邊">繞右</button>' +
   '<button class="tool" data-img="up" title="往上移一段">↑</button>' +
   '<button class="tool" data-img="down" title="往下移一段">↓</button>' +
-  '<button class="tool danger" data-img="del" title="刪除圖片">刪除</button>';
+  '<button class="tool danger imgdel" data-img="del" title="刪除圖片（Delete 鍵）">🗑 刪除圖片</button>';
 document.body.append(imgBar);
 // 選取外框用浮在上面的框畫，不在圖片上加 class（否則會跟著存進草稿與匯出檔）
 const selBox = document.createElement('div');
@@ -2901,6 +2972,7 @@ function placeImgBar() {
 function selectImg(img) {
   selImg = img;
   imgBar.hidden = selBox.hidden = !img;
+  document.body.classList.toggle('inimg', !!img);
   if (img) placeImgBar();
 }
 function caretAt(x, y) {
