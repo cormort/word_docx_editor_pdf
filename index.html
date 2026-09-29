@@ -983,7 +983,7 @@ body.intable .grp.tblgrp {
   body:not(.desk) .imgbar {
     left: auto !important;
     right: 12px;
-    top: calc(var(--toph, 0px) + 96px) !important;
+    top: calc(var(--tbb, 160px) + 8px) !important;
     width: 232px;
     flex-wrap: wrap;
     gap: 4px;
@@ -1004,10 +1004,10 @@ body.intable .grp.tblgrp {
   body.intable:not(.desk) .grp.tblgrp {
     position: fixed;
     right: 12px;
-    top: calc(var(--toph, 0px) + 96px);
+    top: calc(var(--tbb, 160px) + 8px);
     z-index: 55;
     width: 232px;
-    max-height: calc(100vh - var(--toph, 0px) - 112px);
+    max-height: calc(100vh - var(--tbb, 160px) - 24px);
     overflow-y: auto;
     flex-wrap: wrap;
     gap: 4px;
@@ -3748,6 +3748,11 @@ if (matchMedia('(hover: hover)').matches) {
   addEventListener('scroll', () => (tip.hidden = true), true);
 }
 new ResizeObserver(() => document.documentElement.style.setProperty('--toph', $('.top').offsetHeight + 'px')).observe($('.top'));
+// 右側面板要接在工具列下方：工具列會依寬度折成兩三行、上方可能有提示列，位置不固定
+const syncTbB = () => document.documentElement.style.setProperty('--tbb', $('.toolbar').getBoundingClientRect().bottom + 'px');
+new ResizeObserver(syncTbB).observe($('.toolbar'));
+addEventListener('scroll', syncTbB, true);
+addEventListener('resize', syncTbB);
 $('#blockStyle').onchange = e => {
   editor.focus();
   document.execCommand('formatBlock', false, e.target.value);
