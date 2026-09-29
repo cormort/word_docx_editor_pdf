@@ -227,6 +227,23 @@ input {
   background: #f59e0b;
   color: #fff;
 }
+/* 顯示空白：半形空白＝藍、Tab＝綠、全形／不換行空白＝紅（縮排若沒被標色，就是段落設定的排版縮排） */
+::highlight(ws-sp) {
+  background: #bfdbfe;
+}
+::highlight(ws-tab) {
+  background: #86efac;
+}
+::highlight(ws-wide) {
+  background: #fca5a5;
+}
+@media print {
+  ::highlight(ws-sp),
+  ::highlight(ws-tab),
+  ::highlight(ws-wide) {
+    background: transparent;
+  }
+}
 .meta {
   display: flex;
   justify-content: space-between;
@@ -1675,6 +1692,7 @@ body.intable .grp.tblgrp {
       <button class="tool" id="pbBtn" title="在這裡強制換頁（列印與 Word 匯出都有效）" aria-label="插入分頁"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v5h12V3M6 21v-5h12v5M3 12h2M8 12h2M13 12h2M18 12h3"/></svg><span class="lbl">分頁</span></button>
       </div>
       <div class="grp grp-view" role="group" aria-label="檢視">
+      <button class="tool" id="wsToggle" title="顯示空白：半形空白＝藍、Tab＝綠、全形／不換行空白＝紅。縮排若沒有被標色，就是段落設定的排版縮排" aria-label="顯示空白" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12v4h14v-4"/></svg><span class="lbl">空白</span></button>
       <button class="tool" id="findToggle" title="尋找與取代（Ctrl+F）" aria-label="尋找與取代" aria-keyshortcuts="Control+F"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg><span class="lbl">尋找</span></button>
       <button class="tool" id="deskToggle" title="閱讀模式：以電腦版 A4 版面分頁唯讀檢視（手機直向整頁顯示、橫向縮放至頁寬）" aria-label="閱讀模式"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3zM21 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7z"/></svg><span class="lbl">閱讀</span></button>
       <details class="menu">
@@ -5462,6 +5480,40 @@ $('#orientation').onchange = e => {
   fit();
   paginateSoon();
 };
+// ---- 顯示空白：用 CSS Highlight 標色，不動文件內容（不會進草稿與匯出）----
+{
+  const kinds = { 'ws-sp': / /g, 'ws-tab': /\t/g, 'ws-wide': /[\u00a0\u3000\u2002\u2003]/g };
+  let on = false,
+    t;
+  const paint = () => {
+    if (!HL) return;
+    const rs = { 'ws-sp': [], 'ws-tab': [], 'ws-wide': [] };
+    const w = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+    for (let n; (n = w.nextNode()); )
+      for (const k in kinds)
+        for (const m of n.nodeValue.matchAll(kinds[k])) {
+          const r = new Range();
+          r.setStart(n, m.index);
+          r.setEnd(n, m.index + 1);
+          rs[k].push(r);
+        }
+    for (const k in rs) HL.set(k, new Highlight(...rs[k]));
+  };
+  const obs = new MutationObserver(() => (clearTimeout(t), (t = setTimeout(paint, 150))));
+  $('#wsToggle').onclick = e => {
+    if (!HL) return msg('這個瀏覽器不支援顯示空白。', true);
+    on = !on;
+    e.currentTarget.classList.toggle('on', on);
+    e.currentTarget.setAttribute('aria-pressed', on);
+    if (on) {
+      paint();
+      obs.observe(editor, { childList: true, subtree: true, characterData: true });
+    } else {
+      obs.disconnect();
+      for (const k in kinds) HL.delete(k);
+    }
+  };
+}
 $('#findToggle').onclick = () => {
   const open = $('#findbar').style.display !== 'flex';
   $('#findbar').style.display = open ? 'flex' : 'none';
