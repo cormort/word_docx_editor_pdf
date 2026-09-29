@@ -2990,16 +2990,18 @@ function placeImgBar() {
     tr = tb && tb.getBoundingClientRect(),
     // 外框伸進工具列（電腦版置頂、手機版在底部）的部分裁掉，不要蓋在工具列上
     topEdge = Math.max(
-      tr && tr.top < innerHeight / 2 ? tr.bottom : 0,
+      tr && !mobileQ.matches ? tr.bottom : 0,
       Math.max(0, $('.top')?.getBoundingClientRect().bottom || 0)
     ),
     cutTop = Math.max(0, topEdge - (r.top - 3)),
-    cutBot = tr && tr.top >= innerHeight / 2 ? Math.max(0, r.bottom + 3 - tr.top) : 0;
+    cutBot = tr && mobileQ.matches ? Math.max(0, r.bottom + 3 - tr.top) : 0;
   selBox.style.clipPath = cutTop || cutBot ? `inset(${cutTop || -20}px -20px ${cutBot || -20}px -20px)` : '';
   const reserved = mobileQ.matches && tb ? tb.offsetHeight + 10 : 0;
   const maxTop = innerHeight - imgBar.offsetHeight - 4 - reserved;
-  const above = r.top - imgBar.offsetHeight - 8 > 60 ? r.top - imgBar.offsetHeight - 8 : null;
-  imgBar.style.top = Math.max(4, above != null ? above : Math.min(r.bottom + 8, maxTop)) + 'px';
+  // 上緣要避開置頂的頁首／工具列（平板開尋找列時工具列很高）
+  const minTop = Math.max(60, topEdge + 8);
+  const above = r.top - imgBar.offsetHeight - 8 >= minTop ? r.top - imgBar.offsetHeight - 8 : null;
+  imgBar.style.top = Math.max(topEdge ? minTop : 4, above != null ? above : Math.min(r.bottom + 8, maxTop)) + 'px';
 }
 function selectImg(img) {
   selImg = img;
