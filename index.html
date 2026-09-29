@@ -5468,6 +5468,7 @@ function fit() {
 function setDesk(on) {
   document.body.classList.toggle('desk', on);
   editor.contentEditable = !on;
+  if (on) selectImg(null); // 閱讀模式不能編輯：圖片外框與小工具列（含刪除）一併收起
   try {
     localStorage.setItem('desk', on ? '1' : '');
   } catch (e) {}
