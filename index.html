@@ -2986,7 +2986,10 @@ function placeImgBar() {
   imgBar.style.left = Math.max(4, Math.min(innerWidth - imgBar.offsetWidth - 4, r.left)) + 'px';
   // 手機的工具列固定在畫面底部：圖片小工具列要扣掉它的高度，不然兩條會疊在一起（也蓋住圖片）
   const tb = $('.toolbar'),
-    reserved = mobileQ.matches && tb ? tb.offsetHeight + 10 : 0;
+    // 電腦版工具列置頂：外框捲到工具列底下的部分裁掉，不要蓋在工具列上
+    cut = !mobileQ.matches && tb ? Math.max(0, tb.getBoundingClientRect().bottom - (r.top - 3)) : 0;
+  selBox.style.clipPath = cut ? `inset(${cut}px -20px -20px -20px)` : '';
+  const reserved = mobileQ.matches && tb ? tb.offsetHeight + 10 : 0;
   const maxTop = innerHeight - imgBar.offsetHeight - 4 - reserved;
   const above = r.top - imgBar.offsetHeight - 8 > 60 ? r.top - imgBar.offsetHeight - 8 : null;
   imgBar.style.top = Math.max(4, above != null ? above : Math.min(r.bottom + 8, maxTop)) + 'px';
