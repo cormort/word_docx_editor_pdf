@@ -540,7 +540,8 @@ input {
 }
 /* 平板與電腦：編輯工具列固定在頁首下方，不跟著捲動 */
 @media screen and (min-width: 641px) and (min-height: 501px) {
-  body:not(.desk) .toolbar {
+  body:not(.desk) .toolbar,
+  body.desk.finding .toolbar {
     position: sticky;
     top: var(--toph, 0px);
     z-index: 9;
